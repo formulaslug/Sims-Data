@@ -1,0 +1,19 @@
+{
+    "r_bx1": 13.045999526977539,
+    "r_bx2": 9.718000411987305,
+    "r_bx3": 0.0,
+    "r_cx1": 0.9999499917030334,
+    "r_ex1": -0.044029999524354935,
+    "r_ex2": -0.46630001068115234,
+    "r_hx1": -9.968000085791573e-05,
+    "lambda_alphastar": 1.0,
+    "lambda_xalpha": 1.0,
+    "lambda_combinedslipcoeff": 1.0,
+    "combined_long_offset": 1.0,
+    "tempXAPure": 0.0,
+    "tempXBPure": 0.0,
+    "tempXCPure": 1.0,
+    "tempXA": -10000.0,
+    "tempXB": 0.0,
+    "tempXC": 0.0
+}
