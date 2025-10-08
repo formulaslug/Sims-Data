@@ -10,7 +10,7 @@ open System.Reflection
 [<assembly: System.Reflection.AssemblyCompanyAttribute("SimV2")>]
 [<assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")>]
 [<assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")>]
-[<assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4cd38fe0b0a9aa3cd2afc6b3b64a2afdf08f96ef")>]
+[<assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+41269bfffe9ae0b5fc0ce7d87d8717fabba9906a")>]
 [<assembly: System.Reflection.AssemblyProductAttribute("SimV2")>]
 [<assembly: System.Reflection.AssemblyTitleAttribute("SimV2")>]
 [<assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")>]
