@@ -2,8 +2,8 @@ import polars as pl
 import matplotlib.pyplot as plt
 import cantools.database as db
 
-from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
-from AnalysisFunctions import *
+from Data.DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
+from Data.AnalysisFunctions import *
 
 dbcPath = "../fs-3/CANbus.dbc"
 dbc = db.load_file(dbcPath)
@@ -67,3 +67,14 @@ pedalTravel = "ETC_STATUS_PEDAL_TRAVEL"
 etcImplausibility = "ETC_STATUS_IMPLAUSIBILITY"
 etcRTDButton = "ETC_STATUS_RTD_BUTTON"
 etcBrakeVoltage = "ETC_STATUS_BRAKE_SENSE_VOLTAGE"
+
+df = read("C:/Projects/FormulaSlug/fs-data/FS-3/10112025/firstDriveMCError30.parquet")
+df = df.with_columns(
+    df["timestamp"].alias("Time")
+)
+
+
+dft = df.filter(pl.col(t) > 45).filter(pl.col(t) < 100)
+plt.plot(dft[lat], dft[long])
+plt.plot(df[t])
+plt.show()
