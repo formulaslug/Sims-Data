@@ -79,19 +79,10 @@ def process_reader(reader:ci.CanutilsLogReader, dbc, window_ms: int = 10):
     return df
 
 dbcpath = "../fs-3/CANbus.dbc"
-logfile = "C:/Users/Goob/Downloads/wheels_nathaniel_inv_test_w_fault.log"
-logfile2 = "C:/Users/Goob/Downloads/no_wheels_nathaniel_inv_test.log"
+logfile = "C:/Users/Goob/Downloads/candump-2025-10-09_032017.log"
 out_parquet = "can_messages_10ms.parquet"
 
 dbc = db.load_file(dbcpath)
-
-f = open(logfile2, "r")
-reader = ci.CanutilsLogReader(f)
-df = process_reader(reader, dbc)
-df = df.with_columns( #type: ignore
-    pl.col("timestamp") - pl.col("timestamp").min()
-)
-df.write_parquet("C:/Projects/FormulaSlug/fs-data/FS-3/10082025/fixed_no_wheels_nathaniel_inv_test.parquet")
 
 f = open(logfile, "r")
 reader = ci.CanutilsLogReader(f)
@@ -99,4 +90,4 @@ df = process_reader(reader, dbc)
 df = df.with_columns( #type: ignore
     pl.col("timestamp") - pl.col("timestamp").min()
 )
-df.write_parquet("C:/Projects/FormulaSlug/fs-data/FS-3/10082025/fixed_wheels_nathaniel_inv_test_w_fault.parquet")
+df.write_parquet("C:/Projects/FormulaSlug/fs-data/FS-3/10112025/firstDriveMCError30.parquet")

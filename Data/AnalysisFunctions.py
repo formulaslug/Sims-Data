@@ -16,12 +16,14 @@ smeFaultLevel = "SME_TEMP_FaultLevel"
 smeContactor = "SME_TRQSPD_contactor_closed"
 busV = "SME_TEMP_DC_Bus_V"
 busC = "SME_TEMP_BusCurrent"
+accV = "ACC_POWER_PACK_VOLTAGE"
 bmsFault = "ACC_STATUS_BMS_FAULT"
 imdFault = "ACC_STATUS_IMD_FAULT"
 pchOn = "ACC_STATUS_PRECHARGING"
 pchDone = "ACC_STATUS_PRECHARGE_DONE"
 accShutdown = "ACC_STATUS_SHUTDOWN_STATE" 
 glv = "ACC_STATUS_GLV_VOLTAGE"
+torqueDemand = "SME_THROTL_TorqueDemand"
 
 vdmValid = "VDM_GPS_VALID1"
 # time = ""
@@ -58,11 +60,16 @@ heFR = "TPERIPH_FR_DATA_WHEELSPEED"
 heBL = "TPERIPH_BL_DATA_WHEELSPEED"
 heBR = "TPERIPH_BR_DATA_WHEELSPEED"
 
+pedalTravel = "ETC_STATUS_PEDAL_TRAVEL"
+etcImplausibility = "ETC_STATUS_IMPLAUSIBILITY"
+etcRTDButton = "ETC_STATUS_RTD_BUTTON"
+etcBrakeVoltage = "ETC_STATUS_BRAKE_SENSE_VOLTAGE"
+
 def readValid (a):
-    return pl.read_parquet(a).filter(pl.col("VDM_GPS_VALID1") == 1)
+    return pl.read_parquet(a).with_columns(pl.all().fill_null(strategy="forward")).with_columns(pl.all().fill_null(strategy="backward")).filter(pl.col("VDM_GPS_VALID1") == 1)
 
 def read (a):
-    return pl.read_parquet(a)
+    return pl.read_parquet(a).with_columns(pl.all().fill_null(strategy="forward")).with_columns(pl.all().fill_null(strategy="backward"))
 
 def timeCol(df, verbose = False):
     min = "VDM_UTC_TIME_SECONDS"
@@ -99,7 +106,66 @@ def simpleTimeCol (df, verbose=False):
     stepSize = 60/5035
     return pl.Series(np.arange(0,df.height*stepSize, stepSize)).alias("Time")
 
-def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellVoltages=False, verbose=False):
+def mcErrorView (df, title="", tFun=timeCol, verbose=False):
+    '''
+    Loads a motor controller error dataset. Built for FS-3 Data generated and collected by the team.
+
+    Parameters
+    ----------
+    df
+        The Dataframe to base the time graph on. Should have valid GPS data or the graphs will be blank.
+    title 
+        Title at the top of the graph.
+    tFun 
+        Time function to be used to generate a time column if one doesn't already exist
+    verbose
+        Whether to print debug messages while generating the graph
+    '''
+    if not ("Time" in df.columns):
+        df.insert_column(0, tFun(df, verbose))
+
+    fig = plt.figure(layout="constrained")
+    ax1 = fig.add_subplot(411)
+    ax2 = fig.add_subplot(412)
+    ax3 = fig.add_subplot(413)
+    ax4 = fig.add_subplot(414)
+
+    ax1.plot(df[t], df[busV], label = "MC Voltage")
+    ax1.plot(df[t], df[accV], label = "Acc Voltage")
+
+    ax2.plot(df[t], df[smeFaultCode], label = "Fault Code")
+    ax2.plot(df[t], df[smeFaultLevel], label = "Fault Level")
+
+    ax3.plot(df[t], df[rpm]/100, label="RPM/100")
+    ax3.plot(df[t], df[torqueDemand]/32767*180, label = "Torque Demand (Nm)")
+
+    ax4.plot(df[t], df[pedalTravel], label = "Pedal Travel")
+    ax4.plot(df[t], df[etcBrakeVoltage], label = "Brake Voltage")
+    ax4.plot(df[t], df[etcImplausibility]*500, label = "ETC Implausibility")
+    ax4.plot(df[t], df[etcRTDButton], label = "RTD Button")
+
+    ax1.set_title("Voltages")
+    ax2.set_title("MC Error and code")
+    ax3.set_title("RPM/TorqueDemand")
+    ax4.set_title("ETC Stuff")
+
+    ax1.set_xlabel("Time (s)")
+    ax2.set_xlabel("Time (s)")
+    ax3.set_xlabel("Time (s)")
+    ax4.set_xlabel("Time (s)")
+
+    ax1.set_ylabel("Voltage (V)")
+
+
+    ax1.legend()
+    ax2.legend()
+    ax3.legend()
+    ax4.legend()
+
+    fig.show()
+
+
+def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellVoltages=False, verbose=False, faults=False):
     '''
     Loads a basic view of a given run. Built for FS-3 Data generated and collected by the team.
 
@@ -164,6 +230,7 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
     ax5.plot(df[t], df[rpm]*11/40*0.2032*2*np.pi/60/0.44704, color = "green", label="rpm speed")
     ax5.plot(df[t], df["VDM_Y_AXIS_ACCELERATION"]*100, label = "yaxis accel (cGs)", color="crimson")
     ax5.set_title("Speed + Braking")
+    ax5.legend()
     ax6.plot(df[t],df[xA_uncorrected])
     ax6.set_title("Acceleration (X)")
 
