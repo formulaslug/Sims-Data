@@ -7,22 +7,7 @@ from AnalysisFunctions import *
 
 dbcPath = "../fs-3/CANbus.dbc"
 dbc = db.load_file(dbcPath)
-df1 = readCorrectedFSDAQ("E:/fsdaq/1.fsdaq", dbcPath)
-df2 = readCorrectedFSDAQ("E:/fsdaq/2.fsdaq", dbcPath)
-df3 = readCorrectedFSDAQ("E:/fsdaq/3.fsdaq", dbcPath)
-df1 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/1.fsdaq"))
-df2 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/2.fsdaq"))
-df3 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/3.fsdaq"))
-df4 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/4.fsdaq"))
-df5 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/5.fsdaq"))
-df6 = applyDBC_ScaleAndOffset(dbc, readFSDAQ("E:/fsdaq/6.fsdaq"))
 
-df1 = pl.DataFrame(df1)
-df2 = pl.DataFrame(df2)
-df3 = pl.DataFrame(df3)
-df1 = df1.insert_column(0, simpleTimeCol(df1))
-df2 = df2.insert_column(0, simpleTimeCol(df2))
-df3 = df3.insert_column(0, simpleTimeCol(df3))
 # lv = "GLV"
 # v = "Violation"
 V = "ACC_POWER_PACK_VOLTAGE"
@@ -78,32 +63,7 @@ heFR = "TPERIPH_FR_DATA_WHEELSPEED"
 heBL = "TPERIPH_BL_DATA_WHEELSPEED"
 heBR = "TPERIPH_BR_DATA_WHEELSPEED"
 
-df = readFSDAQ("E:/fsdaq/2.fsdaq")
-df[speed]
-
-fig1 = plt.figure()
-ax1 = fig1.add_subplot(211)
-ax2 = fig1.add_subplot(212)
-ax1.plot(df1[t], df1[busC])
-ax2.plot(df2[t], df2[busC])
-fig1.show()
-
-fig2 = plt.figure()
-ax1 = fig2.add_subplot(111)
-ax1.plot(df3[t], df3[busC])
-fig2.show()
-
-basicView(df3)
-
-[i for i in df6.columns if i.startswith("SME")]
-
-df = readValid("FS-3/08102025/08102025Debug22.parquet")
-
-plt.plot(df6["ETC_STATUS_BRAKE_SENSE_VOLTAGE"])
-plt.plot(df6["ETC_STATUS_BRAKELIGHT"]*50000)
-plt.plot(df6["SME_THROTL_MBB_Alive"])
-plt.plot(df4["SME_THROTL_MBB_Alive"])
-plt.plot(df5["SME_THROTL_MBB_Alive"])
-plt.plot(df3["SME_THROTL_MBB_Alive"])
-plt.plot(df["SME_THROTL_MBB_Alive"])
-plt.show()
+pedalTravel = "ETC_STATUS_PEDAL_TRAVEL"
+etcImplausibility = "ETC_STATUS_IMPLAUSIBILITY"
+etcRTDButton = "ETC_STATUS_RTD_BUTTON"
+etcBrakeVoltage = "ETC_STATUS_BRAKE_SENSE_VOLTAGE"
