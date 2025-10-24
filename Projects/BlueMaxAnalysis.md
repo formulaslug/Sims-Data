@@ -21,6 +21,7 @@ Using our track data from blue max endurance runs, determine what makes for a fa
 
 ## Steps in the project
 
+1. Start by outlining a plan for what you'll do. Take some notes. You can use this md file for notes. Ask questions about what you don't understand or what doesn't make sense.
 1. Determine files that contain endurance data to compare. May also be worth including some data from comp but we only have power usage from comp and it's a completely different track.
 1. Read some literature about how to optmize lap performance from data. Some information/articles are available in pinned messages in #software.
 1. Analyze lap components based on methods outlined in research.
