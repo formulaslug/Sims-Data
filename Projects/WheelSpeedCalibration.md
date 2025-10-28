@@ -4,6 +4,7 @@
 
 1. Noah Santos
 1. Linse Bobadilla
+1. Nikhila Ramboth
 
 ## Design Review Dates/Timeline
 
