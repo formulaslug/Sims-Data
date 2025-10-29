@@ -125,7 +125,7 @@ def integrate_with_Scipy_tCol (col, timeCol, verbose=False, maxStepSize=0.05):
     if verbose:
         plt.scatter(outT, outY, label="RK45 Results", s=1, alpha=0.5)
         plt.scatter(timeCol, serOut, label="Series", s=1, alpha=0.5)
-        plt.scatter(timeCol, integrate_with_tCol(col, timeCol), label="Riemann Integral with tCol", s=1)
+        plt.scatter(timeCol, integrate_with_tCol(col, timeCol), label="Riemann Integral with tCol", s=1) #type: ignore
         plt.legend()
         plt.show()
     return serOut
@@ -178,16 +178,24 @@ def integrate_with_Scipy_tCol (col, timeCol, verbose=False, maxStepSize=0.05):
 #     # print(f"out of integral is {out}")
 #     return out#, out2
 
-def derivative_at_point (dataFrame, i):
-    rows = dataFrame.shape[0]
-    if i > 1 and i < (rows - 2):
-        return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*0.01)
-    elif i < 2:
-        return (dataFrame[0] - 8*dataFrame[0] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*0.01)
-    elif i > rows - 3:
-        return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[rows-1] - dataFrame[rows-1])/(12*0.01)
+# def derivative_at_point (dataFrame, i):
+#     rows = dataFrame.shape[0]
+#     if i > 1 and i < (rows - 2):
+#         return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*0.01)
+#     elif i < 2:
+#         return (dataFrame[0] - 8*dataFrame[0] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*0.01)
+#     elif i > rows - 3:
+#         return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[rows-1] - dataFrame[rows-1])/(12*0.01)
 
-def in_place_derive (integral):
+def in_place_derive (integral, deltaT=0.01):
+    def derivative_at_point (dataFrame, i):
+        rows = dataFrame.shape[0]
+        if i > 1 and i < (rows - 2):
+            return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*deltaT)
+        elif i < 2:
+            return (dataFrame[0] - 8*dataFrame[0] + 8*dataFrame[i+1] - dataFrame[i+2])/(12*deltaT)
+        elif i > rows - 3:
+            return (dataFrame[i-2] - 8*dataFrame[i-1] + 8*dataFrame[rows-1] - dataFrame[rows-1])/(12*deltaT)
     if len(integral.shape) == 1:
         width = 1
     else:

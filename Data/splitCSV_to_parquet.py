@@ -1,3 +1,8 @@
+'''
+Not a good idea in the end. Do not use.
+'''
+
+
 import polars as pl
 import os
 
