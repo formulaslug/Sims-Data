@@ -1,0 +1,12 @@
+name: sims_data
+channels:
+  - conda-forge
+dependencies:
+  - python==3.10.9
+  - scipy
+  - numpy
+  - polars
+  - matplotlib
+  - cantools
+  - nptdms
+  - AHRS
