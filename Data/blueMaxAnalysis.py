@@ -1,12 +1,12 @@
 import polars as pl
 import matplotlib.pyplot as plt
-from integralsAndDerivatives import *
-from fftTools import *
-from AnalysisFunctions import *
+from Data.integralsAndDerivatives import *
+from Data.fftTools import *
+from Data.AnalysisFunctions import *
 from scipy.interpolate import NearestNDInterpolator
-from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import readCorrectedFSDAQ
+from Data.DataDecoding_N_CorrectionScripts.dataDecodingFunctions import readCorrectedFSDAQ
 from scipy.optimize import curve_fit
-from CellModel import CellInterpolatorVTC5A
+from Data.CellModel import CellInterpolatorVTC5A
 
 dbcPath = "../fs-3/CANbus.dbc"
 
@@ -373,10 +373,10 @@ plt.legend(["rpm convesion","speed vdm"])
 plt.show()
 
 ## Determine Values for Mechanical Resistance for the car
-dfa = readValid("FS-3/08102025/08102025RollingResistanceTestP1.parquet")
-dfb = readValid("FS-3/08102025/08102025RollingResistanceTestP2.parquet")
-dfc = readValid("FS-3/08102025/08102025RollingResistanceTestP3.parquet")
-dfd = readValid("FS-3/08102025/08102025RollingResistanceTestP4.parquet")
+dfa = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP1.parquet")
+dfb = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP2.parquet")
+dfc = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP3.parquet")
+dfd = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP4.parquet")
 dfa.insert_column(0, timeCol(dfa))
 dfb.insert_column(0, timeCol(dfb))
 dfc.insert_column(0, timeCol(dfc))
