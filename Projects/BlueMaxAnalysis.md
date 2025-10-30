@@ -8,7 +8,7 @@
 ## Design Review Dates/Timeline
 
 - Data meeting soon for discussion about data projects
-- PDR (Preliminary Design Review) ~ Oct 30 - Nov 2 to establish that you have a clear plan for how to proceed
+- PDR (Preliminary Design Review) ~ 1 week to establish that you have a clear plan for how to proceed
 - Design Review ~1 week later
 
 ## Introduction
