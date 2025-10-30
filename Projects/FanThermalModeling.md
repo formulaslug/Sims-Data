@@ -2,7 +2,6 @@
 
 ## Active Members
 
-1. Nathan Margolis
 1. Dhruv Kolte
 1. Praneeth Mandalapu
 
