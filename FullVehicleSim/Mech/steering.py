@@ -1,5 +1,6 @@
 # Steering model
 import numpy as np
+import matplotlib.pyplot as plt
 
 def calculateSlipAngle(yawRate, velocity, steerAngle, parameters):
     speed = np.sqrt(velocity[0] ** 2 + velocity[1] ** 2 + velocity[2]**2)
@@ -14,61 +15,12 @@ def calculateSlipAngle(yawRate, velocity, steerAngle, parameters):
     return (frontSlipAngle, rearSlipAngle)
 
 def calculateVirtualSlipAngle(parameters):
-    # This model is based on Chapter 1 of Pacejka's 2012 book.
-    # We treat all variables here as static to calculate virtual slip angle
-    # This is entirely untrue. Every single variable is something to calculate every step.
-    # But for now, we will guess
-    # TODO: Improve every variable listed
-
-    return 0# parameters["frontToe"]
-
-    frontCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
-    CF = frontCorneringStiffnessDeg * 180 / np.pi
-    Fy = 0
-
-    # l = parameters["wheelBase"]
-    # m = parameters["Mass"]
-    # epsilon_i = parameters["rollSteerCoefficient"]
-    # tau_i = parameters["rollCamberSteerCoefficient"]
-    # hPrime = parameters["CoG-distanceToRollAxis"]
-    # e_i = parameters["casterLength"]
-    # t_i = = 0 # Pneumatic trail length. Hard Tire Modeling problem
-    # c_phi1 = 0
-    # c_phi2 = 0
-    # c_psii = 0
-    # c_sfi = 0
-    # a_i = 0
-    # sigma_i = 0 # Term 4 only
-    # zeta_alphai = 0 # Term 4 only
-    # psi_io = 0 # Term 4 only
-    # zeta_gammai = 0 # Term 4 only
-    # gamma_io = 0 # Term 4 only
-    #
-    # # CF here is used wrong. Hard tire modeling problem.
-    # term1Num = l * (epsilon_i * CF + tau_i * CF) * hPrime
-    # Term1Denom = (l - a_i) * (c_phi1 + cphi2 - m * 9.81 * hPrime)
-    #
-    # term2Num = CF * (e_i + t_i)
-    # term2Denom = c_psii
-    #
-    # term3 = -1 * CF * c_sfi
-    #
-    # # WE NEGLECT TERM 4 BECAUSE WE ASSUME ZETA TO BE 0 WHICH IS WRONG. HARD TIRE MODELING PROBLEM
-    #
-    # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
+    return 0
 
 def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_, parameters):
-    # This model is based on Performance Vehicle Dynamics
-    # It is a pretty meh model which uses euler's method to approximate transient behavior
-    # Ideally we would use something a bit better like rk4 but i couldn't get that to work
-    # This model is only valid for small slip angles, even though we use them for large slip angles.
-    # This entire thing needs to get rewritten in the future
-    # Potential future models include ones presented in the VD compendium book or Road Vehicle VD book
-    # TODO: Implement new model
+    frontCorneringStiffnessDeg = -140
+    rearCorneringStiffnessDeg = -140
 
-    frontCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
-    rearCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
-    #speed = 30 # Arbitrary because speed maybe doesn't work
     if speed == 0 or stepSteerInput == 0:
         return 0
 
@@ -93,8 +45,6 @@ def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, fro
     Cc = 2 * I * omega_n
     zeta = c / Cc
 
-    #print(c, Cc)
-
     if zeta < 1: # Underdamped
         omega_d = np.sqrt(1 - zeta**2) * omega_n
         A = -r_inf
@@ -114,10 +64,91 @@ def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, fro
         term1 = (-1* (CF * stepSteerInput * a)/(I * r_inf) - omega_n)
         normalizedR = (-1 + term1 * timeSinceLastSteer) * np.e **(-1 * omega_n * timeSinceLastSteer) + 1
 
-    #print("STEERING INPUT", normalizedR, r_inf, zeta, Cc, omega_n, r_dot_0, r_inf, C2, k, c, YR_v, NR_v, N_delta, N_beta, Y_delta, Y_beta)
     return normalizedR * r_inf
 
-# parameters = {"Mass": 300, "polarMoment": 658.088580080000, "a": 0.853506, "wheelBase": 1.65471}
-# for i in np.arange(0, 1, 0.02):
-#     res = calculateYawRate(0, 35.76, 0.4, i, -1086.083, -890.0656, parameters)
-#     print(i, res)
+def yawRateToEnergy(yaw_rate, parameters):
+    """
+    Convert yaw rate to rotational kinetic energy
+    E = 0.5 * I * omega^2
+    where I is polar moment of inertia and omega is yaw rate
+    """
+    I = parameters["polarMoment"]
+    energy = 0.5 * I * (yaw_rate ** 2)
+    return energy
+
+
+parameters = {
+    "ambientTemperature": 20,
+    "wheelCircumferance": 1.35716802635079,
+    "wheelRadius": 0.216,
+    "gearRatio": 3.33333333,
+    "maxTorque": 180,
+    "friction-coeff-lat": 1.7333,
+    "friction-coeff-long": 1.7333,
+    "unloaded-radius": 1.7333,
+    "p_0": 82000,
+    "load_0": 300,
+    "tractiveIMax": 300,
+    "Mass": 300,
+    "wheelBase": 1.65471,
+    "a": 0.853506,
+    "frontWeightDist": 46.46,
+    "CoG-height": 0.999628,
+    "CoG-distanceToRollAxis": 0.999628,
+    "polarMoment": 658.088580080000,
+    "rollSteerCoefficient": 0,
+    "rollCamberSteerCoefficient": 0,
+    "casterLength": 0,
+    "frontToe": 0,
+    "brakeSpecificHeatCapacity": 450,
+    "brakeThermalConductivity": 50,
+    "brakeSurfaceArea": 0.001180643,
+    "brakepadThickness": 0.007874,
+    "brakeMass": 0.408,
+    "maxBrakeForce": 1500
+}
+
+# Generate data for plotting
+steer_angles = np.linspace(0, 30, 50)  # Steering angles in degrees
+velocities = np.linspace(5, 50, 50)    # Velocities in m/s
+timeSinceLastSteer = 0.5  # Fixed time for steady-state analysis
+
+# Create meshgrid
+STEER, VEL = np.meshgrid(steer_angles, velocities)
+YAW_RATE = np.zeros_like(STEER)
+STEERING_ENERGY = np.zeros_like(STEER)
+
+# Calculate yaw rate and energy for each combination
+for i in range(len(velocities)):
+    for j in range(len(steer_angles)):
+        steer_rad = np.deg2rad(steer_angles[j])
+        yaw_rate = calculateYawRate(
+            0,
+            velocities[i],
+            steer_rad,
+            timeSinceLastSteer,
+            -1086.083,
+            -890.0656,
+            parameters
+        )
+        YAW_RATE[i, j] = yaw_rate
+        STEERING_ENERGY[i, j] = yawRateToEnergy(yaw_rate, parameters)
+
+# Create 3D plot
+fig = plt.figure(figsize=(12, 8))
+ax = fig.add_subplot(111, projection='3d')
+
+surf = ax.plot_surface(STEER, VEL, STEERING_ENERGY, cmap='viridis',
+                       edgecolor='none', alpha=0.8)
+
+ax.set_xlabel('Steering Angle (degrees)', fontsize=12, labelpad=10)
+ax.set_ylabel('Velocity (m/s)', fontsize=12, labelpad=10)
+ax.set_zlabel('Rotational Energy (Joules)', fontsize=12, labelpad=10)
+ax.set_title('Steering-Induced Rotational Energy vs Steering Angle and Velocity', fontsize=14, pad=20)
+fig.colorbar(surf, ax=ax, shrink=0.5, aspect=5, label='Energy (J)')
+
+ax.view_init(elev=25, azim=45)
+ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
