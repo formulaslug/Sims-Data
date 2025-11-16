@@ -1,0 +1,5 @@
+required libraries:
+polars
+matplotlib
+numpy
+scipy
