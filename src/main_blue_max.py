@@ -256,54 +256,83 @@ def plot_speed_power_whole_stint(df: pl.DataFrame) -> None:
     plt.savefig("speed_power_vs_time.png", dpi=200)
     print("[plot_speed_power_whole_stint] saved speed_power_vs_time.png")
 
+def plot_lines_per_lap(
+    df: pl.DataFrame,
+    laps_df: pl.DataFrame,
+    max_laps: int = 6,
+) -> None:
+    """Little track map for each lap (colored by speed), in chunks."""
 
-def plot_line_per_lap(df: pl.DataFrame, laps_df: pl.DataFrame, max_laps: int = 6) -> None:
-    """Little track map for each lap (colored by speed)."""
     all_laps = laps_df[LAP_COL].to_numpy()
     lap_times = laps_df["lap_time_s"].to_numpy()
 
-    n_laps = min(len(all_laps), max_laps)
-    if n_laps == 0:
-        print("[plot_line_per_lap] no laps to plot.")
+    n_total = len(all_laps)
+    if n_total == 0:
+        print("[plot_lines_per_lap] no laps to plot.")
         return
 
     ncols = 2
-    nrows = int(np.ceil(n_laps / ncols))
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(11, 3 * nrows), squeeze=False)
+    # walk through all laps in chunks: 0–5, 6–11, 12–17, ...
+    for start in range(0, n_total, max_laps):
+        end = min(start + max_laps, n_total)
 
-    for idx in range(n_laps):
-        lap_num = int(all_laps[idx])
-        lap_time = float(lap_times[idx])
-        ax = axes[idx // ncols][idx % ncols]
+        laps_chunk = all_laps[start:end]
+        times_chunk = lap_times[start:end]
+        n_laps = len(laps_chunk)
 
-        dlap = df.filter(pl.col(LAP_COL) == lap_num)
-        lon = dlap[LON_COL].to_numpy()
-        lat = dlap[LAT_COL].to_numpy()
-        speed = dlap[SPEED_COL].to_numpy() if SPEED_COL in dlap.columns else None
+        nrows = int(np.ceil(n_laps / ncols))
+        fig, axes = plt.subplots(
+            nrows,
+            ncols,
+            figsize=(11, 3 * nrows),
+            squeeze=False,
+        )
 
-        if speed is not None:
-            sc = ax.scatter(lon, lat, c=speed, s=4, cmap="viridis")
-        else:
-            ax.plot(lon, lat, lw=1.0)
+        for idx in range(n_laps):
+            lap_num = int(laps_chunk[idx])
+            lap_time = float(times_chunk[idx])
+            ax = axes[idx // ncols][idx % ncols]
 
-        ax.axis("scaled")
-        ax.set_xlabel("Lon")
-        ax.set_ylabel("Lat")
-        ax.set_title(f"Lap {lap_num} — {lap_time:.1f} s")
+            dlap = df.filter(pl.col(LAP_COL) == lap_num)
+            lon = dlap[LON_COL].to_numpy()
+            lat = dlap[LAT_COL].to_numpy()
+            speed = (
+                dlap[SPEED_COL].to_numpy()
+                if SPEED_COL in dlap.columns
+                else None
+            )
 
-    # clean up any extra axes
-    for j in range(n_laps, nrows * ncols):
-        fig.delaxes(axes[j // ncols][j % ncols])
+            if speed is not None:
+                ax.scatter(lon, lat, c=speed, s=4, cmap="viridis")
+            else:
+                ax.plot(lon, lat, lw=1.0)
 
-    fig.suptitle("Driving line per lap", y=0.99)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig("lines_per_lap.png", dpi=200)
-    print("[plot_line_per_lap] saved lines_per_lap.png")
+            ax.axis("scaled")
+            ax.set_xlabel("Lon")
+            ax.set_ylabel("Lat")
+            ax.set_title(f"Lap {lap_num} — {lap_time:.1f} s")
+
+        # delete unused empty subplots in this figure
+        for j in range(n_laps, nrows * ncols):
+            fig.delaxes(axes[j // ncols][j % ncols])
+
+        first_lap = int(laps_chunk[0])
+        last_lap = int(laps_chunk[-1])
+        fig.suptitle(f"Driving line per lap (Laps {first_lap}–{last_lap})", y=0.99)
+        fname = f"lines_per_lap_{first_lap}_{last_lap}.png"
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+        fig.savefig(fname, dpi=200)
+        print(f"[plot_lines_per_lap] saved {fname}")
 
 
-def plot_power_per_lap(df: pl.DataFrame, laps_df: pl.DataFrame, max_laps: int = 6) -> None:
-    """Power vs time for each lap (time axis starts at 0 for each lap)."""
+def plot_power_per_lap(
+    df: pl.DataFrame,
+    laps_df: pl.DataFrame,
+    chunk_size: int = 6,
+) -> None:
+    """Power vs time for each lap, saved in chunks (like line plots)."""
+
     if BUS_V_COL not in df.columns or BUS_I_COL not in df.columns:
         print("[plot_power_per_lap] no bus voltage/current, skipping.")
         return
@@ -312,41 +341,67 @@ def plot_power_per_lap(df: pl.DataFrame, laps_df: pl.DataFrame, max_laps: int = 
     t_start = laps_df["t_start"].to_numpy()
     lap_times = laps_df["lap_time_s"].to_numpy()
 
-    n_laps = min(len(all_laps), max_laps)
-    if n_laps == 0:
+    n_total = len(all_laps)
+    if n_total == 0:
         print("[plot_power_per_lap] no laps to plot.")
         return
 
     ncols = 2
-    nrows = int(np.ceil(n_laps / ncols))
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(11, 3 * nrows), squeeze=False)
+    # walk through laps in chunks: 1–6, 7–12, 13–18, ...
+    for start in range(0, n_total, chunk_size):
+        end = min(start + chunk_size, n_total)
 
-    for idx in range(n_laps):
-        lap_num = int(all_laps[idx])
-        t0 = float(t_start[idx])
-        lap_time = float(lap_times[idx])
-        ax = axes[idx // ncols][idx % ncols]
+        laps_chunk = all_laps[start:end]
+        times_chunk = lap_times[start:end]
+        t0_chunk = t_start[start:end]
 
-        dlap = df.filter(pl.col(LAP_COL) == lap_num)
-        t_rel = dlap["time"].to_numpy() - t0
+        n_laps = len(laps_chunk)
+        nrows = int(np.ceil(n_laps / ncols))
 
-        v_bus = dlap[BUS_V_COL].to_numpy()
-        i_bus = dlap[BUS_I_COL].to_numpy()
-        p_kw = v_bus * i_bus / 1000.0
+        fig, axes = plt.subplots(
+            nrows,
+            ncols,
+            figsize=(11, 3 * nrows),
+            squeeze=False,
+        )
 
-        ax.plot(t_rel, p_kw, lw=1.0)
-        ax.set_xlabel("Time in lap (s)")
-        ax.set_ylabel("Power (kW)")
-        ax.set_title(f"Lap {lap_num} — {lap_time:.1f} s")
+        for idx in range(n_laps):
+            lap_num = int(laps_chunk[idx])
+            t0 = float(t0_chunk[idx])
+            lap_time = float(times_chunk[idx])
+            ax = axes[idx // ncols][idx % ncols]
 
-    for j in range(n_laps, nrows * ncols):
-        fig.delaxes(axes[j // ncols][j % ncols])
+            dlap = df.filter(pl.col(LAP_COL) == lap_num)
+            t_rel = dlap["time"].to_numpy() - t0
 
-    fig.suptitle("Power vs time per lap", y=0.99)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig("power_per_lap.png", dpi=200)
-    print("[plot_power_per_lap] saved power_per_lap.png")
+            v_bus = dlap[BUS_V_COL].to_numpy()
+            i_bus = dlap[BUS_I_COL].to_numpy()
+            p_kw = v_bus * i_bus / 1000.0
+
+            ax.plot(t_rel, p_kw, lw=1.0)
+            ax.set_xlabel("Time in lap (s)")
+            ax.set_ylabel("Power (kW)")
+            ax.set_title(f"Lap {lap_num} — {lap_time:.1f} s")
+
+        # remove empty subplots
+        for j in range(n_laps, nrows * ncols):
+            fig.delaxes(axes[j // ncols][j % ncols])
+
+        first_lap = int(laps_chunk[0])
+        last_lap = int(laps_chunk[-1])
+
+        fig.suptitle(
+            f"Power vs Time per Lap (Laps {first_lap}–{last_lap})",
+            y=0.99
+        )
+
+        fname = f"power_per_lap_{first_lap}_{last_lap}.png"
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+        fig.savefig(fname, dpi=200)
+
+        print(f"[plot_power_per_lap] saved {fname}")
+
 
 # entry point
 
@@ -376,8 +431,8 @@ def main() -> None:
     plot_track_speed(df, stint_stats)
     plot_track_laps(df)
     plot_speed_power_whole_stint(df)
-    plot_line_per_lap(df, laps_df, max_laps=6)
-    plot_power_per_lap(df, laps_df, max_laps=6)
+    plot_lines_per_lap(df, laps_df, max_laps=6)
+    plot_power_per_lap(df, laps_df, chunk_size=6)
 
     plt.show()
 
