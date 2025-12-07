@@ -12,8 +12,27 @@ def load_current_from_parquet(path: str, column: str) -> NDArray[np.float64]:
     """
     Load a single current column from a Parquet file as a NumPy array.
     """
-    df = pl.read_parquet(path, columns=[column])
-    return df[column].to_numpy()
+    # df = pl.read_parquet(path, columns=[column])
+    # df = pl.read_parquet(path, columns=["ACC_SEG0_TEMPS_CELL0", "ACC_SEG0_TEMPS_CELL1"])
+    # # take the average of 64 Columns and create a dataframe with the average value
+    # avg_df = df.select(
+    # pl.mean_horizontal("ACC_SEG0_TEMPS_CELL0", "ACC_SEG0_TEMPS_CELL1").alias("avg")
+    # )
+    csv_df = pl.read_csv("../Docs/Columns.csv").select("Column Name")  # or columns=["c1"] to only read c1
+
+    filtered_df = csv_df.filter(
+    # pl.col("Column Name").str.contains("ACC_SEG0_TEMPS", literal=True)
+    pl.col("Column Name").str.contains(r"ACC_SEG\d+_TEMPS_")  # \d+ = one or more
+    )
+
+    acc_seg_temps_list: list[str] = filtered_df["Column Name"].to_list()
+    cleaned_acc_seg_temps_list = [s.strip("'") for s in acc_seg_temps_list]
+    parquet_df = pl.read_parquet(path, columns= cleaned_acc_seg_temps_list)
+    # take the average of 64 Columns and create a dataframe with the average value
+    avg_df = parquet_df.select(
+    pl.mean_horizontal(pl.col(cleaned_acc_seg_temps_list)).alias("avg")
+    )
+    return avg_df["avg"].to_numpy()
 
 
 def run_thermal_model(

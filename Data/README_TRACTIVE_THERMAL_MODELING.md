@@ -24,3 +24,9 @@ options:
   --initial-temp INITIAL_TEMP
                         Initial temperature in °C (default: 22).
 ```
+
+Example Command :
+
+```
+python TractiveBatteryThermalModelViewer.py --path_parquet <file_name>
+```
