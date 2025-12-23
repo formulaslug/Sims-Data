@@ -22,7 +22,7 @@ SA_MAX = 12            # Maximum slip angle (degrees)
 SA_POINTS = 50         # Number of points for slip angle
 
 
-filename = 'params-LC0-6.json'
+filename = 'FullVehicleSim/TireModel/params-LC0-6.json'
 with open(filename, 'r') as file:
     params = json.load(file)
 

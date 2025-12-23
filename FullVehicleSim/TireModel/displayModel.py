@@ -23,7 +23,7 @@ if not lateral and not longitudinal:
 
 precision = args.precision  # Controls step size in slip ratio and slip angle
 
-with open('params.json', 'r') as file:
+with open('FullVehicleSim/TireModel/params.json', 'r') as file:
     params = json.load(file)
 
 arr = []
