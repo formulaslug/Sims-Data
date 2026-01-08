@@ -57,6 +57,19 @@ def calculateVirtualSlipAngle(parameters):
     #
     # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
 
+# Returns a tuple with (in, out) steering angle
+def calculateAckermann(steerAngle, aPercent):
+    # We can assume that front and rear slip angles evolve identically in the small step steer so delta = l/r
+    wheelBase = params["wheelBase"]
+    turnRadius = wheelBase / steerAngle
+
+    innerRadiusWheel = np.arctan(wheelBase/(turnRadius - params["trackWidthAvg"]))
+    outerRadiusWheel = np.arctan(wheelBase/(turnRadius + params["trackWidthAvg"]))
+
+    return (np.degrees(innerRadiusWheel), np.degrees(outerRadiusWheel))
+
+
+
 def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_, parameters):
     # This model is based on Performance Vehicle Dynamics
     # It is a pretty meh model which uses euler's method to approximate transient behavior

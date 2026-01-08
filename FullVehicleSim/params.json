@@ -14,7 +14,8 @@
         "tractiveIMax": 300,
 
         "Mass": 300,
-        "wheelBase": 1.65471,
+        "wheelBase": 1.5898989,
+        "trackWidthAvg": 1210.004,
         "a": 0.853506,
         "frontWeightDist": 46.46,
         "CoG-height": 0.999628,
