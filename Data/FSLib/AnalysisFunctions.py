@@ -286,7 +286,7 @@ def speedGraph(df, tFun=timeCol):
     ax1.legend()
     fig3.show()
 
-def lapSegmentation(df, square, verbose=False, superVerbose=False):
+def lapSegmentation(df, square=((-121.7330999, 38.5759097),(-121.7328352, 38.5757670)), verbose=False, superVerbose=False):
     lat = "VDM_GPS_Latitude"
     long = "VDM_GPS_Longitude"
     longs = [square[0][0], square[1][0]]
