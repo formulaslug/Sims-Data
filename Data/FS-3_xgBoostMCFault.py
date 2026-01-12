@@ -3,7 +3,7 @@ from xgboost import plot_tree
 import polars as pl
 # from sklearn.datasets import load_iris
 # from sklearn.model_selection import train_test_split
-from Data.AnalysisFunctions import *
+from Data.FSLib.AnalysisFunctions import *
 import matplotlib.pyplot as plt
 from explainerdashboard import ClassifierExplainer, ExplainerDashboard
 
