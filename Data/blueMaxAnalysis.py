@@ -288,41 +288,41 @@ dragTrainingDFs = [
 
 dragTrainingdf = pl.concat([dfa.with_columns(pl.col(t) - pl.col(t).min()) for dfa in dragTrainingDFs])
 
-# def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
-#     carMass = 221.4# kg
-#     carNormalForce = 9.805*carMass # N
-#     airDensity = 1.23 # kg / m^3
-#     def drag(speed):
-#         return 0.5*airDensity*dragCoeff*(speed**2)
+def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
+    carMass = 221.4# kg
+    carNormalForce = 9.805*carMass # N
+    airDensity = 1.23 # kg / m^3
+    def drag(speed):
+        return 0.5*airDensity*dragCoeff*(speed**2)
     
-#     outList = []
+    outList = []
 
-#     dfs = []
-#     pos = 1
-#     while (True):
-#         try:
-#             ind = x["Time"].to_list().index(0, pos)
-#             dfs.append(x[pos-1:ind])
-#             pos = ind+1
-#             continue
-#         except:
-#             dfs.append(x[pos-1:])
-#             break
+    dfs = []
+    pos = 1
+    while (True):
+        try:
+            ind = x["Time"].to_list().index(0, pos)
+            dfs.append(x[pos-1:ind])
+            pos = ind+1
+            continue
+        except:
+            dfs.append(x[pos-1:])
+            break
 
-#     for df in dfs:
-#         arr = np.zeros(df.height)
-#         time = df[t] - df[t].min() # s
-#         speed = df[rpm]*11/40*0.2*2*np.pi/60 # m/s
-#         arr[0] = speed[0]
-#         for i in range(1, df.height):
-#             dt = time[i] - time[i-1]
-#             force = carNormalForce*coeffRollingResistance + drag(arr[i-1])
-#             accel = force/(carMass + 22.68)
-#             arr[i] = arr[i-1] - (dt * accel)
-#         outList.append(speed.to_numpy() - arr)
-#     print(np.concatenate(outList))
-#     return np.concatenate(outList)
-#     # return outList
+    for df in dfs:
+        arr = np.zeros(df.height)
+        time = df[t] - df[t].min() # s
+        speed = df[rpm]*11/40*0.2*2*np.pi/60 # m/s
+        arr[0] = speed[0]
+        for i in range(1, df.height):
+            dt = time[i] - time[i-1]
+            force = carNormalForce*coeffRollingResistance + drag(arr[i-1])
+            accel = force/(carMass + 22.68)
+            arr[i] = arr[i-1] - (dt * accel)
+        outList.append(speed.to_numpy() - arr)
+        print(np.concatenate(outList))
+        return np.concatenate(outList)
+        return outList
         
 
 # args = curve_fit(resistanceCurveFun, dragTrainingdf, np.zeros(sum([df.height for df in dragTrainingDFs])), p0=[0.1, 0.1])
