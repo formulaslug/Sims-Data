@@ -293,7 +293,7 @@ def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
     carNormalForce = 9.805*carMass # N
     airDensity = 1.23 # kg / m^3
     def drag(speed):
-        return 0.5*airDensity*dragCoeff*(speed**2)
+        return 0.5*airDensity*dragCoeff*(speed**2) #add frontal area
     
     outList = []
 
@@ -312,7 +312,7 @@ def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
     for df in dfs:
         arr = np.zeros(df.height)
         time = df[t] - df[t].min() # s
-        speed = 1/2((df[gps]/3600) + (df[rpm]*12/41*0.2*2*np.pi/60))# m/s
+        speed = 0.5 * ((df[gps]/3600) + (df[rpm]*12/41*0.2*2*np.pi/60))# m/s
         arr[0] = speed[0]
         for i in range(1, df.height):
             dt = time[i] - time[i-1]
