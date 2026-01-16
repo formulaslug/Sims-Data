@@ -1,0 +1,23 @@
+name: fsae
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - polars
+  - matplotlib
+  - pandas
+  - pytorch=2.4.0
+  - scikit-learn
+  - pygame
+  - libmagic
+  - tensorboardx
+  - pycocotools
+  - terminaltables
+  - cython
+  - torchaudio
+  - torchvision
+  - tensorboard
+  - termcolor
+  - pip
+prefix: /Users/daniel/anaconda3/envs/fsae
