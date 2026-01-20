@@ -12,10 +12,22 @@ motionRatioF = 1.006
 motionRatioR = 1.004
 TRG = 0.0314   # target roll gradient in rad/g
 
+###     Aero Loads (N)  ###
+frontWing = 800
+rearWing = 1000     #Taken from total downforce goal
+floorTotal = 200    #with the distribution from the fs-3 
+                    #aero package CFD
+# Split floor 50/50
+frontFloor = floorTotal/2
+rearFloor = floorTotal/2
+
+frontAero = frontFloor + frontWing
+rearAero = rearFloor + rearWing
+
 ###     Axle Weights    ###
 
-frontAW = frontWD * weight
-rearAW = rearWD * weight
+frontAW = frontWD * weight + frontAero
+rearAW = rearWD * weight + rearAero
 
 ###     Roll Moments    ###
 
