@@ -14,7 +14,7 @@ from Mech.tireLoad import *
 from Mech.traction import *
 
 class VehicleState:
-    def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, lastCurrent, throttle, brakes, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
+    def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, lastCurrent, throttle, brakes, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed, current_history=None):
         self.stepSize = stepSize
         self.initYawRate = yawRate
         self.steerAngle = steerAngle
@@ -34,6 +34,13 @@ class VehicleState:
         self.brakeTemperature = brakeTemperature
         self.timeSinceLastSteer = timeSinceLastSteer
         self.initSpeed = initSpeed
+        self.history_steps = int(10.0/self.stepSize)
+
+        if current_history is not None: 
+            self.current_history = current_history 
+        else: 
+            self.current_history = np.zeros(self.history_steps)
+        
 
         #self.wheelRPM: np.array = np.asarray([0,0,0,0], dtype=np.float32)
         #self.wheelRotationsHz: float = self.speed / self.WheelCircumference * 2.0 * np.pi
@@ -124,6 +131,12 @@ class VehicleState:
         if (self.power / self.voltage) > self.tractiveIMax:
             return self.tractiveIMax
         return self.power / self.voltage
+
+    @property
+    def update_history(self):
+        now_current = self.current
+        self.current_history[:-1] = self.current_history[1:]
+        self.current_history[-1] = now_current
 
     @property
     def maxTraction(self):
