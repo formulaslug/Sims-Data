@@ -1,16 +1,25 @@
 import matplotlib.pyplot as plt
 import json
 import polars as pl
+import argparse
 
 from state import *
 from engine import *
 
 # Sim parameters
-stepsPerSecond = 100
-simDuration = 20
 import time
 
 if __name__ == "__main__":
+    Parser = argparse.ArgumentParser(description='Run vehicle simulation.')
+    Parser.add_argument('--simDuration', '-d', type=int, default=20, help='Duration of the simulation in seconds')
+    Parser.add_argument('--stepsPerSecond', '-s', type=int, default=100, help='Number of simulation steps per second')
+    Parser.add_argument('--integrationMethod', '-i', type=str, default="RK45", help='Integration method to use (e.g., RK45, RS)')
+    args = Parser.parse_args()
+
+    stepsPerSecond = args.stepsPerSecond
+    simDuration = args.simDuration
+    integrationMethod = args.integrationMethod
+
     currVehicle = VehicleState(
                 stepSize = 1/stepsPerSecond,
                 position=np.asarray([0,0,0], dtype=np.float32),
@@ -53,7 +62,7 @@ if __name__ == "__main__":
                 if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
                     timeSinceLastSteer = 0
                     initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        currVehicle = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed) # Step forward!!
+        currVehicle = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed, integrationMethod) # Step forward!!
         vehicleStates.append(currVehicle)
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
