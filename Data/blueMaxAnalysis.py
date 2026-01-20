@@ -311,8 +311,8 @@ def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
 
     for df in dfs:
         arr = np.zeros(df.height)
-        time = df[t] - df[t].min() # s
-        speed = 0.5 * ((df[gps]/3600) + (df[rpm]*12/41*0.2*2*np.pi/60))# m/s
+        time_s = df[t] - df[t].min() # s
+        speed = (df[rpm]*12/41*0.2*2*np.pi/60))# m/s
         arr[0] = speed[0]
         for i in range(1, df.height):
             dt = time[i] - time[i-1]
@@ -321,9 +321,7 @@ def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
             arr[i] = arr[i-1] - (dt * accel)
         outList.append(speed.to_numpy() - arr)
         print(np.concatenate(outList))
-        return np.concatenate(outList)
-        return outList
-        
+    return np.concatenate(outList)        
 
 # args = curve_fit(resistanceCurveFun, dragTrainingdf, np.zeros(sum([df.height for df in dragTrainingDFs])), p0=[0.1, 0.1])
 
