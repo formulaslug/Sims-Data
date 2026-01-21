@@ -10,6 +10,7 @@ RCFront = 0.0203
 RCRear = 0.0493
 motionRatioF = 1.006
 motionRatioR = 1.004
+multiplier = 0.00571015 #n/m -> lbf/in
 TRG = 0.0314   # target roll gradient in rad/g
 print("TRG = ", TRG)
 ###     Aero Loads (N)  ###
@@ -74,3 +75,5 @@ print("Front Wheel Rate (kN/m):", frontKW/1000)
 print("Rear Wheel Rate (kN/m):", rearKW/1000)
 print("Front Spring Rate (N/mm):", frontKS / 1000)
 print("Rear Spring Rate (N/mm):", rearKS / 1000)
+print("Front Spring Rate (lbf/in):", frontKS * multiplier)
+print("Rear Spring Rate (lbf/in):", rearKS * multiplier)
