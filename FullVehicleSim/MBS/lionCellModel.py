@@ -326,3 +326,19 @@ def lookup(charge, current_draw):
     lower_percent = (current_per_cell - lower) / 5.0
     voltage = lower_percent * upper_voltage + (1.0 - lower_percent) * lower_voltage
     return voltage
+
+def update_pack_voltage_template(prev_current: float, vehicle_state, params=None) -> float:
+    
+    # keep the existing scale behavior: 28 series cells (as used in granola2.py)
+    series_cells = 28.0
+    if params is not None:
+        # If your params ever defines this, it'll override the hardcoded default.
+        series_cells = params.get("electrical", {}).get("seriesCells", series_cells)
+
+    # use the previous current 
+    try:
+        cell_v = lookup(vehicle_state.charge, prev_current)
+        return float(series_cells * cell_v)
+    except Exception:
+        # safe fallback if something goes out of bounds
+        return float(getattr(vehicle_state, "voltage", series_cells * 3.6))
