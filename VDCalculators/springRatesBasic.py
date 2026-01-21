@@ -11,7 +11,7 @@ RCRear = 0.0493
 motionRatioF = 1.006
 motionRatioR = 1.004
 multiplier = 0.00571015 #n/m -> lbf/in
-TRG = 0.0314   # target roll gradient in rad/g
+TRG = 0.01524409115   # target roll gradient in rad/g
 print("TRG = ", TRG)
 ###     Aero Loads (N)  ###
 frontWing = 800
