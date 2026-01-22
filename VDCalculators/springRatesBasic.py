@@ -1,9 +1,9 @@
-mass = 278.92
+mass = 293.97 #FS-3 Comp weight + 160lb driver, DOES NOT INCLUDE WEIGHT OF AERO PACKAGE
 weight = 2736  # N
 frontWD = 0.4632
 rearWD = 1 - frontWD
 leftWD = 0.492
-CGHeight = 0.234  # meters
+CGHeight = 0.234  # meters #AFFECTED BY AERO PACKAGE AS WELL
 trackWidth = 1.234
 wheelBase = 1.59
 RCFront = 0.0203
@@ -77,3 +77,4 @@ print("Front Spring Rate (N/mm):", frontKS / 1000)
 print("Rear Spring Rate (N/mm):", rearKS / 1000)
 print("Front Spring Rate (lbf/in):", frontKS * multiplier)
 print("Rear Spring Rate (lbf/in):", rearKS * multiplier)
+
