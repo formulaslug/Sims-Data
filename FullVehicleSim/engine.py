@@ -1,5 +1,5 @@
 
-
+from paramLoader import Parameters
 import numpy as np
 from state import VehicleState
 
@@ -24,16 +24,17 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
 
 
-def stepState(worldPrev, inputs, delta, timeSinceLastSteer, initSpeed):
+def stepState(worldPrev, inputs):
 
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
     # Made it so you can just comment this out when it's fixed.
     inputs = [inputs[0] * 0.75, inputs[1], inputs[2]]
+    delta = 1/Parameters["stepsPerSecond"]
 
     charge = worldPrev.charge - worldPrev.current * delta / 3600.0
     position = worldPrev.position + worldPrev.velocity * delta
-    speed = worldPrev.speed + worldPrev.acceleration * delta
+    speed = max(0, worldPrev.speed + worldPrev.acceleration * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
     yawRate = worldPrev.yawRate
     if inputs[2] == 0:
         yawRate = 0
@@ -43,17 +44,10 @@ def stepState(worldPrev, inputs, delta, timeSinceLastSteer, initSpeed):
     worldNext = VehicleState(
         stepSize = delta,
         position=position,
-        speed=max(0,speed), # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
-        acceleration=acceleration,
+        speed=speed, 
         heading = heading,
         charge=charge,
-        lastCurrent=worldPrev.current,
-        throttle = inputs[0],
-        brakes = inputs[1],
-        yawRate = worldPrev.yawRate,
-        steerAngle = inputs[2],
         brakeTemperature = worldPrev.cooledBrakeTemperature,
-        timeSinceLastSteer = timeSinceLastSteer,
-        initSpeed = initSpeed
+        yawRate = worldPrev.yawRate
     )
     return worldNext

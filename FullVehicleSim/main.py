@@ -90,7 +90,7 @@ if __name__ == "__main__":
         #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        worldArray[i] = stepState(worldArray[i-1], controlInputs[i], 1/Parameters["stepsPerSecond"], timeSinceLastSteer, initSpeed) # Step forward!!
+        worldArray[i] = stepState(worldArray[i-1], controlInputs[i], 1/Parameters["stepsPerSecond"]) # Step forward!!
         
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     for state in worldArray:
         timeCol.append(runningTime)
         dataRows.append(state.logProperties())
-        runningTime += 1/stepsPerSecond
+        runningTime += 1/Parameters["stepsPerSecond"]
 
     df = pl.DataFrame(dataRows, schema=columns, orient="row")
     df = df.with_columns(pl.Series("time", timeCol, dtype=pl.Float64))
