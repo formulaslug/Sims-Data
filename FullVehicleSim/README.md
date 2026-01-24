@@ -21,8 +21,6 @@ This folder contains the entirety of the full vehicle simulation for Formula Slu
 
 If you want more information on the basis of some of these simulation parts, you can find them in [GeneralModelingNotes.md](GeneralModelingNotes.md)
 
-<h2 id="siminputs"> Simulation Inputs </h2>
-
 <h3 id="pars"> Simulation Parameters </h3>
 
 This is a json input file with a bunch of inputs for the simulation. Unfortunately JSON doesn't support comments so the unit explanations have to go here. It looks something like this:
@@ -34,14 +32,14 @@ This is a json input file with a bunch of inputs for the simulation. Unfortunate
     "VehicleSOC": 1, // Out of 1
     "AmbientTemperature": 23, // Deg C
     "initialBatteryTemperature": 23, // Deg C
-    "initialBrakeTemperature": 23 // Deg C
+    "initialBrakeTemperature": 23, // Deg C
+    "interpolationMethod": "linear" // linear or cubic
 }
 ```
 
 <h3 id="ctrls"> Simulation Controls </h3>
 
-Simulation controls is a ```.csv``` or ```.parquet``` file that contains ```time (sec)```, ```throttle (-1 to 1)```, ```brake(Pressure)```, and ```steering angle``` inputs. Time is in seconds, throttle is -1 to 1 (includes regen),  
-
+Simulation controls is a ```.csv``` or ```.parquet``` file that contains ```time (sec)```, ```throttle (-1 to 1)```, ```brake(Pressure)```, and ```steering angle``` inputs. Time is in seconds, throttle is -1 to 1 (includes regen), brakes is in ```PSI```, and steering angle is in radians. The full vehicle simulation will do interpolation automatically to align the input/simulation time steps as needed. You can select from CS for cubic spline for continuous data from a run or LI for linear interpolation for a simpler input.
 
 
 <h2 id="msc"> Main Simulation Systems </h2>
@@ -49,4 +47,6 @@ Simulation controls is a ```.csv``` or ```.parquet``` file that contains ```time
 The simulation is divided into subsystems. The Powertrain contains the entire powertrain model, namely the tractive battery electrical/thermal systems. The mechanical system includes/will include suspension modeling, steering modeling, aero modeling, brake modeling, and tire modeling. 
 
 <h3 id="ptr"> Powertrain </h3>
+
+
 <h3 id="mech"> Mechanical System </h3>

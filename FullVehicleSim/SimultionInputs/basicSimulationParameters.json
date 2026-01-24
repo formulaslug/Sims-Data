@@ -5,5 +5,6 @@
     "VehicleSOC": 1,
     "AmbientTemperature": 23,
     "initialBatteryTemperature": 23,
-    "initialBrakeTemperature": 23
+    "initialBrakeTemperature": 23,
+    "inputInterpolationMethod": "linear"
 }

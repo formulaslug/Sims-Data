@@ -1,5 +1,6 @@
 import numpy as np
 from ramen import Parameters, Magic
+from dataclasses import dataclass
 
 # Our libraries
 # import yogurt as stepWorld
@@ -12,6 +13,7 @@ from Mech.steering import *
 from Mech.tireLoad import *
 from Mech.traction import *
 
+@dataclass
 class VehicleState:
     def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, lastCurrent, throttle, brakes, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
         self.stepSize:float = stepSize

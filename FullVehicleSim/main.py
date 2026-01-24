@@ -25,10 +25,8 @@ Inputs to consider:
 - SimDuration (Seconds?)
 - Max current limit (Amps)
 - Initial Vehicle charge (0-100% abstracted)
+- Interpolation Method
 '''
-
-
-
 
 if __name__ == "__main__":
     currVehicle = VehicleState(
