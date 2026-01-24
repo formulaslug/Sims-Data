@@ -18,15 +18,47 @@ if __name__ == "__main__":
 
     simulation_controls_path = args.simulation_controls
 
-    if simulation_controls_path:
-        if simulation_controls_path.endswith('.csv'):
+    if simulation_controls_path: # If not None or empty
+        if simulation_controls_path.endswith('.csv'): ## Check for csv and read as that
             df_controls = pl.read_csv(simulation_controls_path)
-        elif simulation_controls_path.endswith('.parquet'):
+        elif simulation_controls_path.endswith('.parquet'): ## Check for parquet and read as that
             df_controls = pl.read_parquet(simulation_controls_path)
         else:
             raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
     else:
         raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
+    
+    ## Double check it has the correct columns
+    if df_controls.columns != ['time', 'throttle', 'brakes', 'steerAngle']:
+        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakes', 'steerAngle'")
+    
+    totalSteps = Parameters["stepsPerSecond"] * Parameters["simulationDuration"]
+    steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
+    worldArray = np.array(totalSteps, dtype=VehicleState)
+
+    # Set the inital time to 0 if not already 0
+    timeSeries = df_controls['time'] - df_controls['time'][0]
+
+    # This takes the last time step and copies it out to the end of the simulation duration. 
+    # This has the effect of holding the last command constant until the end of the sim.
+    if timeSeries[-1] < Parameters["simulationDuration"]:
+        df_controls.vstack(pl.Dataframe({
+            'time': [Parameters["simulationDuration"]],
+            'throttle': df_controls["throttle"][-1],
+            'brakes': df_controls["brakes"][-1],
+            'steerAngle': df_controls["steerAngle"][-1]}))
+        
+    if Parameters["interpolationMethod"] == "cubic":
+        from scipy.interpolate import CubicSpline
+        cs = CubicSpline(timeSeries, df_controls.drop('time'))
+        controlInputs = cs(steps)
+    elif Parameters["interpolationMethod"] == "linear":
+        controlInputs = np.zeros((len(steps), 3))
+        controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
+        controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakes'])
+        controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['steerAngle'])
+    else:
+        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
     currVehicle = VehicleState(
                 stepSize = 1/Parameters["stepsPerSecond"],
@@ -38,34 +70,26 @@ if __name__ == "__main__":
                 steerAngle = 0,
                 brakeTemperature = Parameters["initialBrakeTemperature"],
                 timeSinceLastSteer = 0,
-                )
+                )    
 
-    # with open('controls.json', 'r') as file:
-    #     timeBasedInputs = json.load(file)
-    # timeBasedInputs = sorted((float(key), [float(value) for value in values]) for key, values in timeBasedInputs.items())
-    # # No inputs
-    # if len(timeBasedInputs) == 0:
-    #     raise Exception("controls.json must contain at least 1 valid input")
-    # vehicleStates = [currVehicle]
-
-    #timeBasedInputs = {2: [1,0,0], 6.3: [0,1,0.2]}
     start = time.time()
-    timeRunning = 0
-    currInput = 0
-    stepCount = 0
-    timeSinceLastSteer = 0
-    initSpeed = 0
-    for _ in range(simDuration*stepsPerSecond):
-        timeRunning += 1/stepsPerSecond
-        timeSinceLastSteer += 1/stepsPerSecond
-        for commamd in timeBasedInputs:
-            if currInput + 1 < len(timeBasedInputs) and timeBasedInputs[currInput+1][0] < timeRunning:
-                currInput += 1
-                if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
-                    timeSinceLastSteer = 0
-                    initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
+    # timeRunning = 0
+    # currInput = 0
+    # stepCount = 0
+    # timeSinceLastSteer = 0
+    # initSpeed = 0
+    for i in range(totalSteps):
+
+        # timeRunning += 1/stepsPerSecond
+        # timeSinceLastSteer += 1/stepsPerSecond
+        # for commamd in timeBasedInputs:
+        #     if currInput + 1 < len(timeBasedInputs) and timeBasedInputs[currInput+1][0] < timeRunning:
+        #         currInput += 1
+        #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
+        #             timeSinceLastSteer = 0
+        #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
         currVehicle = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed) # Step forward!!
-        vehicleStates.append(currVehicle)
+        worldArray[i] = currVehicle
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
     columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',

@@ -1,11 +1,13 @@
 {
     "Parameters": {
         "stepsPerSecond": 100,
+        "simulationDuration": 120,
+        "interpolationMethod": "cubic",
 
         "ambientTemperature": 20,
         "tractiveIMax": 300,
         "initialBrakeTemperature": 20,
-        "initialBatteryTemperature:": 20,
+        "initialBatteryTemperature": 20,
         "vehicleSOC": 1.0,
         "initSpeed": 0.0,
 
