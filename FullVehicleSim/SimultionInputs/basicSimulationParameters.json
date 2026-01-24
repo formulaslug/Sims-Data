@@ -1,0 +1,9 @@
+{
+    "stepsPerSecond": 100,
+    "simulationDuration": 20, 
+    "maxCurrentLimit": 300,
+    "VehicleSOC": 1,
+    "AmbientTemperature": 23,
+    "initialBatteryTemperature": 23,
+    "initialBrakeTemperature": 23
+}

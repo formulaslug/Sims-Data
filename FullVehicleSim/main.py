@@ -1,9 +1,17 @@
 import matplotlib.pyplot as plt
 import json
 import polars as pl
+import argparse
 
 from state import *
 from engine import *
+
+Parser = argparse.ArgumentParser(description='Full Vehicle Simulator')
+Parser.add_argument('--simulation_parameters', '-p', type=str,  help='Parameter File Path', required=True)
+Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=True)
+
+args = Parser.parse_args()
+
 
 # Sim parameters
 stepsPerSecond = 100
@@ -17,8 +25,9 @@ Inputs to consider:
 - SimDuration (Seconds?)
 - Max current limit (Amps)
 - Initial Vehicle charge (0-100% abstracted)
-
 '''
+
+
 
 
 if __name__ == "__main__":
