@@ -2,8 +2,8 @@
     "stepsPerSecond": 100,
     "simulationDuration": 20, 
     "maxCurrentLimit": 300,
-    "VehicleSOC": 1,
-    "AmbientTemperature": 23,
+    "vehicleSOC": 1,
+    "ambientTemperature": 23,
     "initialBatteryTemperature": 23,
     "initialBrakeTemperature": 23,
     "inputInterpolationMethod": "linear"

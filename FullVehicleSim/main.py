@@ -2,31 +2,45 @@ import matplotlib.pyplot as plt
 import json
 import polars as pl
 import argparse
+import time
 
 from state import *
 from engine import *
 
+## Argument Parsing. Should wind up like:
+# python main.py --simulation_parameters path/to/params.json --simulation_controls path/to/controls.csv
 Parser = argparse.ArgumentParser(description='Full Vehicle Simulator')
 Parser.add_argument('--simulation_parameters', '-p', type=str,  help='Parameter File Path', required=True)
 Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=True)
 
 args = Parser.parse_args()
 
+simulation_parameters_path = args.simulation_parameters
+simulation_controls_path = args.simulation_controls
 
-# Sim parameters
-stepsPerSecond = 100
-simDuration = 20
-import time
+if simulation_parameters_path:
+    with open(simulation_parameters_path, 'r') as f:
+        sim_params = json.load(f)
+        # Set parameters accordingly
+        vehicleSOC = sim_params.get("vehicleSOC", 1)
+        ambientTemperature = sim_params.get("ambientTemperature", 23)
+        initialBatteryTemperature = sim_params.get("initialBatteryTemperature", 23)
+        initialBrakeTemperature = sim_params.get("initialBrakeTemperature", 23)
+        input_interpolation_method = sim_params.get("inputInterpolationMethod", "cubic")
+        stepsPerSecond = sim_params.get("stepsPerSecond", 100)
+        simDuration = sim_params.get("simulationDuration", 120)
+else:
+    raise Exception("Please provide a valid simulation parameters file path using --simulation_parameters or -p")
 
-'''
-Inputs to consider:
-- Dataframe of time vs inputs (throttle, brake, steer)
-- StepsPerSecond (Quantity)
-- SimDuration (Seconds?)
-- Max current limit (Amps)
-- Initial Vehicle charge (0-100% abstracted)
-- Interpolation Method
-'''
+if simulation_controls_path:
+    if simulation_controls_path.endswith('.csv'):
+        df_controls = pl.read_csv(simulation_controls_path)
+    elif simulation_controls_path.endswith('.parquet'):
+        df_controls = pl.read_parquet(simulation_controls_path)
+    else:
+        raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
+else:
+    raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
 
 if __name__ == "__main__":
     currVehicle = VehicleState(
