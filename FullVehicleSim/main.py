@@ -10,6 +10,17 @@ stepsPerSecond = 100
 simDuration = 20
 import time
 
+'''
+Inputs to consider:
+- Dataframe of time vs inputs (throttle, brake, steer)
+- StepsPerSecond (Quantity)
+- SimDuration (Seconds?)
+- Max current limit (Amps)
+- Initial Vehicle charge (0-100% abstracted)
+
+'''
+
+
 if __name__ == "__main__":
     currVehicle = VehicleState(
                 stepSize = 1/stepsPerSecond,
