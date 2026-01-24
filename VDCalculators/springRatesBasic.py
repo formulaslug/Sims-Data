@@ -171,7 +171,7 @@ def roll_angle_vs_speed_calc(speeds, ay, frontKS, rearKS):
 
     return np.array(roll_angles)
 
-def roll_anlge_vs_speed_display(ay):
+def roll_angle_vs_speed_display(ay):
     speeds = np.linspace(10, 35, 40)
     
 
@@ -188,12 +188,11 @@ def roll_anlge_vs_speed_display(ay):
     plt.grid(True)
     plt.show()
 #for roll angle vs speed at a set g, call the display one with a constant ay as g's
-
-roll_anlge_vs_speed_display(4)
-frontKW = compute_spring_rates(masterV,masterAy, TRG)[0]
-rearKW = compute_spring_rates(masterV,masterAy, TRG)[1]
-frontKS = compute_spring_rates(masterV,masterAy, TRG)[2]
-rearKS = compute_spring_rates(masterV,masterAy, TRG)[3]
+computed_spring_rates = compute_spring_rates(masterV,masterAy, TRG)
+frontKW = computed_spring_rates[0]
+rearKW = computed_spring_rates[1]
+frontKS = computed_spring_rates[2]
+rearKS = computed_spring_rates[3]
 
 ###     Print results     ###
 
@@ -203,3 +202,5 @@ print("Front Spring Rate (N/m):", frontKS)
 print("Rear Spring Rate (N/m):", rearKS)
 print("Front Spring Rate (lbf/in):", frontKS * multiplier)
 print("Rear Spring Rate (lbf/in):", rearKS * multiplier)
+
+roll_angle_vs_speed_display(4)
