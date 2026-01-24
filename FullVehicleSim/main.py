@@ -4,70 +4,49 @@ import polars as pl
 import argparse
 import time
 
+from paramLoader import Magic, Parameters
 from state import *
 from engine import *
 
-## Argument Parsing. Should wind up like:
-# python main.py --simulation_parameters path/to/params.json --simulation_controls path/to/controls.csv
-Parser = argparse.ArgumentParser(description='Full Vehicle Simulator')
-Parser.add_argument('--simulation_parameters', '-p', type=str,  help='Parameter File Path', required=True)
-Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=True)
-
-args = Parser.parse_args()
-
-simulation_parameters_path = args.simulation_parameters
-simulation_controls_path = args.simulation_controls
-
-if simulation_parameters_path:
-    with open(simulation_parameters_path, 'r') as f:
-        sim_params = json.load(f)
-        # Set parameters accordingly
-        vehicleSOC = sim_params.get("vehicleSOC", 1)
-        ambientTemperature = sim_params.get("ambientTemperature", 23)
-        initialBatteryTemperature = sim_params.get("initialBatteryTemperature", 23)
-        initialBrakeTemperature = sim_params.get("initialBrakeTemperature", 23)
-        input_interpolation_method = sim_params.get("inputInterpolationMethod", "cubic")
-        stepsPerSecond = sim_params.get("stepsPerSecond", 100)
-        simDuration = sim_params.get("simulationDuration", 120)
-else:
-    raise Exception("Please provide a valid simulation parameters file path using --simulation_parameters or -p")
-
-if simulation_controls_path:
-    if simulation_controls_path.endswith('.csv'):
-        df_controls = pl.read_csv(simulation_controls_path)
-    elif simulation_controls_path.endswith('.parquet'):
-        df_controls = pl.read_parquet(simulation_controls_path)
-    else:
-        raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
-else:
-    raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
-
 if __name__ == "__main__":
+    ## Argument Parsing. Should wind up like:
+    # python main.py --simulation_parameters path/to/params.json --simulation_controls path/to/controls.csv
+    Parser = argparse.ArgumentParser(description='Full Vehicle Simulator')
+    Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=True)
+
+    args = Parser.parse_args()
+
+    simulation_controls_path = args.simulation_controls
+
+    if simulation_controls_path:
+        if simulation_controls_path.endswith('.csv'):
+            df_controls = pl.read_csv(simulation_controls_path)
+        elif simulation_controls_path.endswith('.parquet'):
+            df_controls = pl.read_parquet(simulation_controls_path)
+        else:
+            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
+    else:
+        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
+
     currVehicle = VehicleState(
-                stepSize = 1/stepsPerSecond,
+                stepSize = 1/Parameters["stepsPerSecond"],
                 position=np.asarray([0,0,0], dtype=np.float32),
                 speed=0,
-                acceleration=0,
                 heading = np.asarray([1,0,0], dtype=np.float32),
-                charge=50,
-                lastCurrent=0,
-                throttle = 0,
-                brakes = 0,
+                charge=Parameters["vehicleSOC"],
                 yawRate = 0,
                 steerAngle = 0,
-                brakeTemperature = 150,
+                brakeTemperature = Parameters["initialBrakeTemperature"],
                 timeSinceLastSteer = 0,
-                initSpeed = 0
                 )
 
-    with open('controls.json', 'r') as file:
-        timeBasedInputs = json.load(file)
-    timeBasedInputs = sorted((float(key), [float(value) for value in values]) for key, values in timeBasedInputs.items())
-    # No inputs
-    if len(timeBasedInputs) == 0:
-        raise Exception("controls.json must contain at least 1 valid input")
-    vehicleStates = [currVehicle]
-
+    # with open('controls.json', 'r') as file:
+    #     timeBasedInputs = json.load(file)
+    # timeBasedInputs = sorted((float(key), [float(value) for value in values]) for key, values in timeBasedInputs.items())
+    # # No inputs
+    # if len(timeBasedInputs) == 0:
+    #     raise Exception("controls.json must contain at least 1 valid input")
+    # vehicleStates = [currVehicle]
 
     #timeBasedInputs = {2: [1,0,0], 6.3: [0,1,0.2]}
     start = time.time()

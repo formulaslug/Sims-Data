@@ -1,6 +1,16 @@
 {
     "Parameters": {
+        "stepsPerSecond": 100,
+
         "ambientTemperature": 20,
+        "tractiveIMax": 300,
+        "initialBrakeTemperature": 20,
+        "initialBatteryTemperature:": 20,
+        "vehicleSOC": 1.0,
+        "initSpeed": 0.0,
+
+        "dragCoeffAreaCombo": 1.0858790012112278,
+        "rollingResistanceCoeff": 0.020926359062619436,
 
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216,
@@ -11,7 +21,6 @@
         "unloaded-radius": 1.7333,
         "p_0": 82000,
         "load_0": 300,
-        "tractiveIMax": 300,
 
         "Mass": 300,
         "wheelBase": 1.65471,

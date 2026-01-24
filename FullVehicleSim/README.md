@@ -23,19 +23,7 @@ If you want more information on the basis of some of these simulation parts, you
 
 <h3 id="pars"> Simulation Parameters </h3>
 
-This is a json input file with a bunch of inputs for the simulation. Unfortunately JSON doesn't support comments so the unit explanations have to go here. It looks something like this:
-```json
-{
-    "stepsPerSecond": 100,
-    "simulationDuration": 20, // Seconds 
-    "maxCurrentLimit": 300, //Amps
-    "VehicleSOC": 1, // Out of 1
-    "AmbientTemperature": 23, // Deg C
-    "initialBatteryTemperature": 23, // Deg C
-    "initialBrakeTemperature": 23, // Deg C
-    "interpolationMethod": "linear" // linear or cubic
-}
-```
+This is a json input file with a bunch of inputs for the simulation. Unfortunately JSON doesn't support comments so the unit explanations have to go here. The file is [params.json](params.json). Tweak this for all the indepth constants and higher level stuff like step size and simulation duration.
 
 <h3 id="ctrls"> Simulation Controls </h3>
 
