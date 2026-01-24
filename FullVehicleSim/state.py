@@ -1,4 +1,3 @@
-
 import numpy as np
 from ramen import Parameters, Magic
 
@@ -6,7 +5,7 @@ from ramen import Parameters, Magic
 # import yogurt as stepWorld
 # from TireModel import dumpling as tire
 # from Mech.mechanical import *
-from MBS.lionCellModel import *
+from Powertrain.lionCellModel import *
 from Mech.aero import calculateDrag
 from Mech.braking import *
 from Mech.steering import *
