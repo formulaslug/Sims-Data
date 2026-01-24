@@ -48,6 +48,8 @@ if __name__ == "__main__":
             'brakes': df_controls["brakes"][-1],
             'steerAngle': df_controls["steerAngle"][-1]}))
         
+    # Interpolation to make the command inputs match the simulation time steps
+    # Use cubic spline for driver's real inputs
     if Parameters["interpolationMethod"] == "cubic":
         from scipy.interpolate import CubicSpline
         cs = CubicSpline(timeSeries, df_controls.drop('time'))
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
-    currVehicle = VehicleState(
+    worldArray[0] = VehicleState(
                 stepSize = 1/Parameters["stepsPerSecond"],
                 position=np.asarray([0,0,0], dtype=np.float32),
                 speed=0,
@@ -88,8 +90,8 @@ if __name__ == "__main__":
         #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        currVehicle = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed) # Step forward!!
-        worldArray[i] = currVehicle
+        worldArray[i] = stepState(worldArray[i-1], controlInputs[i], 1/Parameters["stepsPerSecond"], timeSinceLastSteer, initSpeed) # Step forward!!
+        
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
     columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
@@ -104,7 +106,7 @@ if __name__ == "__main__":
     timeCol = []
     runningTime = 0
 
-    for state in vehicleStates:
+    for state in worldArray:
         timeCol.append(runningTime)
         dataRows.append(state.logProperties())
         runningTime += 1/stepsPerSecond

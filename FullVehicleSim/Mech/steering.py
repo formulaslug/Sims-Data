@@ -95,27 +95,28 @@ def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, fro
 
     #print(c, Cc)
 
-    if zeta < 1: # Underdamped
-        omega_d = np.sqrt(1 - zeta**2) * omega_n
-        A = -r_inf
-        B = (r_dot_0 - zeta * omega_n * r_inf) / omega_d
-        exp_term = np.exp(-zeta * omega_n * timeSinceLastSteer)
-        cos_term = A * np.cos(omega_d * timeSinceLastSteer)
-        sin_term = B * np.sin(omega_d * timeSinceLastSteer)
-        normalizedR = exp_term * (cos_term + sin_term) + r_inf
-    elif zeta > 1: # Overdamped
-        f = (-zeta - np.sqrt(zeta**2 - 1)) * omega_n
-        g = (-zeta + np.sqrt(zeta**2 - 1)) * omega_n
-        A = (r_dot_0 + r_inf * f) / (g - f)
-        B = -(A + r_inf)
-        r = A * np.exp(g * timeSinceLastSteer) + B * np.exp(f * timeSinceLastSteer) + r_inf
-        normalizedR = r / r_inf
-    else: # Critically
-        term1 = (-1* (CF * stepSteerInput * a)/(I * r_inf) - omega_n)
-        normalizedR = (-1 + term1 * timeSinceLastSteer) * np.e **(-1 * omega_n * timeSinceLastSteer) + 1
+    # if zeta < 1: # Underdamped
+    #     omega_d = np.sqrt(1 - zeta**2) * omega_n
+    #     A = -r_inf
+    #     B = (r_dot_0 - zeta * omega_n * r_inf) / omega_d
+    #     exp_term = np.exp(-zeta * omega_n * timeSinceLastSteer)
+    #     cos_term = A * np.cos(omega_d * timeSinceLastSteer)
+    #     sin_term = B * np.sin(omega_d * timeSinceLastSteer)
+    #     normalizedR = exp_term * (cos_term + sin_term) + r_inf
+    # elif zeta > 1: # Overdamped
+    #     f = (-zeta - np.sqrt(zeta**2 - 1)) * omega_n
+    #     g = (-zeta + np.sqrt(zeta**2 - 1)) * omega_n
+    #     A = (r_dot_0 + r_inf * f) / (g - f)
+    #     B = -(A + r_inf)
+    #     r = A * np.exp(g * timeSinceLastSteer) + B * np.exp(f * timeSinceLastSteer) + r_inf
+    #     normalizedR = r / r_inf
+    # else: # Critically
+    #     term1 = (-1* (CF * stepSteerInput * a)/(I * r_inf) - omega_n)
+    #     normalizedR = (-1 + term1 * timeSinceLastSteer) * np.e **(-1 * omega_n * timeSinceLastSteer) + 1
 
     #print("STEERING INPUT", normalizedR, r_inf, zeta, Cc, omega_n, r_dot_0, r_inf, C2, k, c, YR_v, NR_v, N_delta, N_beta, Y_delta, Y_beta)
-    return normalizedR * r_inf
+    # return normalizedR * r_inf
+    return r_inf
 
 # parameters = {"Mass": 300, "polarMoment": 658.088580080000, "a": 0.853506, "wheelBase": 1.65471}
 # for i in np.arange(0, 1, 0.02):
