@@ -14,30 +14,31 @@ from Mech.traction import *
 
 class VehicleState:
     def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, lastCurrent, throttle, brakes, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
-        self.stepSize = stepSize
-        self.initYawRate = yawRate
-        self.steerAngle = steerAngle
-        self.brakes = brakes
-        self.throttle = throttle
-        self.position = position
-        self.speed = speed
-        self.initAcceleration = acceleration
-        self.heading = heading
-        self.charge = charge
-        self.lastCurrent = lastCurrent
-        self.WheelCircumference = Parameters["wheelCircumferance"]
-        self.WheelRadius = Parameters["wheelRadius"]
-        self.GearRatio = Parameters["gearRatio"]
-        self.TorqueMax = Parameters["maxTorque"]
-        self.tractiveIMax = Parameters["tractiveIMax"]
-        self.brakeTemperature = brakeTemperature
-        self.timeSinceLastSteer = timeSinceLastSteer
-        self.initSpeed = initSpeed
+        self.stepSize:float = stepSize
+        self.initYawRate:float = yawRate
+        self.steerAngle:float = steerAngle
+        # self.brakes:float = brakes
+        # self.throttle:float = throttle
+        self.position:np.ndarray = position
+        self.speed:float = speed
+        self.initAcceleration:np.ndarray = acceleration
+        self.heading:np.ndarray = heading
+        self.charge:float = charge
+        self.lastCurrent:float = lastCurrent
+        self.WheelCircumference:float = Parameters["wheelCircumferance"]
+        self.WheelRadius:float = Parameters["wheelRadius"]
+        self.GearRatio:float = Parameters["gearRatio"]
+        self.TorqueMax:float = Parameters["maxTorque"]
+        self.tractiveIMax:float = Parameters["tractiveIMax"]
+        self.brakeTemperature:float = brakeTemperature
+        self.timeSinceLastSteer:float = timeSinceLastSteer
+        self.initSpeed:float = initSpeed
 
         #self.wheelRPM: np.array = np.asarray([0,0,0,0], dtype=np.float32)
         #self.wheelRotationsHz: float = self.speed / self.WheelCircumference * 2.0 * np.pi
         self.tires:np.ndarray = np.asarray([None, None, None, None])#, dtype=tire.Tire) # [FL, FR, BL, BR]
 
+    ## Not a property, fix.
     @property
     def yawRate(self):
         tireLoad = getloadTransfer(Parameters, self.initAcceleration * self.heading[0], self.initAcceleration * self.heading[1], self.initYawRate)
@@ -56,10 +57,12 @@ class VehicleState:
     def velocity(self):
         return self.heading * self.speed
 
+    ## Not a property, fix.
     @property
     def drag(self):
         return calculateDrag(self.heading, self.speed)
 
+    ## Not a property, fix.
     @property
     def resistiveForces(self):
         if self.speed <= 1e-5: # Floating point error
@@ -70,6 +73,7 @@ class VehicleState:
             brakeForce, self.brakeTemperature = getBrakeForce(self.speed, self.brakeTemperature, self.stepSize, Parameters)
             return -1 * (self.drag + brakeForce)
 
+    ## Not a property, fix.
     @property
     def cooledBrakeTemperature(self):
         return calculateBrakeCooling(self.brakeTemperature, self.stepSize, Parameters)
@@ -95,18 +99,27 @@ class VehicleState:
         return self.tractiveIMax * self.voltage
 
     @property
-    def torque(self):
-        return self.motorTorque * self.GearRatio
+    def maxWheelTorque(self):
+        '''
+        maxMotorTorque * gear rato
+        '''
+        return self.maxMotorTorque * self.GearRatio
 
     @property
-    def motorTorque(self):
-        if self.rpm > 7500:
+    def maxMotorTorque(self):
+        '''
+        Motor Torque at the wheel
+        
+        minimum(rpm limited torque, power limited torque, perfect traction torque)
+        '''
+        ## RPM Limited Torque (Motor Controller limits it to ~ this in practice. Maybe something more like 7490ish)
+        if self.rpm > 7490:
             return -1 * self.resistiveForces * self.WheelRadius
-        if self.motorRotationsHZ != 0:
-            maxPowerTorque = self.maxPower / self.motorRotationsHZ * self.GearRatio
-        else:
-            maxPowerTorque = 1e6
-        perfectTractionTorque = self.TorqueMax * self.throttle
+        if self.motorRotationsHZ != 0: ## If rolling, torque may be power limited. 
+            maxPowerTorque = self.maxPower / self. motorRotationsHZ * self.GearRatio
+        else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
+            maxPowerTorque = 180.0 # Nm at 0 rpm
+        perfectTractionTorque = self.TorqueMax
         torque = min(perfectTractionTorque, maxPowerTorque, self.maxTractionTorqueAtWheel/self.GearRatio)
         return torque
 
@@ -116,7 +129,7 @@ class VehicleState:
 
     @property
     def power(self):
-        return np.linalg.norm(self.motorTorque) * self.motorRotationsHZ
+        return np.linalg.norm(self.maxMotorTorque) * self.motorRotationsHZ
 
     @property
     def current(self):
@@ -147,7 +160,7 @@ class VehicleState:
 
     @property
     def motorForce(self):
-        return (self.torque / self.WheelRadius)
+        return (self.maxWheelTorque / self.WheelRadius)
 
     @property
     def netForce(self):
@@ -167,7 +180,7 @@ class VehicleState:
                 self.brakes,
                 self.drag, self.resistiveForces,
                 self.motorForce, self.netForce,
-                self.torque, self.motorTorque,
+                self.maxWheelTorque, self.maxMotorTorque,
                 self.maxTraction, self.maxTractionTorqueAtWheel,
                 self.cooledBrakeTemperature,
                 self.calcWheelRPM, self.wheelRotationsHZ,
