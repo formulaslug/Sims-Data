@@ -4,7 +4,7 @@ try:
     _HERE = os.path.dirname(__file__)
 except NameError:
     _HERE = os.getcwd()
-def _find_fullvehiclesim(start_dir):
+def _find_fullvehiclesim(start_dir): #CC: function to find files??? 
     d = os.path.abspath(start_dir)
     for _ in range(10):
         cand = os.path.join(d, "FullVehicleSim")
@@ -25,7 +25,10 @@ with open(PARAMS_PATH, "r") as f:
     params = json.load(f)
 Parameters = params["Parameters"]
 Magic      = params["Magic"]
-L  = 1.589989
+#L, Tf, Tr, h_cg (m)
+#m (kg)
+#g (m/s^2)
+L  = 1.589989 
 Tf = 1.234008
 Tr = 1.186
 m  = 210.92
