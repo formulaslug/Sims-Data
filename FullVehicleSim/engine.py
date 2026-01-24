@@ -24,11 +24,12 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
 
 
-def stepState(worldPrev, inputsRaw, delta, timeSinceLastSteer, initSpeed):
+def stepState(worldPrev, inputs, delta, timeSinceLastSteer, initSpeed):
 
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
-    inputs = [inputsRaw[0] * 0.75, inputsRaw[1], inputsRaw[2]]
+    # Made it so you can just comment this out when it's fixed.
+    inputs = [inputs[0] * 0.75, inputs[1], inputs[2]]
 
     charge = worldPrev.charge - worldPrev.current * delta / 3600.0
     position = worldPrev.position + worldPrev.velocity * delta

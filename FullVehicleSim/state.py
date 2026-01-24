@@ -15,7 +15,7 @@ from Mech.traction import *
 
 @dataclass
 class VehicleState:
-    def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, lastCurrent, throttle, brakes, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
+    def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
         self.stepSize:float = stepSize
         self.initYawRate:float = yawRate
         self.steerAngle:float = steerAngle
@@ -23,6 +23,7 @@ class VehicleState:
         self.speed:float = speed
         self.initAcceleration:np.ndarray = acceleration
         self.heading:np.ndarray = heading
+        self.yawRate:float = yawRate
         self.charge:float = charge
         self.brakeTemperature:float = brakeTemperature
         self.timeSinceLastSteer:float = timeSinceLastSteer
