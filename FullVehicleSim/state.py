@@ -31,22 +31,6 @@ class VehicleState:
     def velocity(self):
         return self.heading * self.speed
 
-    ## Not a property, fix.
-    @property
-    def resistiveForces(self):
-        if self.speed <= 1e-5: # Floating point error
-            return 0
-        elif self.brakes == 0:
-            return calculateDrag(self.heading, self.speed)
-        else:
-            brakeForce, self.brakeTemperature = getBrakeForce(self.speed, self.brakeTemperature, self.stepSize, Parameters)
-            return -1 * (calculateDrag(self.heading, self.speed) + brakeForce)
-
-    ## Not a property, fix.
-    @property
-    def cooledBrakeTemperature(self):
-        return calculateBrakeCooling(self.brakeTemperature)
-
     @property
     def wheelRPM(self):
         return self.speed / Parameters["wheelCircumferance"] * 60.0
@@ -67,60 +51,13 @@ class VehicleState:
         return Parameters["tractiveIMax"] * self.voltage
 
     @property
-    def maxWheelTorque(self):
-        '''
-        maxMotorTorque * gear rato
-        '''
-        return self.maxMotorTorque * Parameters["gearRatio"]
-
-    @property
-    def maxMotorTorque(self):
-        '''
-        Motor Torque at the wheel
-        
-        minimum(rpm limited torque, power limited torque, perfect traction torque)
-        '''
-        ## RPM Limited Torque (Motor Controller limits it to ~ this in practice. Maybe something more like 7490ish)
-        if self.motorRPM > 7490:
-            return -1 * self.resistiveForces * Parameters["wheelRadius"]
-        if self.motorRotationsHZ != 0: ## If rolling, torque may be power limited. 
-            maxPowerTorque = self.maxPower / self.motorRotationsHZ * Parameters["gearRatio"]
-        else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
-            maxPowerTorque = 180.0 # Nm at 0 rpm
-        perfectTractionTorque = Parameters["maxTorque"]
-        torque = min(perfectTractionTorque, maxPowerTorque, self.maxTractionTorqueAtWheel/Parameters["gearRatio"])
-        return torque
-
-    @property
     def voltage(self):
         # return 28.0 * lookup(self.charge, self.lastCurrent)
         return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
 
     @property
-    def power(self):
-        # return np.linalg.norm(self.maxMotorTorque) * self.motorRotationsHZ --> Why was this norm?
-        return self.maxMotorTorque * self.motorRotationsHZ
-
-    @property
-    def current(self):
-        if (self.power / self.voltage) > Parameters["tractiveIMax"]:
-            return Parameters["tractiveIMax"]
-        return self.power / self.voltage
-
-    @property
     def maxTractionTorqueAtWheel(self):
         return Parameters["maxTractionTorque"] * Parameters["wheelRadius"]
-
-    @property
-    def motorForce(self):
-        return (self.maxWheelTorque / Parameters["wheelRadius"])
-    @property
-    def netForce(self):
-        return self.motorForce + self.resistiveForces
-
-    @property
-    def acceleration(self):
-        return self.netForce / Parameters["Mass"]
 
 class SF():
     '''
@@ -187,3 +124,53 @@ class SF():
     
         #tempTire = tire.Tire(500 , 0.15, 0, self.speed, 80, 40, Parameters, Magic)
         #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))
+
+    @staticmethod
+    def resistiveForces(speed, brakes, heading, brakeTemperature):
+        if speed <= 1e-5: # Floating point error
+            return 0
+        elif brakes == 0:
+            return calculateDrag(heading, speed)
+        else:
+            brakeForce, brakeTemperature = getBrakeForceAndTemp(speed, brakeTemperature, Parameters)
+            return -1 * (calculateDrag(heading, speed) + brakeForce)
+        
+    @staticmethod
+    def maxMotorTorque(motorRPM, motorRotationsHZ, resistiveForces, maxPower, maxTractionTorqueAtWheel):
+        '''
+        Motor Torque at the wheel
+        
+        minimum(rpm limited torque, power limited torque, perfect traction torque)
+        '''
+        ## RPM Limited Torque (Motor Controller limits it to ~ this in practice. Maybe something more like 7490ish)
+        if motorRPM > 7490:
+            return -1 * resistiveForces * Parameters["wheelRadius"]
+        if motorRotationsHZ != 0: ## If rolling, torque may be power limited. 
+            maxPowerTorque = maxPower / motorRotationsHZ * Parameters["gearRatio"]
+        else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
+            maxPowerTorque = 180.0 # Nm at 0 rpm
+        perfectTractionTorque = Parameters["maxTorque"]
+        torque = min(perfectTractionTorque, maxPowerTorque, maxTractionTorqueAtWheel/Parameters["gearRatio"])
+        return torque
+    
+    @staticmethod
+    def power(maxMotorTorque, motorRotationsHZ):
+        # return np.linalg.norm(self.maxMotorTorque) * self.motorRotationsHZ --> Why was this norm?
+        return maxMotorTorque * motorRotationsHZ
+    
+    @staticmethod
+    def current(power, voltage):
+        if (power / voltage) > Parameters["tractiveIMax"]:
+            return Parameters["tractiveIMax"]
+        return power / voltage
+    
+    @staticmethod
+    def maxWheelTorque(maxMotorTorque):
+        '''
+        maxMotorTorque * gear rato
+        '''
+        return maxMotorTorque * Parameters["gearRatio"]
+    
+    @staticmethod
+    def motorForce(maxWheelTorque):
+        return (maxWheelTorque / Parameters["wheelRadius"])

@@ -1,7 +1,7 @@
 
 from paramLoader import Parameters
 import numpy as np
-from state import VehicleState
+from state import SF, VehicleState
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
@@ -24,7 +24,7 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
 
 
-def stepState(worldPrev, inputs):
+def stepState(worldPrev:VehicleState, inputs):
 
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
@@ -39,10 +39,9 @@ def stepState(worldPrev, inputs):
     if inputs[2] == 0:
         yawRate = 0
     heading = calculateHeading(worldPrev.heading, yawRate, delta)
-    acceleration = worldPrev.acceleration
+    acceleration = worldPrev.maxMotorTorque / Parameters["Mass"]
 
     worldNext = VehicleState(
-        stepSize = delta,
         position=position,
         speed=speed, 
         heading = heading,
