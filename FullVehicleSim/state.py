@@ -45,7 +45,7 @@ class VehicleState:
     ## Not a property, fix.
     @property
     def cooledBrakeTemperature(self):
-        return calculateBrakeCooling(self.brakeTemperature, self.stepSize, Parameters)
+        return calculateBrakeCooling(self.brakeTemperature)
 
     @property
     def wheelRPM(self):
@@ -121,28 +121,6 @@ class VehicleState:
     @property
     def acceleration(self):
         return self.netForce / Parameters["Mass"]
-
-    def logProperties(self):
-        return [self.position[0], self.position[1],
-                self.velocity[0], self.velocity[1],
-                self.speed, self.acceleration,
-                self.heading[0], self.heading[1],
-                self.yawRate,
-                self.steerAngle, self.throttle,
-                self.brakes,
-                self.drag, self.resistiveForces,
-                self.motorForce, self.netForce,
-                self.maxWheelTorque, self.maxMotorTorque,
-                self.maxTraction, self.maxTractionTorqueAtWheel,
-                self.cooledBrakeTemperature,
-                self.wheelRPM, self.wheelRotationsHZ,
-                self.motorRPM, self.motorRotationsHZ,
-                self.charge, self.voltage,
-                self.current, self.power,
-                self.maxPower,
-                self.stepSize,
-                self.timeSinceLastSteer
-            ]
 
 class SF():
     '''
