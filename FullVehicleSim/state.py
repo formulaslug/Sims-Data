@@ -15,7 +15,7 @@ from Mech.traction import *
 
 @dataclass
 class VehicleState:
-    def __init__(self, stepSize, position:np.ndarray, speed:float, acceleration:np.ndarray, heading, charge, yawRate, steerAngle, brakeTemperature, timeSinceLastSteer, initSpeed):
+    def __init__(self, position, speed, heading, charge, yawRate, brakeTemperature, motorRPM):
         self.position:np.ndarray = position
         self.speed:float = speed
         self.heading:np.ndarray = heading
@@ -46,14 +46,6 @@ class VehicleState:
     def motorRotationsHZ(self):
         return self.wheelRotationsHZ * Parameters["gearRatio"]
 
-    @property
-    def maxPower(self):
-        return Parameters["tractiveIMax"] * self.voltage
-
-    @property
-    def voltage(self):
-        # return 28.0 * lookup(self.charge, self.lastCurrent)
-        return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
 
     @property
     def maxTractionTorqueAtWheel(self):
@@ -103,7 +95,7 @@ class SF():
             The speed of the vehicle, in m/s.
         Returns
         -------
-        np.ndarray[np.float32]
+        np.float32
             The magnitude of the maximum available traction force, in Newtons.
         Notes
         -----
@@ -126,37 +118,32 @@ class SF():
         #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))
 
     @staticmethod
-    def resistiveForces(speed, brakes, heading, brakeTemperature):
-        if speed <= 1e-5: # Floating point error
+    def resistiveForces(worldPrev, brakes):
+        if worldPrev.speed <= 1e-5: # Floating point error
             return 0
         elif brakes == 0:
-            return calculateDrag(heading, speed)
+            return calculateDrag(worldPrev.heading, worldPrev.speed)
         else:
-            brakeForce, brakeTemperature = getBrakeForceAndTemp(speed, brakeTemperature, Parameters)
-            return -1 * (calculateDrag(heading, speed) + brakeForce)
+            brakeForce, brakeTemperature = getBrakeForceAndTemp(worldPrev.speed, worldPrev.brakeTemperature, Parameters)
+            return -1 * (calculateDrag(worldPrev.heading, worldPrev.speed) + brakeForce)
         
     @staticmethod
-    def maxMotorTorque(motorRPM, motorRotationsHZ, resistiveForces, maxPower, maxTractionTorqueAtWheel):
+    def maxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
         '''
         Motor Torque at the wheel
         
         minimum(rpm limited torque, power limited torque, perfect traction torque)
         '''
         ## RPM Limited Torque (Motor Controller limits it to ~ this in practice. Maybe something more like 7490ish)
-        if motorRPM > 7490:
+        if worldPrev.motorRPM > 7490:
             return -1 * resistiveForces * Parameters["wheelRadius"]
-        if motorRotationsHZ != 0: ## If rolling, torque may be power limited. 
-            maxPowerTorque = maxPower / motorRotationsHZ * Parameters["gearRatio"]
+        if worldPrev.motorRotationsHZ != 0: ## If rolling, torque may be power limited. 
+            maxPowerTorque = maxPower / worldPrev.motorRotationsHZ * Parameters["gearRatio"]
         else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
             maxPowerTorque = 180.0 # Nm at 0 rpm
         perfectTractionTorque = Parameters["maxTorque"]
         torque = min(perfectTractionTorque, maxPowerTorque, maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
-    
-    @staticmethod
-    def power(maxMotorTorque, motorRotationsHZ):
-        # return np.linalg.norm(self.maxMotorTorque) * self.motorRotationsHZ --> Why was this norm?
-        return maxMotorTorque * motorRotationsHZ
     
     @staticmethod
     def current(power, voltage):
@@ -174,3 +161,11 @@ class SF():
     @staticmethod
     def motorForce(maxWheelTorque):
         return (maxWheelTorque / Parameters["wheelRadius"])
+    
+    @staticmethod
+    def maxPower(voltage):
+        return Parameters["tractiveIMax"] * voltage
+    @staticmethod
+    def voltage():
+        # return 28.0 * lookup(self.charge, self.lastCurrent)
+        return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis

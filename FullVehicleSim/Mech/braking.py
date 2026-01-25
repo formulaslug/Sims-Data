@@ -3,7 +3,7 @@ import numpy as np
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of this function is to calculate the net force on the brakes, applied reverse to heading
-def getBrakeForceAndTemp(speed, previousBrakeTemperature, parameters):
+def getBrakeForceAndTemp(prevWorld, parameters):
     """
     Calculate the brake force and updated brake temperature.
     
@@ -13,12 +13,12 @@ def getBrakeForceAndTemp(speed, previousBrakeTemperature, parameters):
     :return: Tuple of (brakeForce, brakeTemperature)
     """
     # Calculate Brake Force
-    brakeForce = brakepadFrictionModel.getFriction(previousBrakeTemperature) * parameters["maxBrakeForce"] * 4
+    brakeForce = brakepadFrictionModel.getFriction(prevWorld.brakeTemperature) * parameters["maxBrakeForce"] * 4
     # Guess energy increase
     speedChange = brakeForce / parameters["Mass"] * parameters["stepSize"] # momentum impulse
-    energyChange = 0.5 * parameters["Mass"] * (speed - (speed - speedChange))
+    energyChange = 0.5 * parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
     # Guess temperature increase
-    brakeTemperature = previousBrakeTemperature + energyChange/(parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"])
+    brakeTemperature = prevWorld.brakeTemperature + energyChange/(parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"])
     return brakeForce, brakeTemperature
 
 def calculateBrakeCooling(previousBrakeTemperature, parameters):

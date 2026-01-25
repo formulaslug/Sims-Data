@@ -1,7 +1,7 @@
 
 from paramLoader import Parameters
 import numpy as np
-from state import SF, VehicleState
+from state import SF, VehicleState, calculateBrakeCooling, getBrakeForceAndTemp
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
@@ -22,31 +22,43 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
     return np.append(new_heading, 0)
 
-
-
 def stepState(worldPrev:VehicleState, inputs):
 
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
     # Made it so you can just comment this out when it's fixed.
-    inputs = [inputs[0] * 0.75, inputs[1], inputs[2]]
+    # Throttle, brake, steering angle
     delta = 1/Parameters["stepsPerSecond"]
 
-    charge = worldPrev.charge - worldPrev.current * delta / 3600.0
+    maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
+    voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
+    maxPower = SF.maxPower(voltage) # Watts
+    resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
+    _, brakeTemp = getBrakeForceAndTemp(worldPrev, Parameters)
+    brakeTemp = calculateBrakeCooling(brakeTemp, Parameters)
+    maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
+    motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
+    power = motorTorque * worldPrev.motorRotationsHZ # Watts
+    motorForce = SF.motorForce(motorTorque) # Newtons
+    netForce = motorForce + resistiveForces # Newtons
+    acceleration = netForce / Parameters["Mass"] # m/s^2
+    current = power/voltage # Amps
+
+    charge = worldPrev.charge - current * delta / 3600.0
     position = worldPrev.position + worldPrev.velocity * delta
-    speed = max(0, worldPrev.speed + worldPrev.acceleration * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
+    speed = max(0, worldPrev.speed + acceleration * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
     yawRate = worldPrev.yawRate
     if inputs[2] == 0:
         yawRate = 0
     heading = calculateHeading(worldPrev.heading, yawRate, delta)
-    acceleration = worldPrev.maxMotorTorque / Parameters["Mass"]
+    
 
     worldNext = VehicleState(
         position=position,
         speed=speed, 
         heading = heading,
         charge=charge,
-        brakeTemperature = worldPrev.cooledBrakeTemperature,
+        brakeTemperature = brakeTemp,
         yawRate = worldPrev.yawRate
     )
     return worldNext

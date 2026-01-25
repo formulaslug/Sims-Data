@@ -16,7 +16,7 @@
 
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216,
-        "gearRatio": 3.33333333,
+        "gearRatio": 3.41667,
         "maxTorque": 180,
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
