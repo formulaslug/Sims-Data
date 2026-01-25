@@ -210,3 +210,4 @@ __marimo__/
 /Docs/todo.md
 .fake
 *.joblib
+.DS_Store

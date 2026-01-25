@@ -21,7 +21,27 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
     return np.append(new_heading, 0)
 
+def rk4(t_i, y_i, dt, f):
+    k1 = f(t_i, y_i) 
+    k2 = f(t_i + dt/2, y_i + k1*dt/2)
+    k3 = f(t_i + dt/2, y_i + k2*dt/2)
+    k4 = f(t_i + dt, y_i + k3*dt) 
+    return y_i + dt/6*(k1 + 2*k2 + 2*k3 +  k4)
 
+def rk4_implementation(worldPrev, delta):
+    state = np.array([
+        worldPrev.charge
+        worldPrev.position
+        worldPrev.speed
+    ])
+
+    derivatives = np.array([
+        charge = worldPrev.charge - worldPrev.current * delta / 3600.0
+        position = worldPrev.position + worldPrev.velocity * delta
+        speed = worldPrev.speed + worldPrev.acceleration * delta
+    ])
+
+    return rk4(0, state, delta, derivatives)
 
 def stepState(worldPrev, inputsRaw, delta, timeSinceLastSteer, initSpeed, integrationMethod):
 
