@@ -15,7 +15,7 @@ def getBrakeForceAndTemp(prevWorld, parameters):
     # Calculate Brake Force
     brakeForce = brakepadFrictionModel.getFriction(prevWorld.brakeTemperature) * parameters["maxBrakeForce"] * 4
     # Guess energy increase
-    speedChange = brakeForce / parameters["Mass"] * parameters["stepSize"] # momentum impulse
+    speedChange = brakeForce / parameters["Mass"] / parameters["stepsPerSecond"] # momentum impulse
     energyChange = 0.5 * parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
     # Guess temperature increase
     brakeTemperature = prevWorld.brakeTemperature + energyChange/(parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"])
@@ -29,7 +29,7 @@ def calculateBrakeCooling(previousBrakeTemperature, parameters):
     :param parameters: Description
     :return: New Brake Temperature
     """
-    return parameters["ambientTemperature"] + (previousBrakeTemperature - parameters["ambientTemperature"]) * np.e ** (-1 * parameters["stepSize"]/50.2)
+    return parameters["ambientTemperature"] + (previousBrakeTemperature - parameters["ambientTemperature"]) * np.e ** (-1 / parameters["stepsPerSecond"]/50.2)
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
     #return initTemperature - change

@@ -15,7 +15,7 @@ from Mech.traction import *
 
 @dataclass
 class VehicleState:
-    def __init__(self, position, speed, heading, charge, yawRate, brakeTemperature, motorRPM):
+    def __init__(self, position, speed, heading, charge, yawRate, brakeTemperature):
         self.position:np.ndarray = position
         self.speed:float = speed
         self.heading:np.ndarray = heading
@@ -124,7 +124,7 @@ class SF():
         elif brakes == 0:
             return calculateDrag(worldPrev.heading, worldPrev.speed)
         else:
-            brakeForce, brakeTemperature = getBrakeForceAndTemp(worldPrev.speed, worldPrev.brakeTemperature, Parameters)
+            brakeForce, brakeTemperature = getBrakeForceAndTemp(worldPrev, Parameters)
             return -1 * (calculateDrag(worldPrev.heading, worldPrev.speed) + brakeForce)
         
     @staticmethod

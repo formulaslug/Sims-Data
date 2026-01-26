@@ -32,27 +32,29 @@ if __name__ == "__main__":
     if df_controls.columns != ['time', 'throttle', 'brakes', 'steerAngle']:
         raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakes', 'steerAngle'")
     
-    totalSteps = Parameters["stepsPerSecond"] * Parameters["simulationDuration"]
+    totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
-    worldArray = np.array(totalSteps, dtype=VehicleState)
+    worldArray = np.zeros(totalSteps + 1, dtype=VehicleState)
 
     # Set the inital time to 0 if not already 0
     timeSeries = df_controls['time'] - df_controls['time'][0]
 
     # This takes the last time step and copies it out to the end of the simulation duration. 
-    # This has the effect of holding the last command constant until the end of the sim.
+    # This has the effect of holding the last command constant until the end of the simulation duration. 
     if timeSeries[-1] < Parameters["simulationDuration"]:
-        df_controls.vstack(pl.Dataframe({
+        df_controls = df_controls.vstack(pl.DataFrame({
             'time': [Parameters["simulationDuration"]],
             'throttle': df_controls["throttle"][-1],
             'brakes': df_controls["brakes"][-1],
             'steerAngle': df_controls["steerAngle"][-1]}))
+
+    timeSeries = df_controls['time']
         
     # Interpolation to make the command inputs match the simulation time steps
     # Use cubic spline for driver's real inputs
     if Parameters["interpolationMethod"] == "cubic":
         from scipy.interpolate import CubicSpline
-        cs = CubicSpline(timeSeries, df_controls.drop('time'))
+        cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
     elif Parameters["interpolationMethod"] == "linear":
         controlInputs = np.zeros((len(steps), 3))
@@ -63,15 +65,12 @@ if __name__ == "__main__":
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
     worldArray[0] = VehicleState(
-                stepSize = 1/Parameters["stepsPerSecond"],
                 position=np.asarray([0,0,0], dtype=np.float32),
                 speed=0,
                 heading = np.asarray([1,0,0], dtype=np.float32),
                 charge=Parameters["vehicleSOC"],
                 yawRate = 0,
-                steerAngle = 0,
-                brakeTemperature = Parameters["initialBrakeTemperature"],
-                timeSinceLastSteer = 0,
+                brakeTemperature = Parameters["initialBrakeTemperature"]
                 )    
 
     start = time.time()
@@ -90,7 +89,7 @@ if __name__ == "__main__":
         #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        worldArray[i] = stepState(worldArray[i-1], controlInputs[i], 1/Parameters["stepsPerSecond"]) # Step forward!!
+        worldArray[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
         
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
@@ -108,7 +107,7 @@ if __name__ == "__main__":
 
     for state in worldArray:
         timeCol.append(runningTime)
-        dataRows.append(state.logProperties())
+        # dataRows.append(state.logProperties())
         runningTime += 1/Parameters["stepsPerSecond"]
 
     df = pl.DataFrame(dataRows, schema=columns, orient="row")
