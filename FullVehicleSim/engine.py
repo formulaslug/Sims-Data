@@ -2,6 +2,7 @@ from paramLoader import Parameters, Magic
 import numpy as np
 from state import SF, VehicleState
 from Mech.braking import calcBrakeCooling, calcBrakeTemp
+from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
