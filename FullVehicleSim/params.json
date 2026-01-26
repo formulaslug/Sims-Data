@@ -11,6 +11,7 @@
         "vehicleSOC": 1.0,
         "initSpeed": 0.0,
 
+        "airDensity": 1.230,
         "dragCoeffAreaCombo": 1.0858790012112278,
         "rollingResistanceCoeff": 0.020926359062619436,
 

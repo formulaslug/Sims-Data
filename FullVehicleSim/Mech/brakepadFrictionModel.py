@@ -119,5 +119,5 @@ y_array = np.array(y_vals)
 # Create interpolation function with bounds handling
 interpolator = interp1d(x_array, y_array, bounds_error=False, fill_value=(y_array[0], y_array[-1]))
 
-def getFrictionCoeff(x_input):
+def calcFrictionCoeff(x_input):
     return float(interpolator(x_input))

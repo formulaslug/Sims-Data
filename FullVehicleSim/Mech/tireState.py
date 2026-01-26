@@ -1,10 +1,9 @@
 # This implements MF 6.x (I think 6.2) as described in Tire and Vehicle Dynamics 3rd edition on page 179
 # copy pasted from dumping in July 21
 import math
+from paramLoader import Parameters, Magic
 
 class Tire:
-
-
     def __init__(self, normalForce, slipRatio, slipAngle, velocityX, pressure, temperature, mechanicalParams, magicParams):
         self.normalForce = normalForce * -1
         self.velocityX = velocityX

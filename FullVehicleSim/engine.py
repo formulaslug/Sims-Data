@@ -1,7 +1,7 @@
-
-from paramLoader import Parameters
+from paramLoader import Parameters, Magic
 import numpy as np
-from state import SF, VehicleState, calcBrakeCooling, calcBrakeTemp
+from state import SF, VehicleState
+from Mech.braking import calcBrakeCooling, calcBrakeTemp
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
@@ -34,8 +34,8 @@ def stepState(worldPrev:VehicleState, inputs):
     voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
     maxPower = SF.maxPower(voltage) # Watts
     resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
-    brakeTemp = calcBrakeTemp(worldPrev, Parameters)
-    brakeTemp = calcBrakeCooling(brakeTemp, Parameters)
+    brakeTemp = calcBrakeTemp(worldPrev)
+    brakeTemp = calcBrakeCooling(brakeTemp)
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     power = motorTorque * worldPrev.motorRotationsHZ # Watts

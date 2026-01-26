@@ -10,7 +10,7 @@ from Powertrain.lionCellModel import *
 from Mech.aero import calcDrag, calcDownForce
 from Mech.braking import calcBrakeForce, calcBrakeTemp, calcBrakeCooling
 from Mech.steering import calcSlipAngle, calcYawRate, calcVirtualSlipAngle
-from Mech.tireLoad import calcloadTransfer, calcWeightTransfer
+from Mech.tireLoad import calcLoadTransfer, calcWeightTransfer
 from Mech.traction import calcCorneringStiffness, calcTraction
 
 @dataclass
@@ -74,7 +74,7 @@ class SF():
         -----
         Slip ratio is fixed at 0.15.
         """
-        tireLoad = calcloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
+        tireLoad = calcLoadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
         slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
         slipRatio = 0.15
         corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic) # Works but unused
@@ -102,7 +102,7 @@ class SF():
         Yaw velocity is currently set to 0 in tire load calculations.
         Slip ratio is fixed at 0.15.
         """
-        tireLoad = calcloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate) # yaw velocity is currently set to 0
+        tireLoad = calcLoadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate) # yaw velocity is currently set to 0
 
         slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
         slipRatio = 0.15

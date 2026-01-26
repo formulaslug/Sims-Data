@@ -1,10 +1,11 @@
 from Mech import brakepadFrictionModel
+from paramLoader import Parameters, Magic
 import numpy as np
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
 
-def calcBrakeForce(prevWorld, parameters):
+def calcBrakeForce(prevWorld):
     """
     Calculate the brake force.
 
@@ -15,10 +16,10 @@ def calcBrakeForce(prevWorld, parameters):
     :return: Brake Force
     """
     # Calculate Brake Force
-    brakeForce = brakepadFrictionModel.getFrictionCoeff(prevWorld.brakeTemperature) * parameters["maxBrakeForce"] * 4
+    brakeForce = brakepadFrictionModel.calcFrictionCoeff(prevWorld.brakeTemperature) * Parameters["maxBrakeForce"] * 4
     return brakeForce
 
-def calcBrakeTemp(prevWorld, parameters):
+def calcBrakeTemp(prevWorld):
     """
     Calculate Brake Temp
     
@@ -27,15 +28,15 @@ def calcBrakeTemp(prevWorld, parameters):
     :return: New Brake Temperature
     """
     # Calculate Brake Force
-    brakeForce = calcBrakeForce(prevWorld, parameters)
+    brakeForce = calcBrakeForce(prevWorld)
     # Guess energy increase
-    speedChange = brakeForce / parameters["Mass"] / parameters["stepsPerSecond"] # momentum impulse
-    energyChange = 0.5 * parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
+    speedChange = brakeForce / Parameters["Mass"] / Parameters["stepsPerSecond"] # momentum impulse
+    energyChange = 0.5 * Parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
     # Guess temperature increase
-    brakeTemperature = prevWorld.brakeTemperature + energyChange/(parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"])
+    brakeTemperature = prevWorld.brakeTemperature + energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
     return brakeForce, brakeTemperature
 
-def calcBrakeCooling(previousBrakeTemperature, parameters):
+def calcBrakeCooling(prevWorld):
     """
     Calculate the cooled brake temperature.
     
@@ -43,7 +44,7 @@ def calcBrakeCooling(previousBrakeTemperature, parameters):
     :param parameters: Description
     :return: New Brake Temperature
     """
-    return parameters["ambientTemperature"] + (previousBrakeTemperature - parameters["ambientTemperature"]) * np.e ** (-1 / parameters["stepsPerSecond"]/50.2)
+    return Parameters["ambientTemperature"] + (prevWorld.brakeTemperature - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
     #return initTemperature - change

@@ -24,7 +24,7 @@ MotorV:int
 MotorA:int
 DrivingGearTeeth:int = 11 #From onshape
 DrivenGearTeeth:int = 40 #From onshape
-GearingRatio:int = DrivenGearTeeth/DrivenGearTeeth
+GearingRatio:float = DrivenGearTeeth/DrivenGearTeeth
 #reflected mass inertia?? https://www.motioncontroltips.com/how-do-gearmotors-impact-reflected-mass-inertia-from-the-load/
 
 
