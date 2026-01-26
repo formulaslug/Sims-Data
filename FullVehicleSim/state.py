@@ -7,11 +7,11 @@ from dataclasses import dataclass
 # from TireModel import dumpling as tire
 # from Mech.mechanical import *
 from Powertrain.lionCellModel import *
-from Mech.aero import calculateDrag
-from Mech.braking import *
-from Mech.steering import *
-from Mech.tireLoad import *
-from Mech.traction import *
+from Mech.aero import calcDrag, calcDownForce
+from Mech.braking import calcBrakeForce, calcBrakeTemp, calcBrakeCooling
+from Mech.steering import calcSlipAngle, calcYawRate, calcVirtualSlipAngle
+from Mech.tireLoad import calcloadTransfer, calcWeightTransfer
+from Mech.traction import calcCorneringStiffness, calcTraction
 
 @dataclass
 class VehicleState:
@@ -74,11 +74,11 @@ class SF():
         -----
         Slip ratio is fixed at 0.15.
         """
-        tireLoad = getloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
-        slipAngle = calculateSlipAngle(initYawRate, velocity, steerAngle, Parameters)
+        tireLoad = calcloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
+        slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
         slipRatio = 0.15
-        corneringStiffness = getCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic) # Works but unused
-        res = calculateYawRate(initYawRate, speed, steerAngle, timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1], Parameters)
+        corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic) # Works but unused
+        res = calcYawRate(initYawRate, speed, steerAngle, timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1], Parameters)
         return res
     
     @staticmethod
@@ -102,11 +102,11 @@ class SF():
         Yaw velocity is currently set to 0 in tire load calculations.
         Slip ratio is fixed at 0.15.
         """
-        tireLoad = getloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate) # yaw velocity is currently set to 0
+        tireLoad = calcloadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate) # yaw velocity is currently set to 0
 
-        slipAngle = calculateSlipAngle(initYawRate, velocity, steerAngle, Parameters)
+        slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
         slipRatio = 0.15
-        tireTraction = getTraction(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic)
+        tireTraction = calcTraction(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic)
         longTraction = 0
         latTraction = 0
         for x, y in tireTraction:
@@ -118,14 +118,14 @@ class SF():
         #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))
 
     @staticmethod
-    def resistiveForces(worldPrev, brakes):
+    def resistiveForces(worldPrev:VehicleState, brakes:float):
         if worldPrev.speed <= 1e-5: # Floating point error
             return 0
         elif brakes == 0:
-            return calculateDrag(worldPrev.heading, worldPrev.speed)
+            return calcDrag(worldPrev.heading, worldPrev.speed)
         else:
-            brakeForce, brakeTemperature = getBrakeForceAndTemp(worldPrev, Parameters)
-            return -1 * (calculateDrag(worldPrev.heading, worldPrev.speed) + brakeForce)
+            brakeForce = calcBrakeForce(worldPrev, Parameters)
+            return -1 * (calcDrag(worldPrev.heading, worldPrev.speed) + brakeForce)
         
     @staticmethod
     def maxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):

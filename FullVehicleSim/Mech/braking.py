@@ -2,18 +2,32 @@ from Mech import brakepadFrictionModel
 import numpy as np
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
-# The goal of this function is to calculate the net force on the brakes, applied reverse to heading
-def getBrakeForceAndTemp(prevWorld, parameters):
+# The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
+
+def calcBrakeForce(prevWorld, parameters):
     """
-    Calculate the brake force and updated brake temperature.
+    Calculate the brake force.
+
+    FrictionCoeff(temp) * maxBrakeForce * 4 (for 4 wheels)
     
-    :param speed: Vehicle Speed
-    :param previousBrakeTemperature: Previous Brake Temperature
+    :param prevWorld: World State Previous
     :param parameters: Parameter dictionary
-    :return: Tuple of (brakeForce, brakeTemperature)
+    :return: Brake Force
     """
     # Calculate Brake Force
-    brakeForce = brakepadFrictionModel.getFriction(prevWorld.brakeTemperature) * parameters["maxBrakeForce"] * 4
+    brakeForce = brakepadFrictionModel.getFrictionCoeff(prevWorld.brakeTemperature) * parameters["maxBrakeForce"] * 4
+    return brakeForce
+
+def calcBrakeTemp(prevWorld, parameters):
+    """
+    Calculate Brake Temp
+    
+    :param prevWorld: World State Previous
+    :param parameters: Parameter dictionary
+    :return: New Brake Temperature
+    """
+    # Calculate Brake Force
+    brakeForce = calcBrakeForce(prevWorld, parameters)
     # Guess energy increase
     speedChange = brakeForce / parameters["Mass"] / parameters["stepsPerSecond"] # momentum impulse
     energyChange = 0.5 * parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
@@ -21,7 +35,7 @@ def getBrakeForceAndTemp(prevWorld, parameters):
     brakeTemperature = prevWorld.brakeTemperature + energyChange/(parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"])
     return brakeForce, brakeTemperature
 
-def calculateBrakeCooling(previousBrakeTemperature, parameters):
+def calcBrakeCooling(previousBrakeTemperature, parameters):
     """
     Calculate the cooled brake temperature.
     

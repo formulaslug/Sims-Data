@@ -29,8 +29,8 @@ if __name__ == "__main__":
         raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
     
     ## Double check it has the correct columns
-    if df_controls.columns != ['time', 'throttle', 'brakes', 'steerAngle']:
-        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakes', 'steerAngle'")
+    if df_controls.columns != ['time', 'throttle', 'brakesFront','brakesRear', 'steerAngle']:
+        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakesFront', 'brakesRear', 'steerAngle'")
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
@@ -45,7 +45,8 @@ if __name__ == "__main__":
         df_controls = df_controls.vstack(pl.DataFrame({
             'time': [Parameters["simulationDuration"]],
             'throttle': df_controls["throttle"][-1],
-            'brakes': df_controls["brakes"][-1],
+            'brakesFront': df_controls["brakesFront"][-1],
+            'brakesRear': df_controls["brakesRear"][-1],
             'steerAngle': df_controls["steerAngle"][-1]}))
 
     timeSeries = df_controls['time']
@@ -57,10 +58,11 @@ if __name__ == "__main__":
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
     elif Parameters["interpolationMethod"] == "linear":
-        controlInputs = np.zeros((len(steps), 3))
+        controlInputs = np.zeros((len(steps), 4))
         controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
-        controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakes'])
-        controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['steerAngle'])
+        controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakesFront'])
+        controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['brakesRear'])
+        controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['steerAngle'])
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
@@ -80,7 +82,8 @@ if __name__ == "__main__":
     # timeSinceLastSteer = 0
     # initSpeed = 0
     for i in range(totalSteps):
-
+        worldArray[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
+        ## This was above the stepState but I moved it down to make it clearer to read.
         # timeRunning += 1/stepsPerSecond
         # timeSinceLastSteer += 1/stepsPerSecond
         # for commamd in timeBasedInputs:
@@ -89,13 +92,12 @@ if __name__ == "__main__":
         #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        worldArray[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
         
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
     columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
                'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
-               'brakes', 'drag', 'resistiveForces', 'motorForce', 'netForce',
+               'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
                'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
                'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
                'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',

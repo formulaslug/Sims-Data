@@ -1,7 +1,7 @@
 
 from paramLoader import Parameters
 import numpy as np
-from state import SF, VehicleState, calculateBrakeCooling, getBrakeForceAndTemp
+from state import SF, VehicleState, calcBrakeCooling, calcBrakeTemp
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
@@ -27,15 +27,15 @@ def stepState(worldPrev:VehicleState, inputs):
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
     # Made it so you can just comment this out when it's fixed.
-    # Throttle, brake, steering angle
+    # Throttle, brakesFront, brakesRear, steering angle
     delta = 1/Parameters["stepsPerSecond"]
 
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
     voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
     maxPower = SF.maxPower(voltage) # Watts
     resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
-    _, brakeTemp = getBrakeForceAndTemp(worldPrev, Parameters)
-    brakeTemp = calculateBrakeCooling(brakeTemp, Parameters)
+    brakeTemp = calcBrakeTemp(worldPrev, Parameters)
+    brakeTemp = calcBrakeCooling(brakeTemp, Parameters)
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     power = motorTorque * worldPrev.motorRotationsHZ # Watts

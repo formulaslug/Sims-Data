@@ -1,19 +1,19 @@
 # Steering model
 import numpy as np
 
-def calculateSlipAngle(yawRate, velocity, steerAngle, parameters):
+def calcSlipAngle(yawRate, velocity, steerAngle, parameters):
     speed = np.sqrt(velocity[0] ** 2 + velocity[1] ** 2 + velocity[2]**2)
     if yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
         return (0, 0)
     else:
         bodySlip = np.arctan(velocity[1]/velocity[0])
 
-    frontSlipAngle = calculateVirtualSlipAngle(parameters) + bodySlip + (parameters["wheelBase"]*parameters["frontWeightDist"]/100 * yawRate)/speed - steerAngle
+    frontSlipAngle = calcVirtualSlipAngle(parameters) + bodySlip + (parameters["wheelBase"]*parameters["frontWeightDist"]/100 * yawRate)/speed - steerAngle
     rearSlipAngle = bodySlip - (parameters["wheelBase"]*(100-parameters["frontWeightDist"])/100 * yawRate)/speed
 
     return (frontSlipAngle, rearSlipAngle)
 
-def calculateVirtualSlipAngle(parameters):
+def calcVirtualSlipAngle(parameters):
     # This model is based on Chapter 1 of Pacejka's 2012 book.
     # We treat all variables here as static to calculate virtual slip angle
     # This is entirely untrue. Every single variable is something to calculate every step.
@@ -57,7 +57,7 @@ def calculateVirtualSlipAngle(parameters):
     #
     # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
 
-def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_, parameters):
+def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_, parameters):
     # This model is based on Performance Vehicle Dynamics
     # It is a pretty meh model which uses euler's method to approximate transient behavior
     # Ideally we would use something a bit better like rk4 but i couldn't get that to work

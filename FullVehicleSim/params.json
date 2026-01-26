@@ -1,7 +1,7 @@
 {
     "Parameters": {
-        "stepsPerSecond": 1000,
-        "simulationDuration": 120.0,
+        "stepsPerSecond": 100,
+        "simulationDuration": 240.0,
         "interpolationMethod": "cubic",
 
         "ambientTemperature": 20,
