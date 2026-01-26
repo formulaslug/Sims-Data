@@ -1,19 +1,20 @@
 from Mech import tireState as tire
+from paramLoader import Parameters, Magic
 
-def calcTraction(tireLoad, slipAngle, slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic):
-    frontLeft = tire.Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40, Parameters, Magic)
-    frontRight = tire.Tire(tireLoad[1] , 0.15, slipAngle[0], speed, 80, 40, Parameters, Magic)
-    backLeft = tire.Tire(tireLoad[2] , 0.15, slipAngle[1], speed, 80, 40, Parameters, Magic)
-    backRight = tire.Tire(tireLoad[3] , 0.15, slipAngle[1], speed, 80, 40, Parameters, Magic)
+def calcTraction(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,float], slipRatio:float, speed, surfaceTemperature, tirePressure):
+    frontLeft = tire.Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40)
+    frontRight = tire.Tire(tireLoad[1] , 0.15, slipAngle[0], speed, 80, 40)
+    backLeft = tire.Tire(tireLoad[2] , 0.15, slipAngle[1], speed, 80, 40)
+    backRight = tire.Tire(tireLoad[3] , 0.15, slipAngle[1], speed, 80, 40)
     return [(frontLeft.getLongForce(), frontLeft.getLateralForce() * 0.6),
         (frontRight.getLongForce() * 0.6, frontRight.getLateralForce() * 0.6),
         (backLeft.getLongForce() * 0.6, backLeft.getLateralForce() * 0.6),
         (backRight.getLongForce() * 0.6, backRight.getLateralForce() * 0.6)]
 
-def calcCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic):
+def calcCorneringStiffness(tireLoad:tuple[float,float,float,float], slipAngle, slipRatio, speed, surfaceTemperature, tirePressure):
     delta = 0.1
-    less = calcTraction(tireLoad, tuple(x - delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic)
-    more = calcTraction(tireLoad, tuple(x + delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic)
+    less = calcTraction(tireLoad, tuple(x - delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure)
+    more = calcTraction(tireLoad, tuple(x + delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure)
 
     front = ((more[0][1] + more[1][1]) - (less[0][1] + less[1][1])) / (2 * delta)
     rear = ((more[2][1] + more[3][1]) - (less[2][1] + less[3][1])) / (2 * delta)

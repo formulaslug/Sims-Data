@@ -56,7 +56,7 @@ class SF():
     Static Method Simulation Functions
     '''
     @staticmethod
-    def calculateYawRate(initAcceleration:float, heading:np.ndarray, initYawRate:float, velocity:np.ndarray, steerAngle:float, speed:float, timeSinceLastSteer:float):
+    def calculateYawRate(prevWorld:VehicleState, steerAngle:float, initAcceleration:float, heading:np.ndarray, initYawRate:float, timeSinceLastSteer:float):
         """Calculate the yaw rate of the vehicle at the current state.
         This function computes the yaw rate by calculating tire loads, slip angles,
         cornering stiffness, and then applying the vehicle dynamics equations.
@@ -74,11 +74,11 @@ class SF():
         -----
         Slip ratio is fixed at 0.15.
         """
-        tireLoad = calcLoadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
-        slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
+        tireLoad = calcLoadTransfer(initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
+        slipAngle = calcSlipAngle(initYawRate, prevWorld.velocity, steerAngle, Parameters)
         slipRatio = 0.15
-        corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic) # Works but unused
-        res = calcYawRate(initYawRate, speed, steerAngle, timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1], Parameters)
+        corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, prevWorld.speed, 80, 40, Parameters, Magic) # Works but unused
+        res = calcYawRate(initYawRate, prevWorld.speed, steerAngle, timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1], Parameters)
         return res
     
     @staticmethod
