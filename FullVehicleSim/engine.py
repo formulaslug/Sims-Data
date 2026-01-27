@@ -66,7 +66,6 @@ def stepState(worldPrev:VehicleState, inputs):
     heading = calculateHeading(worldPrev.heading, yawRate, delta)
 
     drag = calcDrag(worldPrev)
-    downForce = calcDownForce(worldPrev)
     frontBrakeForce, rearBrakeForce = calcBrakeForce(worldPrev, inputs)
     frontSlipAngle, rearSlipAngle = calcSlipAngle(worldPrev, inputs)
     maxWheelTorque = calcMaxWheelTorque(maxMotorTorque)
@@ -85,7 +84,7 @@ def stepState(worldPrev:VehicleState, inputs):
     #             "frontBrakeCooling", "rearBrakeCooling",
     #             "frontSlipAngle", "rearSlipAngle"]
     
-    log = [position[0], position[1], position[2],
+    log:list[float] = [position[0], position[1], position[2],
            worldPrev.velocity[0], worldPrev.velocity[1], worldPrev.velocity[2],
            worldPrev.speed,
            worldPrev.heading[0], worldPrev.heading[1], worldPrev.heading[2],
@@ -95,7 +94,7 @@ def stepState(worldPrev:VehicleState, inputs):
            maxTraction, worldPrev.wheelRotationsHZ, worldPrev.motorRPM,
            worldPrev.motorRotationsHZ, current,
               maxWheelTorque, maxPower, power,
-              voltage, downForce,
+              voltage,
               frontBrakeForce, rearBrakeForce,
               frontBrakeHeating, rearBrakeHeating,
               frontBrakeCooling, rearBrakeCooling,

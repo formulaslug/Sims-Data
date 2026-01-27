@@ -43,7 +43,7 @@ if __name__ == "__main__":
                     "maxTraction", "wheelRotationsHZ", "motorRPM",
                     "motorRotationsHZ", "current", 
                     "maxWheelTorque", "maxPower", "power", 
-                    "voltage", "downForce", 
+                    "voltage", 
                     "frontBrakeForce", "rearBrakeForce", 
                     "frontBrakeHeating", "rearBrakeHeating", 
                     "frontBrakeCooling", "rearBrakeCooling",
