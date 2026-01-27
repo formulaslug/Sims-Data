@@ -91,13 +91,10 @@ if __name__ == "__main__":
                 frontBrakeTemperature = Parameters["initialBrakeTemperature"],
                 rearBrakeTemperature= Parameters["initialBrakeTemperature"]
                 )    
+    
+    timeCol = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     start = time.time()
-    # timeRunning = 0
-    # currInput = 0
-    # stepCount = 0
-    # timeSinceLastSteer = 0
-    # initSpeed = 0
     for i in range(totalSteps):
         worldArray[i+1], log[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
         ## This was above the stepState but I moved it down to make it clearer to read.
@@ -121,8 +118,11 @@ if __name__ == "__main__":
     #            'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
 
     df = pl.DataFrame(log, schema=cols, orient="row")
-    df = df.with_columns(
-        pl.Series(timeSeries).alias("time"),
+    # print(f"df shape: {df.shape}")
+    # print(f"control inputs shape: {controlInputs.shape}")
+    # print(f"timeCol shape: {timeCol.shape}")
+    df = df[1:].with_columns(
+        pl.Series(timeCol[1:]).alias("time"),
         pl.Series(controlInputs[:,0]).alias("throttle"),
         pl.Series(controlInputs[:,1]).alias("brakesFront"),
         pl.Series(controlInputs[:,2]).alias("brakesRear"),
