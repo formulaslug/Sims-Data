@@ -1,7 +1,11 @@
 from paramLoader import Parameters, Magic
 import numpy as np
-from state import SF, VehicleState
-from Mech.braking import calcBrakeCooling, calcBrakeHeating
+from state import VehicleState
+from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
+from Mech.aero import calcDrag, calcDownForce
+from Mech.steering import calcSlipAngle
+from Mech.general import resistiveForces
+from Electrical.powertrain import voltage, maxPower
 from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
@@ -33,19 +37,24 @@ def stepState(worldPrev:VehicleState, inputs):
     delta = 1/Parameters["stepsPerSecond"]
 
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
-    voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
-    maxPower = SF.maxPower(voltage) # Watts
-    resistiveForces= SF.resistiveForces(worldPrev, inputs)
+    voltage = voltage() # Not yet implemented. Returns 120 for now.
+    maxPower = maxPower(voltage) # Watts
+    
+    resistiveForces = resistiveForces(worldPrev, inputs)
     frontBrakeHeating, rearBrakeHeating = calcBrakeHeating(worldPrev, inputs)
     frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev)
     frontBrakeTemperature = worldPrev.frontBrakeTemperature + frontBrakeHeating - frontBrakeCooling
     rearBrakeTemperature = worldPrev.rearBrakeTemperature + rearBrakeHeating - rearBrakeCooling
+    
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
+    
     power = motorTorque * worldPrev.motorRotationsHZ # Watts
     motorForce = SF.motorForce(motorTorque) # Newtons
     netForce = motorForce + resistiveForces # Newtons
+    
     acceleration = netForce / Parameters["Mass"] # m/s^2
+    
     current = power/voltage # Amps
 
     charge = worldPrev.charge - current * delta / 3600.0
@@ -55,7 +64,41 @@ def stepState(worldPrev:VehicleState, inputs):
     if inputs[2] == 0:
         yawRate = 0
     heading = calculateHeading(worldPrev.heading, yawRate, delta)
+
+    drag = calcDrag(worldPrev)
+    downForce = calcDownForce(worldPrev)
+    frontBrakeForce, rearBrakeForce = calcBrakeForce(worldPrev, inputs)
+    frontSlipAngle, rearSlipAngle = calcSlipAngle(worldPrev, inputs)
+
+    # cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
+    #             "headingX", "headingY", "headingZ", 
+    #             "yawRate", "frontBrakeTemperature", "rearBrakeTemperature", 
+    #             "charge", "drag", "resistiveForces", 
+    #             "motorTorque", "motorForce", "netForce", 
+    #             "maxTraction", "wheelRotationsHZ", "motorRPM",
+    #             "motorRotationsHZ", "current", 
+    #             "maxWheelTorque", "maxPower", "power", 
+    #             "voltage", "downForce", 
+    #             "frontBrakeForce", "rearBrakeForce", 
+    #             "frontBrakeHeating", "rearBrakeHeating", 
+    #             "frontBrakeCooling", "rearBrakeCooling",
+    #             "frontSlipAngle", "rearSlipAngle"]
     
+    log = [position[0], position[1], position[2],
+           worldPrev.velocity[0], worldPrev.velocity[1], worldPrev.velocity[2],
+           worldPrev.speed,
+           worldPrev.heading[0], worldPrev.heading[1], worldPrev.heading[2],
+              worldPrev.yawRate, frontBrakeTemperature, rearBrakeTemperature,
+           charge, drag, resistiveForces,
+           motorTorque, motorForce, netForce,
+           maxTraction, worldPrev.wheelRotationsHZ, worldPrev.motorRPM,
+           worldPrev.motorRotationsHZ, current,
+              SF.maxWheelTorque(maxMotorTorque), maxPower, power,
+              voltage, downForce,
+              frontBrakeForce, rearBrakeForce,
+              frontBrakeHeating, rearBrakeHeating,
+              frontBrakeCooling, rearBrakeCooling,
+              frontSlipAngle, rearSlipAngle]
 
     worldNext = VehicleState(
         position=position,
@@ -66,4 +109,4 @@ def stepState(worldPrev:VehicleState, inputs):
         rearBrakeTemperature = rearBrakeTemperature,
         yawRate = worldPrev.yawRate
     )
-    return worldNext
+    return worldNext, log

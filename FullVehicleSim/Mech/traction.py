@@ -1,5 +1,8 @@
 from Mech import tireState as tire
 from paramLoader import Parameters, Magic
+from Mech.tireLoad import calcLoadTransfer
+from Mech.steering import calcSlipAngle
+import numpy as np
 
 def calcTraction(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,float], slipRatio:float, speed, surfaceTemperature, tirePressure):
     frontLeft = tire.Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40)
@@ -32,3 +35,38 @@ def calcCorneringStiffness(tireLoad:tuple[float,float,float,float], slipAngle:tu
     rear = ((more[2][1] + more[3][1]) - (less[2][1] + less[3][1])) / (2 * delta)
 
     return (front, rear)
+
+def maxTraction(initAcceleration:float, heading:np.ndarray, initYawRate:float, velocity:np.ndarray, steerAngle:float, speed:float):
+        """Calculate the maximum traction available for the vehicle at the current state.
+        This function computes the total traction magnitude by calculating tire loads,
+        slip angles, and individual tire tractions, then combining them into a resultant
+        traction vector.
+        heading : np.ndarray
+            Unit heading vector of the vehicle [x, y] components.
+            Initial yaw rate of the vehicle before this time step, in rad/s.
+            The velocity vector of the vehicle, in m/s.
+            The steering angle of the vehicle, in radians.
+            The speed of the vehicle, in m/s.
+        Returns
+        -------
+        np.float32
+            The magnitude of the maximum available traction force, in Newtons.
+        Notes
+        -----
+        Yaw velocity is currently set to 0 in tire load calculations.
+        Slip ratio is fixed at 0.15.
+        """
+        tireLoad = calcLoadTransfer(Parameters, initAcceleration * heading[0], initAcceleration * heading[1], initYawRate) # yaw velocity is currently set to 0
+
+        slipAngle = calcSlipAngle(initYawRate, velocity, steerAngle, Parameters)
+        slipRatio = 0.15
+        tireTraction = calcTraction(tireLoad, slipAngle, slipRatio, speed, 80, 40, Parameters, Magic)
+        longTraction = 0
+        latTraction = 0
+        for x, y in tireTraction:
+            longTraction += x
+            latTraction += y
+        return np.sqrt(longTraction**2 + latTraction**2)
+    
+        #tempTire = tire.Tire(500 , 0.15, 0, self.speed, 80, 40, Parameters, Magic)
+        #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))

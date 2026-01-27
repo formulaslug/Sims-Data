@@ -34,6 +34,22 @@ if __name__ == "__main__":
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
+
+    cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
+                    "headingX", "headingY", "headingZ", 
+                    "yawRate", "frontBrakeTemperature", "rearBrakeTemperature", 
+                    "charge", "drag", "resistiveForces", 
+                    "motorTorque", "motorForce", "netForce", 
+                    "maxTraction", "wheelRotationsHZ", "motorRPM",
+                    "motorRotationsHZ", "current", 
+                    "maxWheelTorque", "maxPower", "power", 
+                    "voltage", "downForce", 
+                    "frontBrakeForce", "rearBrakeForce", 
+                    "frontBrakeHeating", "rearBrakeHeating", 
+                    "frontBrakeCooling", "rearBrakeCooling",
+                    "frontSlipAngle", "rearSlipAngle"]
+    
+    log = np.zeros((totalSteps + 1, len(cols)))
     worldArray = np.zeros(totalSteps + 1, dtype=VehicleState)
 
     # Set the inital time to 0 if not already 0
@@ -82,7 +98,7 @@ if __name__ == "__main__":
     # timeSinceLastSteer = 0
     # initSpeed = 0
     for i in range(totalSteps):
-        worldArray[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
+        worldArray[i+1], log[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
         ## This was above the stepState but I moved it down to make it clearer to read.
         # timeRunning += 1/stepsPerSecond
         # timeSinceLastSteer += 1/stepsPerSecond
@@ -95,33 +111,30 @@ if __name__ == "__main__":
         
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
-    columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
-               'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
-               'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
-               'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
-               'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
-               'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',
-               'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
+    # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
+    #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
+    #            'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
+    #            'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
+    #            'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
+    #            'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',
+    #            'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
 
-    dataRows = []
-    timeCol = []
-    runningTime = 0
+    df = pl.DataFrame(log, schema=cols, orient="row")
+    df = df.with_columns(
+        pl.Series(timeSeries).alias("time"),
+        pl.Series(controlInputs[:,0]).alias("throttle"),
+        pl.Series(controlInputs[:,1]).alias("brakesFront"),
+        pl.Series(controlInputs[:,2]).alias("brakesRear"),
+        pl.Series(controlInputs[:,3]).alias("steerAngle")
+    )
 
-    for state in worldArray:
-        timeCol.append(runningTime)
-        # dataRows.append(state.logProperties())
-        runningTime += 1/Parameters["stepsPerSecond"]
-
-    df = pl.DataFrame(dataRows, schema=columns, orient="row")
-    df = df.with_columns(pl.Series("time", timeCol, dtype=pl.Float64))
-
-    time = df['time'].to_list()
-    current = df['current'].to_list()
-    speed = df['speed'].to_list()
-    voltage = df['voltage'].to_list()
-    torque = df['motorTorque'].to_list()
-    yawRate = df['yawRate'].to_list()
-    brakeTemperature = df['cooledBrakeTemperature'].to_list()
+    time = df['time']
+    current = df['current']
+    speed = df['speed']
+    voltage = df['voltage']
+    torque = df['motorTorque']
+    yawRate = df['yawRate']
+    brakeTemperature = df['frontBrakeTemperature']
     ax1 = plt.subplot(1,4,1)
     ax2 = plt.subplot(1,4,2)
     ax3 = plt.subplot(1,4,3)
