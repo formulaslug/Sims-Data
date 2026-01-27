@@ -11,8 +11,8 @@ def calcResistiveForces(worldPrev:VehicleState, inputs):
         if worldPrev.speed <= 1e-5: # Floating point error
             return 0
         else:
-            brakeForce = calcBrakeForce(worldPrev, inputs)
-            return -1 * (calcDrag(worldPrev) + brakeForce)
+            frontBrakeForce, rearBrakeForce = calcBrakeForce(worldPrev, inputs)
+            return -1 * (calcDrag(worldPrev) + frontBrakeForce + rearBrakeForce)
         
 def calculateYawRate(prevWorld:VehicleState, steerAngle:float, initAcceleration:float, heading:np.ndarray, initYawRate:float, timeSinceLastSteer:float):
         """Calculate the yaw rate of the vehicle at the current state.
