@@ -88,7 +88,8 @@ if __name__ == "__main__":
                 heading = np.asarray([1,0,0], dtype=np.float32),
                 charge=Parameters["vehicleSOC"],
                 yawRate = 0,
-                brakeTemperature = Parameters["initialBrakeTemperature"]
+                frontBrakeTemperature = Parameters["initialBrakeTemperature"],
+                rearBrakeTemperature= Parameters["initialBrakeTemperature"]
                 )    
 
     start = time.time()
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     voltage = df['voltage']
     torque = df['motorTorque']
     yawRate = df['yawRate']
-    brakeTemperature = df['frontBrakeTemperature']
+    frontBrakeTemperature = df['frontBrakeTemperature']
     ax1 = plt.subplot(1,4,1)
     ax2 = plt.subplot(1,4,2)
     ax3 = plt.subplot(1,4,3)
