@@ -122,10 +122,10 @@ class SF():
         if worldPrev.speed <= 1e-5: # Floating point error
             return 0
         elif brakes == 0:
-            return calcDrag(worldPrev.heading, worldPrev.speed)
+            return calcDrag(worldPrev)
         else:
-            brakeForce = calcBrakeForce(worldPrev, Parameters)
-            return -1 * (calcDrag(worldPrev.heading, worldPrev.speed) + brakeForce)
+            brakeForce = calcBrakeForce(worldPrev)
+            return -1 * (calcDrag(worldPrev) + brakeForce)
         
     @staticmethod
     def maxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
