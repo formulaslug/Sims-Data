@@ -11,10 +11,22 @@ def calcTraction(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,
         (backLeft.getLongForce() * 0.6, backLeft.getLateralForce() * 0.6),
         (backRight.getLongForce() * 0.6, backRight.getLateralForce() * 0.6)]
 
-def calcCorneringStiffness(tireLoad:tuple[float,float,float,float], slipAngle, slipRatio, speed, surfaceTemperature, tirePressure):
+def calcCorneringStiffness(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,float], slipRatio, speed, surfaceTemperature, tirePressure):
+    """
+    Calculate the cornering stiffness of the vehicle at the current state using a Daniel's patented sketchy derivatives 
+    
+    :param tireLoad: Description
+    :type tireLoad: tuple[float, float, float, float]
+    :param slipAngle: Description
+    :type slipAngle: tuple[float, float]
+    :param slipRatio: Description
+    :param speed: Description
+    :param surfaceTemperature: Description
+    :param tirePressure: Description
+    """
     delta = 0.1
-    less = calcTraction(tireLoad, tuple(x - delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure)
-    more = calcTraction(tireLoad, tuple(x + delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure)
+    less = calcTraction(tireLoad, tuple(x - delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure) # type: ignore
+    more = calcTraction(tireLoad, tuple(x + delta for x in slipAngle), slipRatio, speed, surfaceTemperature, tirePressure) # type: ignore
 
     front = ((more[0][1] + more[1][1]) - (less[0][1] + less[1][1])) / (2 * delta)
     rear = ((more[2][1] + more[3][1]) - (less[2][1] + less[3][1])) / (2 * delta)

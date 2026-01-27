@@ -1,5 +1,5 @@
 import math 
-from MBS import CarData
+from Powertrain import CarData
 import copy
 
 class MBS:
