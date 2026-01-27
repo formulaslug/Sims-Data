@@ -1,7 +1,7 @@
 from paramLoader import Parameters, Magic
 import numpy as np
 from state import SF, VehicleState
-from Mech.braking import calcBrakeCooling, calcBrakeTemp
+from Mech.braking import calcBrakeCooling, calcBrakeHeating
 from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
@@ -29,13 +29,15 @@ def stepState(worldPrev:VehicleState, inputs):
     # TODO: Update later
     # Made it so you can just comment this out when it's fixed.
     # Throttle, brakesFront, brakesRear, steering angle
+    # 0-1, PSI, PSI, Radians
     delta = 1/Parameters["stepsPerSecond"]
 
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
     voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
     maxPower = SF.maxPower(voltage) # Watts
     resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
-    brakeTemp = calcBrakeTemp(worldPrev) - calcBrakeCooling(worldPrev)
+    frontBrakeHeating, rearBrakeHeating = calcBrakeHeating(worldPrev, inputs)
+    frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev, inputs)
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     power = motorTorque * worldPrev.motorRotationsHZ # Watts
@@ -58,7 +60,8 @@ def stepState(worldPrev:VehicleState, inputs):
         speed=speed, 
         heading = heading,
         charge=charge,
-        brakeTemperature = brakeTemp,
+        frontBrakeTemperature = frontBrakeTemperature,
+        rearBrakeTemperature = rearBrakeTemperature,
         yawRate = worldPrev.yawRate
     )
     return worldNext

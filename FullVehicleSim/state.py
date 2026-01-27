@@ -8,19 +8,20 @@ from dataclasses import dataclass
 # from Mech.mechanical import *
 from Powertrain.lionCellModel import *
 from Mech.aero import calcDrag, calcDownForce
-from Mech.braking import calcBrakeForce, calcBrakeTemp, calcBrakeCooling
+from Mech.braking import calcBrakeForce, calcBrakeHeating, calcBrakeCooling
 from Mech.steering import calcSlipAngle, calcYawRate, calcVirtualSlipAngle
 from Mech.tireLoad import calcLoadTransfer, calcWeightTransfer
 from Mech.traction import calcCorneringStiffness, calcTraction
 
 @dataclass
 class VehicleState:
-    def __init__(self, position, speed, heading, charge, yawRate, brakeTemperature):
+    def __init__(self, position, speed, heading, charge, yawRate, frontBrakeTemperature, rearBrakeTemperature):
         self.position:np.ndarray = position
         self.speed:float = speed
         self.heading:np.ndarray = heading
         self.charge:float = charge
-        self.brakeTemperature:float = brakeTemperature
+        self.frontBrakeTemperature:float = frontBrakeTemperature
+        self.rearBrakeTemperature:float = rearBrakeTemperature
         self.yawRate:float = yawRate
 
         #self.wheelRPM: np.array = np.asarray([0,0,0,0], dtype=np.float32)

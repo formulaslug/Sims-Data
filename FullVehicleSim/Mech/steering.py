@@ -1,6 +1,6 @@
 # Steering model
 import numpy as np
-from FullVehicleSim.state import VehicleState
+from state import VehicleState
 from paramLoader import Parameters, Magic
 
 def calcSlipAngle(prevWorld:VehicleState, steerAngle:float) -> tuple[float,float]:

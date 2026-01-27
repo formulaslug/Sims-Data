@@ -1,20 +1,22 @@
+// Base SI Units unless otherwise specified
 {
     "Parameters": {
         "stepsPerSecond": 100,
         "simulationDuration": 240.0,
-        "interpolationMethod": "cubic",
+        "interpolationMethod": "cubic", // "linear" or "cubic"
 
-        "ambientTemperature": 20,
-        "tractiveIMax": 300,
-        "initialBrakeTemperature": 20,
-        "initialBatteryTemperature": 20,
-        "vehicleSOC": 1.0,
-        "initSpeed": 0.0,
+        "ambientTemperature": 20, // °C
+        "tractiveIMax": 300, // A
+        "initialBrakeTemperature": 20, // °C
+        "initialBatteryTemperature": 20, // °C
+        "vehicleSOC": 1.0, // Out of 1
+        "initSpeed": 0.0, // m/s
 
         "airDensity": 1.230,
-        "dragCoeffAreaCombo": 1.0858790012112278,
+        "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
         "rollingResistanceCoeff": 0.020926359062619436,
 
+        "brakeCaliperArea": 1.23, // in^2
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216,
         "gearRatio": 3.41667,
