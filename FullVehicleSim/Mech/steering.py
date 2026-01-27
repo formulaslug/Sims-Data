@@ -1,9 +1,7 @@
 # Steering model
 import numpy as np
-from Mech.traction import calcCorneringStiffness
 from state import VehicleState
 from paramLoader import Parameters, Magic
-from Mech.tireLoad import calcLoadTransfer
 
 def calcSlipAngle(prevWorld:VehicleState, inputs) -> tuple[float,float]:
     """
@@ -139,27 +137,3 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
 #     res = calculateYawRate(0, 35.76, 0.4, i, -1086.083, -890.0656, parameters)
 #     print(i, res)
 
-def calculateYawRate(prevWorld:VehicleState, steerAngle:float, initAcceleration:float, heading:np.ndarray, initYawRate:float, timeSinceLastSteer:float):
-        """Calculate the yaw rate of the vehicle at the current state.
-        This function computes the yaw rate by calculating tire loads, slip angles,
-        cornering stiffness, and then applying the vehicle dynamics equations.
-        heading : np.ndarray
-            Unit heading vector of the vehicle [x, y] components.
-            Initial yaw rate of the vehicle before this time step, in rad/s.
-            The velocity vector of the vehicle, in m/s.
-            The steering angle of the vehicle, in radians.
-            The speed of the vehicle, in m/s.
-        Returns
-        -------
-        float
-            The yaw rate of the vehicle, in rad/s.
-        Notes
-        -----
-        Slip ratio is fixed at 0.15.
-        """
-        tireLoad = calcLoadTransfer(initAcceleration * heading[0], initAcceleration * heading[1], initYawRate)
-        slipAngle = calcSlipAngle(initYawRate, prevWorld.velocity, steerAngle, Parameters)
-        slipRatio = 0.15
-        corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, prevWorld.speed, 80, 40, Parameters, Magic) # Works but unused
-        res = calcYawRate(initYawRate, prevWorld.speed, steerAngle, timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1], Parameters)
-        return res
