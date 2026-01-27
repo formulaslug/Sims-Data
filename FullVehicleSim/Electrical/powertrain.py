@@ -1,7 +1,7 @@
 from state import VehicleState
 from paramLoader import Parameters, Magic
 
-def maxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
+def calcMaxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
         '''
         Motor Torque at the wheel
         
@@ -18,23 +18,23 @@ def maxMotorTorque(worldPrev:VehicleState, resistiveForces:float, maxPower:float
         torque = min(perfectTractionTorque, maxPowerTorque, maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
 
-def current(power, voltage):
+def calcCurrent(power, voltage):
         if (power / voltage) > Parameters["tractiveIMax"]:
             return Parameters["tractiveIMax"]
         return power / voltage
 
-def maxWheelTorque(maxMotorTorque):
+def calcMaxWheelTorque(maxMotorTorque):
         '''
         maxMotorTorque * gear rato
         '''
         return maxMotorTorque * Parameters["gearRatio"]
 
-def motorForce(maxWheelTorque):
+def calcMotorForce(maxWheelTorque):
         return (maxWheelTorque / Parameters["wheelRadius"])
 
-def maxPower(voltage):
+def calcMaxPower(voltage):
         return Parameters["tractiveIMax"] * voltage
 
-def voltage():
+def calcVoltage():
         # return 28.0 * lookup(self.charge, self.lastCurrent)
         return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis

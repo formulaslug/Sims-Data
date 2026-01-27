@@ -4,8 +4,8 @@ from state import VehicleState
 from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
 from Mech.aero import calcDrag, calcDownForce
 from Mech.steering import calcSlipAngle
-from Mech.general import resistiveForces
-from Electrical.powertrain import voltage, maxPower
+from Mech.general import calcResistiveForces
+from Electrical.powertrain import calcCurrent, calcMaxMotorTorque, calcMaxWheelTorque, calcMotorForce, calcMaxPower, calcVoltage
 from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
@@ -37,20 +37,20 @@ def stepState(worldPrev:VehicleState, inputs):
     delta = 1/Parameters["stepsPerSecond"]
 
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
-    voltage = voltage() # Not yet implemented. Returns 120 for now.
-    maxPower = maxPower(voltage) # Watts
+    voltage = calcVoltage() # Not yet implemented. Returns 120 for now.
+    maxPower = calcMaxPower(voltage) # Watts
     
-    resistiveForces = resistiveForces(worldPrev, inputs)
+    resistiveForces = calcResistiveForces(worldPrev, inputs)
     frontBrakeHeating, rearBrakeHeating = calcBrakeHeating(worldPrev, inputs)
     frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev)
     frontBrakeTemperature = worldPrev.frontBrakeTemperature + frontBrakeHeating - frontBrakeCooling
     rearBrakeTemperature = worldPrev.rearBrakeTemperature + rearBrakeHeating - rearBrakeCooling
     
-    maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
+    maxMotorTorque = calcMaxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     
     power = motorTorque * worldPrev.motorRotationsHZ # Watts
-    motorForce = SF.motorForce(motorTorque) # Newtons
+    motorForce = calcMotorForce(motorTorque) # Newtons
     netForce = motorForce + resistiveForces # Newtons
     
     acceleration = netForce / Parameters["Mass"] # m/s^2
@@ -69,6 +69,7 @@ def stepState(worldPrev:VehicleState, inputs):
     downForce = calcDownForce(worldPrev)
     frontBrakeForce, rearBrakeForce = calcBrakeForce(worldPrev, inputs)
     frontSlipAngle, rearSlipAngle = calcSlipAngle(worldPrev, inputs)
+    maxWheelTorque = calcMaxWheelTorque(maxMotorTorque)
 
     # cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
     #             "headingX", "headingY", "headingZ", 
@@ -93,7 +94,7 @@ def stepState(worldPrev:VehicleState, inputs):
            motorTorque, motorForce, netForce,
            maxTraction, worldPrev.wheelRotationsHZ, worldPrev.motorRPM,
            worldPrev.motorRotationsHZ, current,
-              SF.maxWheelTorque(maxMotorTorque), maxPower, power,
+              maxWheelTorque, maxPower, power,
               voltage, downForce,
               frontBrakeForce, rearBrakeForce,
               frontBrakeHeating, rearBrakeHeating,
