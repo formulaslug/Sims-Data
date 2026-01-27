@@ -47,7 +47,7 @@ def stepState(worldPrev:VehicleState, inputs):
     rearBrakeTemperature = worldPrev.rearBrakeTemperature + rearBrakeHeating - rearBrakeCooling
     
     maxMotorTorque = calcMaxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
-    motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
+    motorTorque = min(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     
     power = motorTorque * worldPrev.motorRotationsHZ # Watts
     motorForce = calcMotorForce(motorTorque) # Newtons

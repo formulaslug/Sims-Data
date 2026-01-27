@@ -52,6 +52,8 @@ def calcBrakeHeating(prevWorld:VehicleState, inputs) -> tuple[float,float]:
     tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
 
     # While this doesn't seem physically intuitive, it is based on the idea that the front and rear brakes share heat based on their contribution to total braking force.
+    if frontBrakeForce + rearBrakeForce < 1e-6:
+        return 0.0, 0.0
     frontTempChange = frontBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange
     rearTempChange = rearBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange
     return frontTempChange, rearTempChange

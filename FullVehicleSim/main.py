@@ -129,7 +129,9 @@ if __name__ == "__main__":
         pl.Series(controlInputs[:,3]).alias("steerAngle")
     )
 
-    time = df['time']
+    df.write_parquet("simulation_output.parquet")
+
+    t = df['time']
     current = df['current']
     speed = df['speed']
     voltage = df['voltage']
@@ -144,25 +146,25 @@ if __name__ == "__main__":
     ax1.set_title("Current vs Time")
     ax1.set_xlabel("Time (s)")
     ax1.set_ylabel("Current (A)")
-    ax1.plot(time, current)
+    ax1.plot(t, current)
 
     ax2.set_title("Speed vs Time")
     ax2.set_xlabel("Time (s)")
     ax2.set_ylabel("Speed (m/s)")
-    ax2.plot(time, speed)
+    ax2.plot(t, speed)
 
     ax3.set_title("Voltage vs Time")
     ax3.set_xlabel("Time (s)")
     ax3.set_ylabel("Voltage (V)")
-    ax3.plot(time, voltage)
+    ax3.plot(t, voltage)
 
     ax3.set_title("Voltage vs Time")
     ax3.set_xlabel("Time (s)")
     ax3.set_ylabel("Voltage (V)")
-    ax3.plot(time, voltage)
+    ax3.plot(t, voltage)
 
     ax4.set_title("rvt")
-    ax4.plot(time, yawRate)
+    ax4.plot(t, yawRate)
 
     #ax4.set_ylim([0, 190])
     #ax4.set_yticks(np.arange(0, 181, 20))
