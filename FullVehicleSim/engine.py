@@ -35,8 +35,7 @@ def stepState(worldPrev:VehicleState, inputs):
     voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
     maxPower = SF.maxPower(voltage) # Watts
     resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
-    brakeTemp = calcBrakeTemp(worldPrev)
-    brakeTemp = calcBrakeCooling(worldPrev)
+    brakeTemp = calcBrakeTemp(worldPrev) - calcBrakeCooling(worldPrev)
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     power = motorTorque * worldPrev.motorRotationsHZ # Watts

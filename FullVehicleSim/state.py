@@ -169,3 +169,25 @@ class SF():
     def voltage():
         # return 28.0 * lookup(self.charge, self.lastCurrent)
         return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
+    @staticmethod
+    def log(prevWorldArray):
+        cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
+                "headingX", "headingY", "headingZ", 
+                "yawRate", "brakeTemperature", 
+                "charge", "drag", "resistiveForces", 
+                "motorTorque", "motorForce", "netForce", 
+                "maxTraction", "wheelRotationsHZ", "motorRPM",
+                "motorRotationsHZ", "maxTractionAtWheel", "current", 
+                "maxWheelTorque", "maxPower", "power", "voltage",
+                "downForce", "brakeForce", "slipAngleFront", "slipAngleRear"]
+        for world in prevWorldArray:
+            x = world.position[0]
+            y = world.position[1]
+            z = world.position[2]
+            vX = world.velocity[0]
+            vY = world.velocity[1]
+            vZ = world.velocity[2]
+            speed = world.speed
+            headingX = world.heading[0]
+            headingY = world.heading[1]
+            headingZ = world.heading[2]
