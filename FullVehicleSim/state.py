@@ -119,13 +119,11 @@ class SF():
         #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))
 
     @staticmethod
-    def resistiveForces(worldPrev:VehicleState, brakes:float):
+    def resistiveForces(worldPrev:VehicleState, inputs):
         if worldPrev.speed <= 1e-5: # Floating point error
             return 0
-        elif brakes == 0:
-            return calcDrag(worldPrev)
         else:
-            brakeForce = calcBrakeForce(worldPrev)
+            brakeForce = calcBrakeForce(worldPrev, inputs)
             return -1 * (calcDrag(worldPrev) + brakeForce)
         
     @staticmethod

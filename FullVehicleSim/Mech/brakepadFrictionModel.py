@@ -119,5 +119,13 @@ y_array = np.array(y_vals)
 # Create interpolation function with bounds handling
 interpolator = interp1d(x_array, y_array, bounds_error=False, fill_value=(y_array[0], y_array[-1]))
 
-def calcFrictionCoeff(x_input):
-    return float(interpolator(x_input))
+def calcFrictionCoeff(brake_temperature:float) -> float:
+    """
+    Lookup table interpolation for brake pad friction coefficient.
+    
+    :param brake_temperature: Brake temperature in degrees Celsius
+    :type brake_temperature: float
+    :return: Friction coefficient
+    :rtype: float
+    """
+    return float(interpolator(brake_temperature))

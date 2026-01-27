@@ -16,6 +16,7 @@
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
         "rollingResistanceCoeff": 0.020926359062619436,
 
+        "brakeDiscRadius": 0.1016, // meters (4 inches)
         "brakeCaliperArea": 1.23, // in^2
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216,

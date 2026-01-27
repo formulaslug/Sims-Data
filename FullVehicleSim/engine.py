@@ -35,9 +35,11 @@ def stepState(worldPrev:VehicleState, inputs):
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
     voltage = SF.voltage() # Not yet implemented. Returns 120 for now.
     maxPower = SF.maxPower(voltage) # Watts
-    resistiveForces= SF.resistiveForces(worldPrev, inputs[1])
+    resistiveForces= SF.resistiveForces(worldPrev, inputs)
     frontBrakeHeating, rearBrakeHeating = calcBrakeHeating(worldPrev, inputs)
-    frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev, inputs)
+    frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev)
+    frontBrakeTemperature = worldPrev.frontBrakeTemperature + frontBrakeHeating - frontBrakeCooling
+    rearBrakeTemperature = worldPrev.rearBrakeTemperature + rearBrakeHeating - rearBrakeCooling
     maxMotorTorque = SF.maxMotorTorque(worldPrev, resistiveForces, maxPower, maxTraction)
     motorTorque = max(Parameters["maxTorque"]*inputs[0], maxMotorTorque) # Nm
     power = motorTorque * worldPrev.motorRotationsHZ # Watts
