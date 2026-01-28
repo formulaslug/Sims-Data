@@ -2,6 +2,12 @@ import matplotlib.pyplot as plt
 import json
 import polars as pl
 
+from MBS.granola2 import stepElectrical
+
+with open("params.json") as f:
+    params = json.load(f)
+
+
 from state import *
 from engine import *
 
@@ -53,8 +59,14 @@ if __name__ == "__main__":
                 if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
                     timeSinceLastSteer = 0
                     initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
-        currVehicle = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed) # Step forward!!
+        worldNext = stepState(currVehicle, timeBasedInputs[currInput][1], 1/stepsPerSecond, timeSinceLastSteer, initSpeed)
+
+        # run electrical + battery update
+        stepElectrical(currVehicle, worldNext, params, timeBasedInputs[currInput][1])
+
+        currVehicle = worldNext
         vehicleStates.append(currVehicle)
+
     print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
 
     columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
