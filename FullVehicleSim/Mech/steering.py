@@ -1,37 +1,51 @@
 # Steering model
 import numpy as np
+from state import VehicleState
+from paramLoader import Parameters, Magic
 
-def calculateSlipAngle(yawRate, velocity, steerAngle, parameters):
-    speed = np.sqrt(velocity[0] ** 2 + velocity[1] ** 2 + velocity[2]**2)
-    if yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
+def calcSlipAngle(prevWorld:VehicleState, inputs) -> tuple[float,float]:
+    """
+    Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
+    
+    Currently returns 0,0 if yawRate or speed is 0 to avoid division by zero.
+    This is incorrect and should be replaced with a better model in the future.
+    
+    :param yawRate: Description
+    :param velocity: Description
+    :param steerAngle: Description
+    :return: (frontSlipAngle, rearSlipAngle)
+    """
+    steerAngle = inputs[3]
+    speed = np.sqrt(prevWorld.velocity[0] ** 2 + prevWorld.velocity[1] ** 2 + prevWorld.velocity[2]**2)
+    if prevWorld.yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
         return (0, 0)
     else:
-        bodySlip = np.arctan(velocity[1]/velocity[0])
+        bodySlip = np.arctan(prevWorld.velocity[1]/prevWorld.velocity[0])
 
-    frontSlipAngle = calculateVirtualSlipAngle(parameters) + bodySlip + (parameters["wheelBase"]*parameters["frontWeightDist"]/100 * yawRate)/speed - steerAngle
-    rearSlipAngle = bodySlip - (parameters["wheelBase"]*(100-parameters["frontWeightDist"])/100 * yawRate)/speed
+    frontSlipAngle = calcVirtualSlipAngle() + bodySlip + (Parameters["wheelBase"]*Parameters["frontWeightDist"]/100 * prevWorld.yawRate)/speed - steerAngle
+    rearSlipAngle = bodySlip - (Parameters["wheelBase"]*(100-Parameters["frontWeightDist"])/100 * prevWorld.yawRate)/speed
 
     return (frontSlipAngle, rearSlipAngle)
 
-def calculateVirtualSlipAngle(parameters):
+def calcVirtualSlipAngle():
     # This model is based on Chapter 1 of Pacejka's 2012 book.
     # We treat all variables here as static to calculate virtual slip angle
     # This is entirely untrue. Every single variable is something to calculate every step.
     # But for now, we will guess
     # TODO: Improve every variable listed
 
-    return 0# parameters["frontToe"]
+    return 0# Parameters["frontToe"]
 
     frontCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     Fy = 0
 
-    # l = parameters["wheelBase"]
-    # m = parameters["Mass"]
-    # epsilon_i = parameters["rollSteerCoefficient"]
-    # tau_i = parameters["rollCamberSteerCoefficient"]
-    # hPrime = parameters["CoG-distanceToRollAxis"]
-    # e_i = parameters["casterLength"]
+    # l = Parameters["wheelBase"]
+    # m = Parameters["Mass"]
+    # epsilon_i = Parameters["rollSteerCoefficient"]
+    # tau_i = Parameters["rollCamberSteerCoefficient"]
+    # hPrime = Parameters["CoG-distanceToRollAxis"]
+    # e_i = Parameters["casterLength"]
     # t_i = = 0 # Pneumatic trail length. Hard Tire Modeling problem
     # c_phi1 = 0
     # c_phi2 = 0
@@ -57,7 +71,7 @@ def calculateVirtualSlipAngle(parameters):
     #
     # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
 
-def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_, parameters):
+def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_):
     # This model is based on Performance Vehicle Dynamics
     # It is a pretty meh model which uses euler's method to approximate transient behavior
     # Ideally we would use something a bit better like rk4 but i couldn't get that to work
@@ -74,10 +88,10 @@ def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, fro
 
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     CR = rearCorneringStiffnessDeg * 180 / np.pi
-    a = parameters['a']
-    b = parameters["wheelBase"] - a
-    m = parameters["Mass"]
-    I = parameters["polarMoment"]
+    a = Parameters['a']
+    b = Parameters["wheelBase"] - a
+    m = Parameters["Mass"]
+    I = Parameters["polarMoment"]
     Y_beta = CF + CR
     Y_delta = -CF
     N_beta = a * CF - b * CR
@@ -95,29 +109,31 @@ def calculateYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, fro
 
     #print(c, Cc)
 
-    if zeta < 1: # Underdamped
-        omega_d = np.sqrt(1 - zeta**2) * omega_n
-        A = -r_inf
-        B = (r_dot_0 - zeta * omega_n * r_inf) / omega_d
-        exp_term = np.exp(-zeta * omega_n * timeSinceLastSteer)
-        cos_term = A * np.cos(omega_d * timeSinceLastSteer)
-        sin_term = B * np.sin(omega_d * timeSinceLastSteer)
-        normalizedR = exp_term * (cos_term + sin_term) + r_inf
-    elif zeta > 1: # Overdamped
-        f = (-zeta - np.sqrt(zeta**2 - 1)) * omega_n
-        g = (-zeta + np.sqrt(zeta**2 - 1)) * omega_n
-        A = (r_dot_0 + r_inf * f) / (g - f)
-        B = -(A + r_inf)
-        r = A * np.exp(g * timeSinceLastSteer) + B * np.exp(f * timeSinceLastSteer) + r_inf
-        normalizedR = r / r_inf
-    else: # Critically
-        term1 = (-1* (CF * stepSteerInput * a)/(I * r_inf) - omega_n)
-        normalizedR = (-1 + term1 * timeSinceLastSteer) * np.e **(-1 * omega_n * timeSinceLastSteer) + 1
+    # if zeta < 1: # Underdamped
+    #     omega_d = np.sqrt(1 - zeta**2) * omega_n
+    #     A = -r_inf
+    #     B = (r_dot_0 - zeta * omega_n * r_inf) / omega_d
+    #     exp_term = np.exp(-zeta * omega_n * timeSinceLastSteer)
+    #     cos_term = A * np.cos(omega_d * timeSinceLastSteer)
+    #     sin_term = B * np.sin(omega_d * timeSinceLastSteer)
+    #     normalizedR = exp_term * (cos_term + sin_term) + r_inf
+    # elif zeta > 1: # Overdamped
+    #     f = (-zeta - np.sqrt(zeta**2 - 1)) * omega_n
+    #     g = (-zeta + np.sqrt(zeta**2 - 1)) * omega_n
+    #     A = (r_dot_0 + r_inf * f) / (g - f)
+    #     B = -(A + r_inf)
+    #     r = A * np.exp(g * timeSinceLastSteer) + B * np.exp(f * timeSinceLastSteer) + r_inf
+    #     normalizedR = r / r_inf
+    # else: # Critically
+    #     term1 = (-1* (CF * stepSteerInput * a)/(I * r_inf) - omega_n)
+    #     normalizedR = (-1 + term1 * timeSinceLastSteer) * np.e **(-1 * omega_n * timeSinceLastSteer) + 1
 
     #print("STEERING INPUT", normalizedR, r_inf, zeta, Cc, omega_n, r_dot_0, r_inf, C2, k, c, YR_v, NR_v, N_delta, N_beta, Y_delta, Y_beta)
-    return normalizedR * r_inf
+    # return normalizedR * r_inf
+    return r_inf
 
 # parameters = {"Mass": 300, "polarMoment": 658.088580080000, "a": 0.853506, "wheelBase": 1.65471}
 # for i in np.arange(0, 1, 0.02):
 #     res = calculateYawRate(0, 35.76, 0.4, i, -1086.083, -890.0656, parameters)
 #     print(i, res)
+
