@@ -1,8 +1,8 @@
 import numpy as np
 import lionCellModel as LionCellModel
-print("LOADING granola2.py")
+# print("LOADING granola2.py")
 
-print("STEP ELECTRICAL CALLED")
+# print("STEP ELECTRICAL CALLED")
 def stepElectrical(worldPrev, worldNext, params, inputs):
 
     worldNext.wheelRPM = worldPrev.speed / params["mechanical"]["wheelCircumferance"] * 60.0

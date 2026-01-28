@@ -89,7 +89,8 @@ if __name__ == "__main__":
                 charge=Parameters["vehicleSOC"],
                 yawRate = 0,
                 frontBrakeTemperature = Parameters["initialBrakeTemperature"],
-                rearBrakeTemperature= Parameters["initialBrakeTemperature"]
+                rearBrakeTemperature= Parameters["initialBrakeTemperature"],
+                tractiveBatteryTemperature = Parameters["initialBatteryTemperature"]
                 )    
     
     timeCol = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
