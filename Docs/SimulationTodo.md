@@ -25,3 +25,58 @@
 1. Tractive system heat generation (Not acc)
     1. Estimate how much heat is generated in the accumulator
     1. Not high priority unless we can get more data.
+1. Steering model
+1. Suspension Model
+
+
+# New simulation architecture idea
+
+
+```python
+# Dynamic Vars
+posX = 0
+posY = 1
+velX = 2
+velY = 3
+accelX = 4
+accelY = 5
+
+arr = np.array((simSteps, 6+1))
+arr[0] = step0
+
+def step():
+    newPosX = step[posX] + step[velX] * t
+
+for i in range(simSteps):
+    arr[i+1] = step(arr[i])
+```
+
+```python
+# Dictionary Idea #1
+# Array of dictionaries where each time step gets its own dictionary
+# Trivial to access a specific thing from any row
+
+arr = np.array((simSteps))
+arr[0] = step0
+
+def step():
+    newPosX = arr[posX] + arr[velX] * t
+
+for i in range(simSteps):
+    arr[i+1] = step(arr[i])
+```
+
+```python
+# Dictionary Idea #2
+# Dictionary of arrays. Each key is a column and each array is the length of the simulation
+# Trivial to access columns which is typically how we access data
+
+arr = np.array((simSteps))
+arr[0] = step0
+
+def step():
+    newPosX = arr[posX] + arr[velX] * t
+
+for i in range(simSteps):
+    arr[i+1] = step(arr[i])
+```

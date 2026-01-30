@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import cantools.database as db
 
 from Data.DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
-from Data.AnalysisFunctions import *
-from Data.integralsAndDerivatives import *
+from Data.FSLib.AnalysisFunctions import *
+from Data.FSLib.IntegralsAndDerivatives import *
 from scipy.interpolate import CubicSpline
 
 dbcPath = "../fs-3/CANbus.dbc"
@@ -70,38 +70,7 @@ etcImplausibility = "ETC_STATUS_IMPLAUSIBILITY"
 etcRTDButton = "ETC_STATUS_RTD_BUTTON"
 etcBrakeVoltage = "ETC_STATUS_BRAKE_SENSE_VOLTAGE"
 
-df = read("C:/Projects/FormulaSlug/fs-data/FS-3/10112025/firstDriveMCError30.parquet")
-df = df.with_columns(
-    df["timestamp"].alias("Time")
-)
+df = read("C:/Projects/FormulaSlug/fs-data/FS-3/10082025/fixed_wheels_nathaniel_inv_test_w_fault.parquet")
 
-df = read("C:/Projects/FormulaSlug/fs-data/FS-3/10112025/firstDriveMCError30-filled-null.parquet")
-df = df.with_columns(
-    simpleTimeCol(df)
-)
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-
-ax.plot(df[t], df[frT], label=frT, c="blue")
-ax.plot(df[t], df[flT], label=flT, c="red")
-ax.plot(df[t], df[brT], label=brT, c="orange")
-ax.plot(df[t], df[blT], label=blT, c="cyan")
-ax.set_title("Suspension Travel during First Drive with MC Fault")
-ax.set_xlabel("Time")
-ax.set_ylabel("Suspension Travel (mm)")
-ax.legend()
-plt.show()
-
-
-dfNullless = df.drop_nulls(subset=[frT, flT, brT, blT])
-
-cs = CubicSpline(dfNullless[t], dfNullless[frT])
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-
-ax.scatter(dfNullless[t], cs(dfNullless[t]), label=frT, s=0.5)
-ax.scatter(dfNullless[t], in_place_derive(cs(dfNullless[t])), label=f"Derived {frT}", s=0.5)
-ax.legend()
+plt.plot(df[busV])
 plt.show()
