@@ -99,6 +99,7 @@ def calculateUSG(steerAngle, yawRate, velocity):
     ay = velocity*yawRate #lateral acceleration, m/s
     rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
     usg = (steerAngle - rhoPerfect)/ay #chalmer's formula
+    # ^^^ on the condition that your steer angle is MORE than rhoPerfect (turning more than you need to), K_u is positive
     return usg
 
 
@@ -205,6 +206,7 @@ Z = np.array(Z)
 # Z = np.array(Z)
 
 # --- plot (also just ctrl c+v) ---
+#also subplot for cornering stiffnesses
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(111, projection='3d')
 
