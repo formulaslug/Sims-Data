@@ -156,7 +156,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # --- solver inputs ---
-minSteer = 0.1 #changed to 0.1 because graph was throwing some crazy values
+minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
