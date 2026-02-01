@@ -3,6 +3,7 @@
 import scipy
 import numpy
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import ipywidgets as widgets
 from ipywidgets import interact, interactive
 
@@ -20,6 +21,7 @@ d = 109.7788 #[3] mm (plan view distance between front axis and rack. negative b
 l_arm = 71.628 #[3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1589.989 #[3] mm (length of wheelbase)
 m = 277.92 #[3] kg (mass of FS-3, with driver)
+cornerRadius = 16.75 #meters, as per the rules
 
 def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
     rackShift: float = rackRatio*wheelInput
@@ -47,29 +49,32 @@ def betaTrigSolver(l1): #a separate function to solve the big bad trig equation
     beta = (numpy.pi/2) - atan - acos
     return beta
     #return frac
-def calebUSG(yawRate, cornerRadius):
-    rho_Perfect = LWB/cornerRadius
-    F_c = (yawRate**2)(m*cornerRadius)
-    
+# def calebUSG(wiVal, yawRate, cornerRadius): #USG at fixed cornering radius, chalmer's formula
+#     global wheelInput
+#     wheelInput = wiVal
+#     rho_Perfect = LWB/cornerRadius 
+#     F_c = m*cornerRadius*yawRate**2
+#     USG = (wheelInput - rho_Perfect)/F_c
+#     return USG
 
-def update(val): #update variables based off of interact()
-    global wheelInput
-    wheelInput = val
-    left_angle, right_angle = calculateAckermann()
-    #stat, bL, bR = calculateAckermann()
-    print(f"wheelInput = {wheelInput}")
-    print(f"rack movement = {rackMovement()}")
-    print("----------------------------")
-    print(f"left wheel radians = {left_angle}")
-    print(f"right wheel radians = {right_angle}")
-    print("----------------------------")
-    print(f"left wheel degrees = {numpy.rad2deg(left_angle)}")
-    print(f"right wheel degrees = {numpy.rad2deg(right_angle)}")
-    #print(f"Static value must be within [-1,1] = {stat}")
-    #print(f"Left value must be within [-1,1] = {bL}")
-    #print(f"Right value must be within [-1,1] = {bR}")
+# def update(val): #update variables based off of interact()
+#     global wheelInput
+#     wheelInput = val
+#     left_angle, right_angle = calculateAckermann()
+#     #stat, bL, bR = calculateAckermann()
+#     print(f"wheelInput = {wheelInput}")
+#     print(f"rack movement = {rackMovement()}")
+#     print("----------------------------")
+#     print(f"left wheel radians = {left_angle}")
+#     print(f"right wheel radians = {right_angle}")
+#     print("----------------------------")
+#     print(f"left wheel degrees = {numpy.rad2deg(left_angle)}")
+#     print(f"right wheel degrees = {numpy.rad2deg(right_angle)}")
+#     #print(f"Static value must be within [-1,1] = {stat}")
+#     #print(f"Left value must be within [-1,1] = {bL}")
+#     #print(f"Right value must be within [-1,1] = {bR}")
 
-interact( #ui
-    update,
-    val=widgets.FloatSlider(value=0.0,min=-90,max=90,step=1,description="Deg Wheel Input")
-)
+# interact( #ui
+#     update,
+#     val=widgets.FloatSlider(value=0.0,min=-90,max=90,step=1,description="Deg Wheel Input")
+# )

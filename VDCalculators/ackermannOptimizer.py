@@ -4,12 +4,16 @@ import math
 import json
 import numpy
 sys.path.append("../FullVehicleSim/Mech")
+import traction
 
 
 import json
 magic:dict
 parameters:dict
-with open('../../FullVehicleSim/params.json', 'r') as file:
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) #gpt-generated way to find params
+params_path = os.path.join(BASE_DIR, '..', 'FullVehicleSim', 'params.json')
+
+with open(params_path, 'r') as file:
     params = json.load(file)
     Magic = params["Magic"]
     Parameters = params["Parameters"]
@@ -87,8 +91,18 @@ def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffn
     C2 = (Y_delta * N_beta - Y_beta * N_delta) / (m * speed)
     r_inf = (C2 * stepSteerInput) / k
     return r_inf
+def calculateUSG(steerAngle, yawRate, velocity):
+    L_wb = 1.589989 #wheelbase length, in meters
+    if (yawRate == 0): #just return 0 and break so as not to throw invalid division error
+        return 0
+    R_p = velocity/yawRate #cornering radius, in meter
+    ay = velocity*yawRate #lateral acceleration, m/s
+    rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
+    usg = (steerAngle - rhoPerfect)/ay #chalmer's formula
+    return usg
 
-def solver(minSteer, maxSteer, minVelocity, maxVelocity):
+
+def solver(minSteer, maxSteer, minVelocity, maxVelocity): #old solver for yaw rate
     carMass = [277 / 4, 277 / 4 , 277 / 4 , 277 / 4 ]
     res = []
     for steer in np.arange(minSteer, maxSteer, 0.1):
@@ -97,8 +111,8 @@ def solver(minSteer, maxSteer, minVelocity, maxVelocity):
             inTire, outTire = calculateAckermannOther(steer)
             inCorneringAngleSlip = calculateSlipAngle(inTire, velocity)
             outCorneringAngleSlip = calculateSlipAngle(outTire, velocity)
-            inCorneringStiff = getCorneringStiffness(carMass, (inCorneringAngleSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic)[0]
-            outCorneringStiff = getCorneringStiffness(carMass, (outCorneringAngleSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
+            inCorneringStiff = traction.getCorneringStiffness(carMass, (inCorneringAngleSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic)[0]
+            outCorneringStiff = traction.getCorneringStiffness(carMass, (outCorneringAngleSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
             netFrontCorneringStiffness = (inCorneringStiff + outCorneringStiff)/2
             netRearCornerningStiffness = -70 # lol who knows bruh
 
@@ -106,7 +120,35 @@ def solver(minSteer, maxSteer, minVelocity, maxVelocity):
             currLine.append(yawRate)
         res.append(currLine)
     return res
+def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity): #usg-specific solver so we dont lose the old one in case this is cooked. mostly copy+paste from old solver
+    carMass = [277 / 4, 277 / 4 , 277 / 4 , 277 / 4 ]
+    USG_vals = []
+    radius_vals = []
 
+    for steer in np.arange(minSteer, maxSteer, 0.1):
+        curveUSG = []
+        curveRadius = []
+
+        for velocity in np.arange(minVelocity, maxVelocity, 1):
+            inTire, outTire = calculateAckermannOther(steer)
+            inSlip = calculateSlipAngle(inTire, velocity)
+            outSlip = calculateSlipAngle(outTire, velocity)
+            inCorneringStiff = traction.getCorneringStiffness(carMass, (inSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic)[0]
+            outCorneringStiff = traction.getCorneringStiffness(carMass, (outSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
+            netCF = (inCorneringStiff + outCorneringStiff)/2
+            netCR = -70 # i still dont know bruh xd
+            yawRate = calculateYawRate(steer, netCF, netCR, velocity, steer) * -1
+            if (yawRate == 0): #avoid invalid division error
+                radius = 0
+            else:
+                radius = velocity/yawRate
+            usg = calculateUSG(steer, yawRate, velocity)
+
+            curveUSG.append(usg)
+            curveRadius.append(radius)
+        USG_vals.append(curveUSG)
+        radius_vals.append(curveRadius)
+    return USG_vals, radius_vals
 
 
 import numpy as np
@@ -114,33 +156,55 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # --- solver inputs ---
-minSteer = 0
+minSteer = 0.1 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
 
-# --- run solver ---
-yaw_rates = solver(minSteer, maxSteer, minVelocity, maxVelocity)
-
-# --- build coordinate lists for trisurf ---
+# -run solver (USG graph)
 steer_vals = np.arange(minSteer, maxSteer, 0.1)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
 
-S = []
-V = []
-Z = []
+S, V, Z = [], [], []
+
+USG_vals, R_vals = solveUSG(
+    minSteer, maxSteer, minVelocity, maxVelocity
+)
 
 for i, steer in enumerate(steer_vals):
     for j, velocity in enumerate(velocity_vals):
-        S.append(steer)
-        V.append(velocity)
-        Z.append(yaw_rates[i][j])
+        usg = USG_vals[i][j]
+        if np.isfinite(usg):
+            S.append(steer)
+            V.append(velocity)
+            Z.append(usg)
 
 S = np.array(S)
 V = np.array(V)
 Z = np.array(Z)
 
-# --- plot ---
+# # --- run solver (YR-angle-v graph) ---
+# yaw_rates = solver(minSteer, maxSteer, minVelocity, maxVelocity)
+
+# # --- build coordinate lists for trisurf ---
+# steer_vals = np.arange(minSteer, maxSteer, 0.1)
+# velocity_vals = np.arange(minVelocity, maxVelocity, 1)
+
+# S = []
+# V = []
+# Z = []
+
+# for i, steer in enumerate(steer_vals):
+#     for j, velocity in enumerate(velocity_vals):
+#         S.append(steer)
+#         V.append(velocity)
+#         Z.append(yaw_rates[i][j])
+
+# S = np.array(S)
+# V = np.array(V)
+# Z = np.array(Z)
+
+# --- plot (also just ctrl c+v) ---
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(111, projection='3d')
 
@@ -153,12 +217,12 @@ surf = ax.plot_trisurf(
     antialiased=True
 )
 
-ax.set_xlabel("Velocity")
-ax.set_ylabel("Steering Angle")
-ax.set_zlabel("Yaw Rate")
-ax.set_title("Yaw Rate vs Steering Angle and Velocity")
+ax.set_xlabel("Velocity, m/s") 
+ax.set_ylabel("Steering Angle, rad") #OLD: steering angle
+ax.set_zlabel("Understeer Gradient, rad/g") #OLD: yaw rate
+ax.set_title("USG vs. Speed and Steering Input") #OLD: SA&V
 
-fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label="Yaw Rate")
+fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label="Understeer Gradient") #old title = yaw rate
 
 plt.tight_layout()
 plt.show()
