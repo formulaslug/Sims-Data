@@ -56,6 +56,20 @@ def betaTrigSolver(l1): #a separate function to solve the big bad trig equation
 #     F_c = m*cornerRadius*yawRate**2
 #     USG = (wheelInput - rho_Perfect)/F_c
 #     return USG
+#how does an ackermann value minimize or change the USG based on varying cornering speeds and a fixed cornering radius?
+# - ackermann range 
+# - varying yaw rate (minsteer/maxsteer from ackermann -> slip angles -> cornering stiffnesses - > (ackermann)step steer input + step velocity input))
+# - return USG
+def fixedCornerUSG(cornerRadius, wheelInput, vStep, steerInput): #USG plot with changing ackermann percentage, increasing velocity, fixed corner radius (for several cornering radii)
+    return 0
+def rackLocateEasy(ackermannFactor):
+    StaI = #pi/2 * T/2L for ideal ackermann.
+    angle = ackermannFactor*StaI #angle between steer arm and tie rod will determine rack location. 
+    return angle
+
+
+
+
 
 # def update(val): #update variables based off of interact()
 #     global wheelInput

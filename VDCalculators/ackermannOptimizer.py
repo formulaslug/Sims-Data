@@ -53,7 +53,7 @@ def calculateAckermannOther(steerAngle):
     
         return beta_L, beta_R
         #return beta_nought, betaTrigSolver(l1Left), betaTrigSolver(l1Right)
-    
+        
     def betaTrigSolver(l1): #a separate function to solve the big bad trig equation
         l2 = numpy.sqrt((l1**2) + (d**2)) #l2 is the instantaneous direct distance from rack knuckle to steering axis (KPA)
         atan = numpy.arctan(d/l1) #first term of the "beta" equation
@@ -72,7 +72,6 @@ def calculateSlipAngle(steerAngle, velocity):
     Vx = velocity / math.cos(steerAngle)
     Vy = velocity * math.tan(steerAngle)
     return math.atan(Vy/Vx)
-
 def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffnessDeg, speed, stepSteerInput):
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     CR = rearCorneringStiffnessDeg * 180 / np.pi
@@ -99,6 +98,7 @@ def calculateUSG(steerAngle, yawRate, velocity):
     ay = velocity*yawRate #lateral acceleration, m/s
     rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
     usg = (steerAngle - rhoPerfect)/ay #chalmer's formula
+    # ^^^ on the condition that your steer angle is MORE than rhoPerfect (turning more than you need to), K_u is positive
     return usg
 
 
@@ -205,6 +205,7 @@ Z = np.array(Z)
 # Z = np.array(Z)
 
 # --- plot (also just ctrl c+v) ---
+#also subplot for cornering stiffnesses
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(111, projection='3d')
 
