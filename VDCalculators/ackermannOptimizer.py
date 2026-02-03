@@ -120,16 +120,16 @@ def solver(minSteer, maxSteer, minVelocity, maxVelocity): #old solver for yaw ra
             currLine.append(yawRate)
         res.append(currLine)
     return res
-def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity): #usg-specific solver so we dont lose the old one in case this is cooked. mostly copy+paste from old solver
+def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity, steerStep=0.1, velocityStep=1): #usg-specific solver so we dont lose the old one in case this is cooked. mostly copy+paste from old solver
     carMass = [277 / 4, 277 / 4 , 277 / 4 , 277 / 4 ]
     USG_vals = []
     radius_vals = []
 
-    for steer in np.arange(minSteer, maxSteer, 0.1):
+    for steer in np.arange(minSteer, maxSteer, steerStep):
         curveUSG = []
         curveRadius = []
 
-        for velocity in np.arange(minVelocity, maxVelocity, 1):
+        for velocity in np.arange(minVelocity, maxVelocity, velocityStep):
             inTire, outTire = calculateAckermannOther(steer)
             inSlip = calculateSlipAngle(inTire, velocity)
             outSlip = calculateSlipAngle(outTire, velocity)
@@ -162,7 +162,7 @@ minVelocity = 10
 maxVelocity = 30
 
 # -run solver (USG graph)
-steer_vals = np.arange(minSteer, maxSteer, 0.1)
+steer_vals = np.arange(minSteer, maxSteer, 0.01)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
 
 S, V, Z = [], [], []
@@ -171,12 +171,12 @@ USG_vals, R_vals = solveUSG(
     minSteer, maxSteer, minVelocity, maxVelocity
 )
 
-for i, steer in enumerate(steer_vals):
-    for j, velocity in enumerate(velocity_vals):
+for i in range(len(USG_vals)):
+    for j in range(len(USG_vals[0])):
         usg = USG_vals[i][j]
         if np.isfinite(usg):
-            S.append(steer)
-            V.append(velocity)
+            S.append(steer_vals[i])
+            V.append(velocity_vals[j])
             Z.append(usg)
 
 S = np.array(S)
