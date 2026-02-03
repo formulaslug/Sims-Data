@@ -13,6 +13,8 @@ trackWidth = 1.234
 wheelBase = 1.59
 RCFront = 0.0203
 RCRear = 0.0493
+#recalcualate RC's after onshape is done
+#Right now rear is ~0.0426974 mm
 motionRatioF = 1.006
 motionRatioR = 1.004
 multiplier = 0.00571015 #n/m -> lbf/in
@@ -36,6 +38,10 @@ def compute_spring_rates(v, ay, trg):
     rearAero = rearFloor + rearWing
 
     print("Aero Balance (front%) =", frontAero/2000)
+    print("Compute_spring_rates is running")
+  
+
+
     ###     Axle Weights    ###
 
     frontAW = frontWD * weight + frontAero
@@ -78,6 +84,55 @@ def compute_spring_rates(v, ay, trg):
     frontKS = frontKW / (motionRatioF**2)
     rearKS = rearKW / (motionRatioR**2)
     return frontKS, rearKS, frontRS, rearRS, frontKW, rearKW
+
+def roll_and_pitch_gradients(v, ay, ax, frontKS, rearKS):
+    """
+    Returns:
+    roll_gradient  (deg/g)
+    pitch_gradient (deg/g)
+    """
+
+    # --- Convert springs to wheel rates ---
+    frontKW = frontKS * motionRatioF**2
+    rearKW  = rearKS  * motionRatioR**2
+
+    # ================= ROLL =================
+    halfTrackSq = (trackWidth / 2)**2
+    frontRS = 2 * frontKW * halfTrackSq
+    rearRS  = 2 * rearKW  * halfTrackSq
+    Kphi = frontRS + rearRS
+
+    # Aero
+    frontAero = 0.88888 * v**2 + 0.5 * 0.22222 * v**2
+    rearAero  = 1.111   * v**2 + 0.5 * 0.22222 * v**2
+
+    frontAW = frontWD * weight + frontAero
+    rearAW  = rearWD  * weight + rearAero
+
+    M_roll = (
+        frontAW * (CGHeight - RCFront) +
+        rearAW  * (CGHeight - RCRear)
+    ) * ay
+
+    phi = M_roll / Kphi
+    roll_gradient = np.degrees(phi / ay)
+
+    # ================= PITCH =================
+    af = wheelBase * rearWD
+    ar = wheelBase * frontWD
+
+    PCHeight = 0.5 * (RCFront + RCRear)
+
+    M_pitch = weight * (CGHeight - PCHeight) * ax
+
+    Ktheta = frontKW * af**2 + rearKW * ar**2
+
+    theta = M_pitch / Ktheta
+    pitch_gradient = np.degrees(theta / ax)
+
+    return roll_gradient, pitch_gradient
+
+
 ###     Graphs      ###
 def spring_rates_vs_speed_fixed_g():
     speeds = np.linspace(10, 35, 30)
@@ -204,6 +259,11 @@ print("Front Spring Rate (N/m):", frontKS)
 print("Rear Spring Rate (N/m):", rearKS)
 print("Front Spring Rate (lbf/in):", frontKS * multiplier)
 print("Rear Spring Rate (lbf/in):", rearKS * multiplier)
+print()
+roll_gradient = roll_and_pitch_gradients(30, 1, 1, frontKS, rearKS)[0]
+pitch_gradient = roll_and_pitch_gradients(30, 1, 1, frontKS, rearKS)[1]
+print("roll gradient:", roll_gradient*0.0174533, "rads/g")
+print(roll_gradient)
+print("pitch gradient:", pitch_gradient*0.0174533, "rads/g")
+print(pitch_gradient)
 
-
-roll_angle_vs_speed_display(4)
