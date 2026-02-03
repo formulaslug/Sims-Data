@@ -9,20 +9,23 @@ from ipywidgets import interact, interactive
 
 #global variables
 #-----------------------------
-# THIS SCRIPT USES MOSTLY FS-3 VALUES. FS-3 values denoted by [3], any theoretical or FS-4 values denoted by [4]
+# THIS SCRIPT USES MOSTLY FS-3 VALUES.
 #-----------------------------
-tw = 1083.3862 #mm (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
-rackRatio = 82.55/248 #[4] mm rack displacement/deg pinion rotation
+tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
+rackRatio = 82.55/248 #fs4/3 mm rack displacement/deg pinion rotation
 wheelInput = 0.0 #in degrees of steering wheel movement (CW + CCW -)
 rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
-l_rack = 292.1 #[4] mm (width of steering rack casing)
-l_rod = 383.211 #[4] mm (length of "tie rod" as left in FS-4 master CAD)
-d = 33.642 #[4] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
-l_arm = 75.946 #[4] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
-LWB = 1589.989 #[3] mm (length of wheelbase)
+l_rack = 292.1 #fs4/3 mm (width of steering rack casing)
+#l_rod = 383.211 #fs4 mm (length of "tie rod" as left in FS-4 master CAD)
+l_rod = 378.434 #fs3
+#d = -33.642 #fs4 mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+d = 122.598 #fs3
+#l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+l_arm = 91.04204 #fs3
+LWB = 1.589989 #fs3 m (length of wheelbase)
 m = 277.92 #[3] kg (mass of FS-3, with driver)
 cornerRadius = 16.75 #meters, as per the rules
-#phiStatic  
+phiStatic = numpy.deg2rad(4.531) #fs4 degrees
 
 def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
     rackShift: float = rackRatio*wheelInput
@@ -61,37 +64,36 @@ def betaTrigSolver(l1): #a separate function to solve the trig equation (Gillesp
 # - ackermann range 
 # - varying yaw rate (minsteer/maxsteer from ackermann -> slip angles -> cornering stiffnesses - > (ackermann)step steer input + step velocity input))
 # - return USG
-def fixedCornerUSG(cornerRadius, wheelInput, vStep, steerInput): #USG plot with changing ackermann percentage, increasing velocity, fixed corner radius (for several cornering radii)
+def fixedCornerUSG(cornerRadius, wheelInput, vStep, steerInput, ackermannFactor): #USG plot with changing ackermann percentage, increasing velocity, fixed corner radius (for several cornering radii)
     return 0
 def updateSusGeo(ackermannFactor): #a function that intakes the ackermann factor, and uses Dixon formula 5.3.9-10 to solve for new toe arm lenghts/rack placements.
-    staI = (numpy.pi)/2 * tw/(2*LWB) #pi/2 * T/2L for ideal ackermann
+    staI = ((numpy.pi)/2) * (tw/(2*LWB)) #pi/2 * T/2L for ideal ackermann
     staActual = ackermannFactor*staI #angle between steer arm and tie rod will determine rack location. 
-    return 0
-    
+    thetaAxis = phiStatic - staActual #angle of interest formed by the right triangle made by sketching together the tie rod knuckle and rack knuckle in plan view
+    rackDisplacement = numpy.tan(thetaAxis)*tw #tan(thetaAxis) = delta_D/tw, tw known so use this relationship to solve for delta_D (rack displacement)
+    return rackDisplacement, staI
 
+rack, staI = updateSusGeo(0.8)
+print(f"rack distance: {rack}")
+print(f"ackermann situation: {numpy.rad2deg(staI)}")
+# def update(val): #update variables based off of interact()
+#     global wheelInput
+#     wheelInput = val
+#     left_angle, right_angle = calculateAckermann()
+#     #stat, bL, bR = calculateAckermann()
+#     print(f"wheelInput = {wheelInput}")
+#     print(f"rack movement = {rackMovement()}")
+#     print("----------------------------")
+#     print(f"left wheel radians = {left_angle}")
+#     print(f"right wheel radians = {right_angle}")
+#     print("----------------------------")
+#     print(f"left wheel degrees = {numpy.rad2deg(left_angle)}")
+#     print(f"right wheel degrees = {numpy.rad2deg(right_angle)}")
+#     #print(f"Static value must be within [-1,1] = {stat}")
+#     #print(f"Left value must be within [-1,1] = {bL}")
+#     #print(f"Right value must be within [-1,1] = {bR}")
 
-
-
-
-
-def update(val): #update variables based off of interact()
-    global wheelInput
-    wheelInput = val
-    left_angle, right_angle = calculateAckermann()
-    #stat, bL, bR = calculateAckermann()
-    print(f"wheelInput = {wheelInput}")
-    print(f"rack movement = {rackMovement()}")
-    print("----------------------------")
-    print(f"left wheel radians = {left_angle}")
-    print(f"right wheel radians = {right_angle}")
-    print("----------------------------")
-    print(f"left wheel degrees = {numpy.rad2deg(left_angle)}")
-    print(f"right wheel degrees = {numpy.rad2deg(right_angle)}")
-    #print(f"Static value must be within [-1,1] = {stat}")
-    #print(f"Left value must be within [-1,1] = {bL}")
-    #print(f"Right value must be within [-1,1] = {bR}")
-
-interact( #ui
-    update,
-    val=widgets.FloatSlider(value=0.0,min=-90,max=90,step=1,description="Deg Wheel Input")
-)
+# interact( #ui
+#     update,
+#     val=widgets.FloatSlider(value=0.0,min=-90,max=90,step=1,description="Deg Wheel Input")
+# )

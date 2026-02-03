@@ -35,9 +35,9 @@ def calculateAckermannOther(steerAngle):
     wheelInput = steerAngle * 180/3.141592 #in degrees of steering wheel movement (CW + CCW -)
     rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
     l_rack = 292.1 #[4] mm (width of steering rack casing)
-    l_rod = 378.9426 #[3] mm (length of tie rod as left in FS-3 master CAD)
-    d = 109.7788 #[3] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
-    l_arm = 71.628 #[3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+    l_rod = 383.211 #[4] mm (length of tie rod as left in FS-3 master CAD)
+    d = 33.642 #[4] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+    l_arm = 75.946 #[4] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 
     def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
         rackShift: float = rackRatio*wheelInput
