@@ -4,7 +4,7 @@ import polars as pl
 import argparse
 import time
 
-from paramLoader import Magic, Parameters
+from paramLoader import *
 from state import *
 from engine import *
 
@@ -50,10 +50,10 @@ if __name__ == "__main__":
                     "frontSlipAngle", "rearSlipAngle"]
     
     log = np.zeros((totalSteps + 1, len(cols)))
-    worldArray = np.zeros(totalSteps + 1, dtype=VehicleState)
+    worldArray = np.zeros((totalSteps + 1, 41), dtype=np.float32)
 
     # Set the inital time to 0 if not already 0
-    timeSeries = df_controls['time'] - df_controls['time'][0]
+    timeSeries = df_controls['time'] - df_controls['time'][0] # Normalize to start at 0
 
     # This takes the last time step and copies it out to the end of the simulation duration. 
     # This has the effect of holding the last command constant until the end of the simulation duration. 
@@ -82,21 +82,14 @@ if __name__ == "__main__":
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
-    worldArray[0] = VehicleState(
-                position=np.asarray([0,0,0], dtype=np.float32),
-                speed=0,
-                heading = np.asarray([1,0,0], dtype=np.float32),
-                charge=Parameters["vehicleSOC"],
-                yawRate = 0,
-                frontBrakeTemperature = Parameters["initialBrakeTemperature"],
-                rearBrakeTemperature= Parameters["initialBrakeTemperature"]
-                )    
-    
-    timeCol = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
+    worldArray[0,varCharge] = Parameters["vehicleSOC"]
+    worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
+    worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
+    worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     start = time.time()
     for i in range(totalSteps):
-        worldArray[i+1], log[i+1] = stepState(worldArray[i], controlInputs[i]) # Step forward!!
+        stepState(worldArray, i) # Step forward!!
         ## This was above the stepState but I moved it down to make it clearer to read.
         # timeRunning += 1/stepsPerSecond
         # timeSinceLastSteer += 1/stepsPerSecond

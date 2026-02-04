@@ -1,4 +1,4 @@
-from paramLoader import Parameters, Magic
+from paramLoader import *
 import numpy as np
 from state import VehicleState
 from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
@@ -27,7 +27,7 @@ def calculateHeading(heading, yaw_rate, time_increment):
 
     return np.append(new_heading, 0)
 
-def stepState(worldPrev:VehicleState, inputs):
+def stepState(worldArray:np.ndarray, step:int):
 
     # Empirically we see that throttle can only go from about 0-.75.
     # TODO: Update later
@@ -37,10 +37,10 @@ def stepState(worldPrev:VehicleState, inputs):
     delta = 1/Parameters["stepsPerSecond"]
 
     maxTraction = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
-    voltage = calcVoltage() # Not yet implemented. Returns 120 for now.
-    maxPower = calcMaxPower(voltage) # Watts
+    worldArray[step, varVoltage] = calcVoltage() # Not yet implemented. Returns 120 for now.
+    worldArray[step, varMaxPower] = calcMaxPower(worldArray[step, varVoltage]) # Watts
     
-    resistiveForces = calcResistiveForces(worldPrev, inputs)
+    worldArray[step, varResistiveForces] = calcResistiveForces(worldArray, step)
     frontBrakeHeating, rearBrakeHeating = calcBrakeHeating(worldPrev, inputs)
     frontBrakeCooling, rearBrakeCooling = calcBrakeCooling(worldPrev)
     frontBrakeTemperature = worldPrev.frontBrakeTemperature + frontBrakeHeating - frontBrakeCooling
@@ -70,43 +70,4 @@ def stepState(worldPrev:VehicleState, inputs):
     frontSlipAngle, rearSlipAngle = calcSlipAngle(worldPrev, inputs)
     maxWheelTorque = calcMaxWheelTorque(maxMotorTorque)
 
-    # cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
-    #             "headingX", "headingY", "headingZ", 
-    #             "yawRate", "frontBrakeTemperature", "rearBrakeTemperature", 
-    #             "charge", "drag", "resistiveForces", 
-    #             "motorTorque", "motorForce", "netForce", 
-    #             "maxTraction", "wheelRotationsHZ", "motorRPM",
-    #             "motorRotationsHZ", "current", 
-    #             "maxWheelTorque", "maxPower", "power", 
-    #             "voltage", "downForce", 
-    #             "frontBrakeForce", "rearBrakeForce", 
-    #             "frontBrakeHeating", "rearBrakeHeating", 
-    #             "frontBrakeCooling", "rearBrakeCooling",
-    #             "frontSlipAngle", "rearSlipAngle"]
-    
-    log:list[float] = [position[0], position[1], position[2],
-           worldPrev.velocity[0], worldPrev.velocity[1], worldPrev.velocity[2],
-           worldPrev.speed,
-           worldPrev.heading[0], worldPrev.heading[1], worldPrev.heading[2],
-              worldPrev.yawRate, frontBrakeTemperature, rearBrakeTemperature,
-           charge, drag, resistiveForces,
-           motorTorque, motorForce, netForce,
-           maxTraction, worldPrev.wheelRotationsHZ, worldPrev.motorRPM,
-           worldPrev.motorRotationsHZ, current,
-              maxWheelTorque, maxPower, power,
-              voltage,
-              frontBrakeForce, rearBrakeForce,
-              frontBrakeHeating, rearBrakeHeating,
-              frontBrakeCooling, rearBrakeCooling,
-              frontSlipAngle, rearSlipAngle]
-
-    worldNext = VehicleState(
-        position=position,
-        speed=speed, 
-        heading = heading,
-        charge=charge,
-        frontBrakeTemperature = frontBrakeTemperature,
-        rearBrakeTemperature = rearBrakeTemperature,
-        yawRate = worldPrev.yawRate
-    )
-    return worldNext, log
+    return None

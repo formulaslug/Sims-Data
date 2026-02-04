@@ -1,5 +1,5 @@
 from Mech import brakepadFrictionModel
-from paramLoader import Parameters, Magic
+from paramLoader import *
 import numpy as np
 from state import VehicleState
 # Docs:
@@ -9,46 +9,47 @@ from state import VehicleState
 def brakePSI_toNewtons(psi:float) -> float:
     return psi * Parameters["brakeCaliperArea"] * 4.448222 # lb force to Newtons
 
-def calcBrakeForce(prevWorld:VehicleState, inputs) -> tuple[float,float]:
+def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
     Calculate the brake force.
 
     FrictionCoeff(temp) * maxBrakeForce * 4 (for 4 wheels)
     
-    :param prevWorld: World State Previous
+    :param worldArray: World State Array
+    :param step: Current step index
     :return: Brake Force
     """
-    frontBrakePSI = inputs[1]
-    rearBrakePSI = inputs[2]
+    frontBrakePSI = worldArray[step, varBrakePressureFront]
+    rearBrakePSI = worldArray[step, varBrakePressureRear]
     frontBrakeForce = brakePSI_toNewtons(frontBrakePSI)
     rearBrakeForce = brakePSI_toNewtons(rearBrakePSI)
 
     # Calculate Brake Force
-    frontBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(prevWorld.frontBrakeTemperature) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
-    rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(prevWorld.rearBrakeTemperature) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
+    frontBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varFrontBrakeTemperature]) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
+    rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     return frontBrakeForce, rearBrakeForce
 
-def calcBrakeCooling(prevWorld:VehicleState) -> tuple[float,float]:
+def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
     Calculate the cooled brake temperature.
     
     :param prevWorld: World State
     :return: Change in Temperature
     """
-    frontBrakeCooling = Parameters["ambientTemperature"] + (prevWorld.frontBrakeTemperature - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
-    rearBrakeCooling = Parameters["ambientTemperature"] + (prevWorld.rearBrakeTemperature - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
+    frontBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
+    rearBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
     return frontBrakeCooling, rearBrakeCooling
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
     #return initTemperature - change
 
-def calcBrakeHeating(prevWorld:VehicleState, inputs) -> tuple[float,float]:
+def calcBrakeHeating(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     # Calculate Brake Force
-    frontBrakeForce, rearBrakeForce = calcBrakeForce(prevWorld, inputs)
+    frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
     # Guess energy increase based on kinetic energy decrease of the vehicle.
     # Assumption is 100% of kinetic energy lost goes into brake heating.
     speedChange = (frontBrakeForce + rearBrakeForce) / Parameters["Mass"] / Parameters["stepsPerSecond"] # momentum impulse
-    energyChange = 0.5 * Parameters["Mass"] * (prevWorld.speed - (prevWorld.speed - speedChange))
+    energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed] - (worldArray[step-1, varSpeed] - speedChange))
     tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
 
     # While this doesn't seem physically intuitive, it is based on the idea that the front and rear brakes share heat based on their contribution to total braking force.

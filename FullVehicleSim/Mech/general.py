@@ -1,5 +1,5 @@
 from Mech.traction import calcCorneringStiffness
-from paramLoader import Parameters, Magic
+from paramLoader import *
 from state import VehicleState
 from Mech.braking import calcBrakeForce
 from Mech.aero import calcDrag
@@ -7,12 +7,12 @@ from Mech.steering import calcSlipAngle, calcYawRate
 from Mech.tireLoad import calcLoadTransfer
 import numpy as np
 
-def calcResistiveForces(worldPrev:VehicleState, inputs):
-        if worldPrev.speed <= 1e-5: # Floating point error
+def calcResistiveForces(worldArray:np.ndarray, step:int):
+        if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error
             return 0
         else:
-            frontBrakeForce, rearBrakeForce = calcBrakeForce(worldPrev, inputs)
-            return -1 * (calcDrag(worldPrev) + frontBrakeForce + rearBrakeForce)
+            frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
+            return -1 * (calcDrag(worldArray, step) + frontBrakeForce + rearBrakeForce)
         
 def calculateYawRate(prevWorld:VehicleState, steerAngle:float, initAcceleration:float, heading:np.ndarray, initYawRate:float, timeSinceLastSteer:float):
         """Calculate the yaw rate of the vehicle at the current state.
