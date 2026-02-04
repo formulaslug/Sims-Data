@@ -1,5 +1,5 @@
 import numpy as np
-from paramLoader import Parameters, Magic
+from paramLoader import Parameters
 from dataclasses import dataclass
 
 @dataclass

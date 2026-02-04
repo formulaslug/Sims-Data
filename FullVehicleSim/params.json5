@@ -46,7 +46,7 @@
         "brakeSurfaceArea": 0.001180643,
         "brakepadThickness": 0.007874,
         "brakeMass": 0.408,
-        "maxBrakeForce": 1500
+        "maxBrakeForce": 1500,
     },
     "Magic": {
         "shape-factor": 0.696268618106842,
@@ -149,6 +149,6 @@
         "pressureYA": -3.086921788053587e-05,
         "pressureYB": -9.812999633140862e-05,
         "pressureYC": 0.9998338222503662,
-        "gysign": -0.10000000149011612
+        "gysign": -0.10000000149011612,
     }
 }
