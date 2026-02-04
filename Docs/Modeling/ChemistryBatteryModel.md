@@ -45,3 +45,7 @@ So turns out I forgot ln rules and the $C_4$ and $C_1$ are redundant so removing
 Adding $C_4$ to the bottom to do something similar to $C_3$. Also adjusting it so $C_1$ multiplies $C_3$ which makes it less separable but less confusing.
 
 $$V = V_0 + C_2\frac{RT}{F}*ln(\frac{C_1(SOC-0.1^3 + C_3)}{1-(SOC-0.1^3) + C_4})$$
+
+This is the fit to 2.5A data from murata VTC5A cells
+
+![ChemBatteryModelImage](chemModel2.png)
