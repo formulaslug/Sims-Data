@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
-rackRatio = 82.55/248 #fs4/3 mm rack displacement/deg pinion rotation
+rackRatio = 82.55/numpy.deg2rad(248) #fs4/3 mm rack displacement/deg pinion rotation
 wheelInput = 0.0 #in degrees of steering wheel movement (CW + CCW -)
 rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
 l_rack = 292.1 #fs4/3 mm (width of steering rack casing)
@@ -23,7 +23,7 @@ d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
     rackShift: float = rackRatio*wheelInput
     return rackShift
-def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS
+def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS, this is from equation 1B
     angleIn = 0
     if (leftAngle < 0 or rightAngle > 0):
         angleIn = rightAngle
@@ -41,25 +41,43 @@ def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS
     denominator = 1 / (numpy.tan(outIdeal) - numpy.tan(angleIn))
     ackFactor = 100*(numpy.abs(numerator/denominator))
     return ackFactor #OUTPUT IS IN PERCENT.
-def findStaticSteeringGeo():
+def findStaticSteeringGeo(): #this is from equation 1A
     value = (d - l_arm*numpy.cos(phiStatic))**2 + (d_lat - l_arm*numpy.sin(phiStatic))**2
-    toeRodLength = numpy.sqrt(value)
+    toeRodLength = numpy.positive(numpy.sqrt(value))
     print(f"Toe Rod Length: {l_rod}, Derived TRL: {toeRodLength}")
     return 0
-def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm
+def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm, this is from equation 1A
     global l_rod
     storeOldRod = l_rod
     global d 
     d += rackStep
     value = (d - l_arm*numpy.cos(phiStatic))**2 + (d_lat - l_arm*numpy.sin(phiStatic))**2
-    l_rod = numpy.sqrt(value)
+    l_rod = numpy.positive(numpy.sqrt(value))
     print(f"Old Toe Rod Length: {storeOldRod}, Updated TRL: {l_rod}")
     return 0
+def calculateSteerAngles(wheelInput):
+    leftSteerAngle = 0
+    rightSteerAngle = 0
 
-findStaticSteeringGeo()
-updateSteerGeo(5)
-updateSteerGeo(numpy.negative(5))
-updateSteerGeo(numpy.negative(5))
-updateSteerGeo(numpy.negative(5))
-updateSteerGeo(5)
-updateSteerGeo(5)
+    LS_repeatTerm = d_lat + (rackRatio*wheelInput)
+    LS_firstTerm = numpy.atan(LS_repeatTerm/d)
+    LS_secondTermNumerator = (d**2) + (LS_repeatTerm**2) + (l_arm**2) - (l_rod**2)
+    LS_sqrt = (numpy.sqrt((d**2) + (LS_repeatTerm**2)))
+    LS_secondTermDenominator = (2*l_arm)*LS_sqrt
+    LS_secondTerm = numpy.acos(LS_secondTermNumerator/LS_secondTermDenominator)
+    leftSteerAngle = LS_firstTerm - LS_secondTerm - phiStatic
+
+    RS_repeatTerm = d_lat - (rackRatio*wheelInput)
+    RS_firstTerm = numpy.atan(RS_repeatTerm/d)
+    RS_secondTermNumerator = (d**2) + (RS_repeatTerm**2) + (l_arm**2) - (l_rod**2)
+    RS_sqrt = (numpy.sqrt((d**2) + (RS_repeatTerm**2)))
+    RS_secondTermDenominator = (2*l_arm)*RS_sqrt
+    RS_secondTerm = numpy.acos(RS_secondTermNumerator/RS_secondTermDenominator)
+    rightSteerAngle = phiStatic - RS_firstTerm + RS_secondTerm
+
+    return leftSteerAngle, rightSteerAngle
+
+L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(90))
+print(f"LSA: {numpy.rad2deg(L_sa)}, RSA: {numpy.rad2deg(R_sa)}")
+L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(numpy.negative(90)))
+print(f"LSA: {numpy.rad2deg(L_sa)}, RSA: {numpy.rad2deg(R_sa)}")
