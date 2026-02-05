@@ -28,7 +28,7 @@ def calculateAckermannOther(steerAngle):
     import scipy
     import numpy
     import matplotlib.pyplot as plt
-
+    global d, l_rod
 
     def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS, this is from equation 1B
         angleIn = 0
@@ -76,14 +76,22 @@ def calculateAckermannOther(steerAngle):
         return leftSteerAngle, rightSteerAngle #OUTPUT WILL ALSO BE IN RAD
     inTire, outTire = calculateSteerAngles(steerAngle)
     return (inTire, outTire)
+def getSteeringState():
+    return {
+        "d": d,
+        "l_rod": l_rod
+    }
+
+def setSteeringState(state):
+    global d, l_rod
+    d = state["d"]
+    l_rod = state["l_rod"]
 def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm, this is from equation 1A
     global l_rod
-    storeOldRod = l_rod
     global d 
     d += rackStep
     value = (d - l_arm*numpy.cos(phiStatic))**2 + (d_lat - l_arm*numpy.sin(phiStatic))**2
     l_rod = numpy.positive(numpy.sqrt(value))
-    print(f"Old Toe Rod Length: {storeOldRod}, Updated TRL: {l_rod}")
     return 0
 def calculateSlipAngle(steerAngle, velocity):
     Vx = velocity / math.cos(steerAngle)
@@ -114,7 +122,7 @@ def calculateUSG(steerAngle, yawRate, velocity):
     R_p = velocity/yawRate #cornering radius, in meter
     ay = velocity*yawRate #lateral acceleration, m/s
     rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
-    usg = (steerAngle - rhoPerfect)/ay #chalmer's formula
+    usg = (numpy.rad2deg(steerAngle - rhoPerfect))/ay #chalmer's formula
     # ^^^ on the condition that your steer angle is MORE than rhoPerfect (turning more than you need to), K_u is positive
     return usg
 
@@ -163,6 +171,35 @@ def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity, steerStep=0.1, veloci
         USG_vals.append(curveUSG)
         radius_vals.append(curveRadius)
     return USG_vals, radius_vals
+def solveUSG_singleSteer(steerAngle, minVelocity, maxVelocity, velocityStep=1):
+    carMass = [277 / 4] * 4
+    USG_curve = []
+    velocity_vals = np.arange(minVelocity, maxVelocity, velocityStep)
+
+    for velocity in velocity_vals:
+        inTire, outTire = calculateAckermannOther(steerAngle)
+
+        inSlip = calculateSlipAngle(inTire, velocity)
+        outSlip = calculateSlipAngle(outTire, velocity)
+
+        inCF = traction.getCorneringStiffness(
+            carMass, (inSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic
+        )[0]
+        outCF = traction.getCorneringStiffness(
+            carMass, (outSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic
+        )[0]
+
+        netCF = 0.5 * (inCF + outCF)
+        netCR = -70 
+
+        yawRate = calculateYawRate(
+            steerAngle, netCF, netCR, velocity, steerAngle
+        ) * -1
+
+        usg = calculateUSG(steerAngle, yawRate, velocity)
+        USG_curve.append(usg)
+
+    return velocity_vals, np.array(USG_curve)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -177,9 +214,12 @@ maxVelocity = 30
 # -run solver (USG graph)
 steer_vals = np.arange(minSteer, maxSteer, 0.01)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
+rack_offsets = np.arange(-100, 101, 20)  #steps would be in mm
+base_state = getSteeringState()
+fixedSteer = 0.35 #in rad btw
 
 S, V, Z = [], [], []
-
+all_USG_values = []
 USG_vals, R_vals = solveUSG(
     minSteer, maxSteer, minVelocity, maxVelocity
 )
@@ -196,25 +236,32 @@ S = np.array(S)
 V = np.array(V)
 Z = np.array(Z)
 
-fig = plt.figure(figsize=(12, 8))
-ax = fig.add_subplot(111, projection='3d')
+plt.figure(figsize=(10, 6))
 
-surf = ax.plot_trisurf(
-    V,              # x-axis
-    S,              # y-axis
-    Z,              # z-axis
-    cmap='viridis',
-    linewidth=0.2,
-    antialiased=True
-)
+for rackStep in rack_offsets:
+    setSteeringState(base_state)
+    updateSteerGeo(rackStep)
+    
+    velocity_vals, USG_curve = solveUSG_singleSteer(
+        fixedSteer, minVelocity, maxVelocity
+    )
+    
+    print(f"\nRack Δ = {rackStep} mm:")
+    print(f"  USG range: [{np.min(USG_curve):.10f}, {np.max(USG_curve):.10f}]")
+    print(f"  USG at 15 m/s: {USG_curve[5]:.10f}")
+    
+    plt.plot(
+        velocity_vals,
+        USG_curve,
+        label=f"Rack Δ = {rackStep} mm"
+    )
 
-ax.set_xlabel("Velocity, m/s") 
-ax.set_ylabel("Steering Angle, rad") #OLD: steering angle
-ax.set_zlabel("Understeer Gradient, rad/g") #OLD: yaw rate
-ax.set_title("USG vs. Speed and Steering Input") #OLD: SA&V
-
-fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label="Understeer Gradient") #old title = yaw rate
-
+plt.xlabel("Velocity (m/s)")
+plt.ylabel("Understeer Gradient (rad/g)")
+plt.title(f"USG vs Velocity at δ = {fixedSteer:.2f} rad")
+plt.grid(True)
+plt.legend()
 plt.tight_layout()
 plt.show()
+
 
