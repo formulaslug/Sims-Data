@@ -8,12 +8,13 @@ rackRatio = 82.55/248 #fs4/3 mm rack displacement/deg pinion rotation
 wheelInput = 0.0 #in degrees of steering wheel movement (CW + CCW -)
 rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
 l_rack = 292.1 #fs4/3 mm (width of steering rack casing)
-l_rod = 383.211 #fs4 mm (length of "tie rod" as left in FS-4 master CAD)
-d = -33.642 #fs4 mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+l_rod = 383.211 #fs4 mm (length of "tie rod")
+d = 32.905 #fs4 mm (sta to rack, longitudinal)
 l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1.524 #fs4 m lwb
 m = 277.92 #[3] kg (mass of FS-3, with driver)
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees
+d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 #l_arm = 91.04204 #fs3
 #LWB = 1.589989 #fs3 m (length of wheelbase)
 #d = 122.598 #fs3
@@ -32,7 +33,33 @@ def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS
         angleIn = leftAngle
         ackermannIn = (1/ numpy.tan(angleIn)) + tw/LWB
         outIdeal = numpy.atan(1/ackermannIn)
+    if (leftAngle == 0 or rightAngle == 0):
+        angleIn = 0
+        outIdeal = 0
+        return "No steer input: Ackermann is undefined"
     numerator = 1 / (numpy.tan(leftAngle) - numpy.tan(rightAngle))
     denominator = 1 / (numpy.tan(outIdeal) - numpy.tan(angleIn))
-    ackFactor = numerator/denominator
-    return ackFactor
+    ackFactor = 100*(numpy.abs(numerator/denominator))
+    return ackFactor #OUTPUT IS IN PERCENT.
+def findStaticSteeringGeo():
+    value = (d - l_arm*numpy.cos(phiStatic))**2 + (d_lat - l_arm*numpy.sin(phiStatic))**2
+    toeRodLength = numpy.sqrt(value)
+    print(f"Toe Rod Length: {l_rod}, Derived TRL: {toeRodLength}")
+    return 0
+def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm
+    global l_rod
+    storeOldRod = l_rod
+    global d 
+    d += rackStep
+    value = (d - l_arm*numpy.cos(phiStatic))**2 + (d_lat - l_arm*numpy.sin(phiStatic))**2
+    l_rod = numpy.sqrt(value)
+    print(f"Old Toe Rod Length: {storeOldRod}, Updated TRL: {l_rod}")
+    return 0
+
+findStaticSteeringGeo()
+updateSteerGeo(5)
+updateSteerGeo(numpy.negative(5))
+updateSteerGeo(numpy.negative(5))
+updateSteerGeo(numpy.negative(5))
+updateSteerGeo(5)
+updateSteerGeo(5)
