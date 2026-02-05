@@ -1,7 +1,6 @@
 from Mech import brakepadFrictionModel
 from paramLoader import *
 import numpy as np
-from state import VehicleState
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
