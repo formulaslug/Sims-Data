@@ -21,7 +21,7 @@ d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 #l_rod = 378.434 #fs3
 
 def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
-    rackShift: float = rackRatio*wheelInput
+    rackShift = rackRatio*wheelInput
     return rackShift
 def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS, this is from equation 1B
     angleIn = 0
@@ -55,7 +55,7 @@ def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm, this is from equatio
     l_rod = numpy.positive(numpy.sqrt(value))
     print(f"Old Toe Rod Length: {storeOldRod}, Updated TRL: {l_rod}")
     return 0
-def calculateSteerAngles(wheelInput):
+def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equation 2
     leftSteerAngle = 0
     rightSteerAngle = 0
 
@@ -75,7 +75,7 @@ def calculateSteerAngles(wheelInput):
     RS_secondTerm = numpy.acos(RS_secondTermNumerator/RS_secondTermDenominator)
     rightSteerAngle = phiStatic - RS_firstTerm + RS_secondTerm
 
-    return leftSteerAngle, rightSteerAngle
+    return leftSteerAngle, rightSteerAngle #OUTPUT WILL ALSO BE IN RAD
 
 L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(90))
 print(f"LSA: {numpy.rad2deg(L_sa)}, RSA: {numpy.rad2deg(R_sa)}")
