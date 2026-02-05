@@ -16,13 +16,14 @@ rackRatio = 82.55/248 #fs4/3 mm rack displacement/deg pinion rotation
 wheelInput = 0.0 #in degrees of steering wheel movement (CW + CCW -)
 rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
 l_rack = 292.1 #fs4/3 mm (width of steering rack casing)
-#l_rod = 383.211 #fs4 mm (length of "tie rod" as left in FS-4 master CAD)
-l_rod = 378.434 #fs3
-#d = -33.642 #fs4 mm (plan view distance between front axis and rack. negative because we have a front steer setup)
-d = 122.598 #fs3
-#l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
-l_arm = 91.04204 #fs3
-LWB = 1.589989 #fs3 m (length of wheelbase)
+l_rod = 383.211 #fs4 mm (length of "tie rod" as left in FS-4 master CAD)
+#l_rod = 378.434 #fs3
+d = -33.642 #fs4 mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+#d = 122.598 #fs3
+l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+#l_arm = 91.04204 #fs3
+#LWB = 1.589989 #fs3 m (length of wheelbase)
+LWB = 1.524 #fs4 m lwb
 m = 277.92 #[3] kg (mass of FS-3, with driver)
 cornerRadius = 16.75 #meters, as per the rules
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees
@@ -53,6 +54,19 @@ def betaTrigSolver(l1): #a separate function to solve the trig equation (Gillesp
     beta = (numpy.pi/2) - atan - acos
     return beta
     #return frac
+def calculateAckermannIdeal(steerLeft, steerRight):
+    angleOut = 0
+    angleIn = 0
+    if (steerLeft > 0):
+        angleOut = steerRight
+        angleIn = steerLeft
+    if (steerLeft < 0):
+        angleOut = steerLeft
+        angleIn = steerRight
+    inAckAngle = numpy.atan(numpy.tan(angleOut) + (LWB/tw))
+    ackermannFactor = angleIn/inAckAngle
+    return ackermannFactor
+
 # def calebUSG(wiVal, yawRate, cornerRadius): #USG at fixed cornering radius, chalmer's formula
 #     global wheelInput
 #     wheelInput = wiVal
@@ -72,10 +86,12 @@ def updateSusGeo(ackermannFactor): #a function that intakes the ackermann factor
     thetaAxis = phiStatic - staActual #angle of interest formed by the right triangle made by sketching together the tie rod knuckle and rack knuckle in plan view
     rackDisplacement = numpy.tan(thetaAxis)*tw #tan(thetaAxis) = delta_D/tw, tw known so use this relationship to solve for delta_D (rack displacement)
     return rackDisplacement, staI
-
-rack, staI = updateSusGeo(0.8)
-print(f"rack distance: {rack}")
-print(f"ackermann situation: {numpy.rad2deg(staI)}")
+angleIn, angleOut = calculateAckermann()
+ackFac = calculateAckermannIdeal(angleIn, angleOut)
+print(f"ackermann factor: {ackFac}")
+# rack, staI = updateSusGeo(numpy.negative(0.05))
+# print(f"rack distance: {rack}")
+# print(f"toe arm angle to steer arm: {numpy.rad2deg(staI)}")
 # def update(val): #update variables based off of interact()
 #     global wheelInput
 #     wheelInput = val

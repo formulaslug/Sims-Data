@@ -5,8 +5,6 @@ import json
 import numpy
 sys.path.append("../FullVehicleSim/Mech")
 import traction
-
-
 import json
 magic:dict
 parameters:dict
@@ -18,7 +16,6 @@ with open(params_path, 'r') as file:
     Magic = params["Magic"]
     Parameters = params["Parameters"]
     del params
-
 
 def calculateAckermannOther(steerAngle):
     #steering wheel angle --> steering rack psition --> wheel steer angle (how static ackermann affects wheel angle function)
@@ -101,7 +98,6 @@ def calculateUSG(steerAngle, yawRate, velocity):
     # ^^^ on the condition that your steer angle is MORE than rhoPerfect (turning more than you need to), K_u is positive
     return usg
 
-
 def solver(minSteer, maxSteer, minVelocity, maxVelocity): #old solver for yaw rate
     carMass = [277 / 4, 277 / 4 , 277 / 4 , 277 / 4 ]
     res = []
@@ -115,7 +111,6 @@ def solver(minSteer, maxSteer, minVelocity, maxVelocity): #old solver for yaw ra
             outCorneringStiff = traction.getCorneringStiffness(carMass, (outCorneringAngleSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
             netFrontCorneringStiffness = (inCorneringStiff + outCorneringStiff)/2
             netRearCornerningStiffness = -70 # lol who knows bruh
-
             yawRate = calculateYawRate(steer, netFrontCorneringStiffness, netRearCornerningStiffness, velocity, steer) * -1
             currLine.append(yawRate)
         res.append(currLine)
@@ -143,13 +138,11 @@ def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity, steerStep=0.1, veloci
             else:
                 radius = velocity/yawRate
             usg = calculateUSG(steer, yawRate, velocity)
-
             curveUSG.append(usg)
             curveRadius.append(radius)
         USG_vals.append(curveUSG)
         radius_vals.append(curveRadius)
     return USG_vals, radius_vals
-
 
 import numpy as np
 import matplotlib.pyplot as plt
