@@ -1,0 +1,38 @@
+import scipy
+import numpy
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
+rackRatio = 82.55/248 #fs4/3 mm rack displacement/deg pinion rotation
+wheelInput = 0.0 #in degrees of steering wheel movement (CW + CCW -)
+rackShift = 0.0 # mm of movement of the rack from left to right (left is - right is +)
+l_rack = 292.1 #fs4/3 mm (width of steering rack casing)
+l_rod = 383.211 #fs4 mm (length of "tie rod" as left in FS-4 master CAD)
+d = -33.642 #fs4 mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+LWB = 1.524 #fs4 m lwb
+m = 277.92 #[3] kg (mass of FS-3, with driver)
+phiStatic = numpy.deg2rad(4.531) #fs4 degrees
+#l_arm = 91.04204 #fs3
+#LWB = 1.589989 #fs3 m (length of wheelbase)
+#d = 122.598 #fs3
+#l_rod = 378.434 #fs3
+
+def rackMovement(): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
+    rackShift: float = rackRatio*wheelInput
+    return rackShift
+def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS
+    angleIn = 0
+    if (leftAngle < 0 or rightAngle > 0):
+        angleIn = rightAngle
+        ackermannIn = (1/ numpy.tan(angleIn)) + tw/LWB
+        outIdeal = numpy.atan(1/ackermannIn)
+    if (leftAngle > 0 or rightAngle < 0):
+        angleIn = leftAngle
+        ackermannIn = (1/ numpy.tan(angleIn)) + tw/LWB
+        outIdeal = numpy.atan(1/ackermannIn)
+    numerator = 1 / (numpy.tan(leftAngle) - numpy.tan(rightAngle))
+    denominator = 1 / (numpy.tan(outIdeal) - numpy.tan(angleIn))
+    ackFactor = numerator/denominator
+    return ackFactor
