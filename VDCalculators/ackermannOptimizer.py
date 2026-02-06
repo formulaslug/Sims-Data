@@ -105,7 +105,7 @@ def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffn
     a = 0.853506
     b = 1.589 - a
     m = 277
-    I = 658.088580080000
+    I = 658.088580080000 #what is this, exactly?
     Y_beta = CF + CR
     Y_delta = -CF
     N_beta = a * CF - b * CR
@@ -119,7 +119,7 @@ def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffn
     return r_inf
 def calculateUSG(steerAngle, yawRate, velocity): #try to change this to be done by LLT? 
     L_wb = 1.589989 #wheelbase length, in meters
-    if (yawRate == 0): #just return 0 and break so as not to throw invalid division error
+    if (yawRate == 0): #just return 0 so as not to throw invalid division error
         return 0
     R_p = velocity/yawRate #ideal cornering radius, in meter
     ay = velocity*yawRate #lateral acceleration, m/s
