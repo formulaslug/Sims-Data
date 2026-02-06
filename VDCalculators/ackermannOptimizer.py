@@ -22,7 +22,7 @@ l_rod = 383.211 #fs4 mm (length of "tie rod")
 d = 32.905 #fs4 mm (sta to rack, longitudinal)
 l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1.524 #fs4 m lwb
-phiStatic = numpy.deg2rad(6.531) #fs4 degrees
+phiStatic = numpy.deg2rad(5.531) #fs4 degrees
 d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 def calculateAckermannOther(steerAngle): #input in rad
     import scipy
@@ -117,7 +117,7 @@ def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffn
     C2 = (Y_delta * N_beta - Y_beta * N_delta) / (m * speed)
     r_inf = (C2 * stepSteerInput) / k
     return r_inf
-def calculateUSG(steerAngle, yawRate, velocity):
+def calculateUSG(steerAngle, yawRate, velocity): #try to change this to be done by LLT? 
     L_wb = 1.589989 #wheelbase length, in meters
     if (yawRate == 0): #just return 0 and break so as not to throw invalid division error
         return 0
@@ -214,12 +214,12 @@ minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
-fixedSteer = -1.65 #in rad btw
+fixedSteer = 1.99 #in rad btw
 
 # -run solver (USG graph)
 steer_vals = np.arange(fixedSteer)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-100, 101, 25)  #steps would be in mm
+rack_offsets = np.arange(-100, 101, 20)  #steps would be in mm
 base_state = getSteeringState()
 
 
@@ -265,7 +265,8 @@ for rackStep in rack_offsets:
 
 plt.xlabel("Velocity (m/s)")
 plt.ylabel("Understeer Gradient (rad/g)")
-# plt.ylim(0.152, 0.155)
+# plt.ylim(0.1525, .1535)
+# plt.xlim(22.5, 27.5)
 plt.title(f"USG vs Velocity at δ = {fixedSteer:.2f} rad")
 plt.grid(True)
 plt.legend()
