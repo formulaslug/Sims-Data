@@ -16,15 +16,15 @@ with open(params_path, 'r') as file:
     Magic = params["Magic"]
     Parameters = params["Parameters"]
     del params
-    tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
-    rackRatio = 82.55/numpy.deg2rad(248) #fs4/3 mm rack displacement/deg pinion rotation
-    l_rod = 383.211 #fs4 mm (length of "tie rod")
-    d = 32.905 #fs4 mm (sta to rack, longitudinal)
-    l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
-    LWB = 1.524 #fs4 m lwb
-    phiStatic = numpy.deg2rad(4.531) #fs4 degrees
-    d_lat = 387.194 #fs4 mm (sta to rack, lateral)
-def calculateAckermannOther(steerAngle):
+tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
+rackRatio = 82.55/numpy.deg2rad(248) #fs4/3 mm rack displacement/deg pinion rotation
+l_rod = 383.211 #fs4 mm (length of "tie rod")
+d = 32.905 #fs4 mm (sta to rack, longitudinal)
+l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+LWB = 1.524 #fs4 m lwb
+phiStatic = numpy.deg2rad(6.531) #fs4 degrees
+d_lat = 387.194 #fs4 mm (sta to rack, lateral)
+def calculateAckermannOther(steerAngle): #input in rad
     import scipy
     import numpy
     import matplotlib.pyplot as plt
@@ -54,9 +54,11 @@ def calculateAckermannOther(steerAngle):
         print(f"Toe Rod Length: {l_rod}, Derived TRL: {toeRodLength}")
         return 0
     def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equation 2
+        # print(f"{wheelInput=}")
+        
         leftSteerAngle = 0
         rightSteerAngle = 0
-
+        # print(f"D_rax: {d}, TRL: {l_rod}")
         LS_repeatTerm = d_lat + (rackRatio*wheelInput)
         LS_firstTerm = numpy.atan(LS_repeatTerm/d)
         LS_secondTermNumerator = (d**2) + (LS_repeatTerm**2) + (l_arm**2) - (l_rod**2)
@@ -64,7 +66,6 @@ def calculateAckermannOther(steerAngle):
         LS_secondTermDenominator = (2*l_arm)*LS_sqrt
         LS_secondTerm = numpy.acos(LS_secondTermNumerator/LS_secondTermDenominator)
         leftSteerAngle = LS_firstTerm - LS_secondTerm - phiStatic
-
         RS_repeatTerm = d_lat - (rackRatio*wheelInput)
         RS_firstTerm = numpy.atan(RS_repeatTerm/d)
         RS_secondTermNumerator = (d**2) + (RS_repeatTerm**2) + (l_arm**2) - (l_rod**2)
@@ -72,6 +73,7 @@ def calculateAckermannOther(steerAngle):
         RS_secondTermDenominator = (2*l_arm)*RS_sqrt
         RS_secondTerm = numpy.acos(RS_secondTermNumerator/RS_secondTermDenominator)
         rightSteerAngle = phiStatic - RS_firstTerm + RS_secondTerm
+        
 
         return leftSteerAngle, rightSteerAngle #OUTPUT WILL ALSO BE IN RAD
     inTire, outTire = calculateSteerAngles(steerAngle)
@@ -119,10 +121,10 @@ def calculateUSG(steerAngle, yawRate, velocity):
     L_wb = 1.589989 #wheelbase length, in meters
     if (yawRate == 0): #just return 0 and break so as not to throw invalid division error
         return 0
-    R_p = velocity/yawRate #cornering radius, in meter
+    R_p = velocity/yawRate #ideal cornering radius, in meter
     ay = velocity*yawRate #lateral acceleration, m/s
     rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
-    usg = (numpy.rad2deg(steerAngle - rhoPerfect))/ay #chalmer's formula
+    usg = ((steerAngle - rhoPerfect))/ay #chalmer's formula
     # ^^^ on the condition that your steer angle is MORE than rhoPerfect (turning more than you need to), K_u is positive
     return usg
 
@@ -166,21 +168,23 @@ def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity, steerStep=0.1, veloci
             else:
                 radius = velocity/yawRate
             usg = calculateUSG(steer, yawRate, velocity)
+            print(f"usg: {usg}")
             curveUSG.append(usg)
             curveRadius.append(radius)
         USG_vals.append(curveUSG)
         radius_vals.append(curveRadius)
     return USG_vals, radius_vals
-def solveUSG_singleSteer(steerAngle, minVelocity, maxVelocity, velocityStep=1):
+def solveUSG_singleSteer(steerAngle, minVelocity, maxVelocity, velocityStep):
     carMass = [277 / 4] * 4
     USG_curve = []
     velocity_vals = np.arange(minVelocity, maxVelocity, velocityStep)
 
     for velocity in velocity_vals:
-        inTire, outTire = calculateAckermannOther(steerAngle)
+        inTire, outTire = calculateAckermannOther(steerAngle) #should be populating with rad
 
-        inSlip = calculateSlipAngle(inTire, velocity)
+        inSlip = calculateSlipAngle(inTire, velocity) #should also be populating with rad
         outSlip = calculateSlipAngle(outTire, velocity)
+        # print(f"steer angles in/out: {np.rad2deg(inSlip)}/{np.rad2deg(outSlip)}")
 
         inCF = traction.getCorneringStiffness(
             carMass, (inSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic
@@ -210,13 +214,14 @@ minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
+fixedSteer = -1.65 #in rad btw
 
 # -run solver (USG graph)
-steer_vals = np.arange(minSteer, maxSteer, 0.01)
+steer_vals = np.arange(fixedSteer)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-100, 101, 20)  #steps would be in mm
+rack_offsets = np.arange(-100, 101, 25)  #steps would be in mm
 base_state = getSteeringState()
-fixedSteer = 0.35 #in rad btw
+
 
 S, V, Z = [], [], []
 all_USG_values = []
@@ -228,7 +233,7 @@ for i in range(len(USG_vals)):
     for j in range(len(USG_vals[0])):
         usg = USG_vals[i][j]
         if np.isfinite(usg):
-            S.append(steer_vals[i])
+            S.append(steer_vals)
             V.append(velocity_vals[j])
             Z.append(usg)
 
@@ -241,14 +246,16 @@ plt.figure(figsize=(10, 6))
 for rackStep in rack_offsets:
     setSteeringState(base_state)
     updateSteerGeo(rackStep)
+    print(f"\nRack Δ = {rackStep} mm:")
+    print(f"rack distance to axle: {d}")
     
     velocity_vals, USG_curve = solveUSG_singleSteer(
-        fixedSteer, minVelocity, maxVelocity
+        fixedSteer, minVelocity, maxVelocity, 1
     )
     
-    print(f"\nRack Δ = {rackStep} mm:")
-    print(f"  USG range: [{np.min(USG_curve):.10f}, {np.max(USG_curve):.10f}]")
-    print(f"  USG at 15 m/s: {USG_curve[5]:.10f}")
+    
+    # print(f"  USG range: [{np.min(USG_curve):.10f}, {np.max(USG_curve):.10f}]")
+    # print(f"  USG at 15 m/s: {USG_curve[5]:.10f}")
     
     plt.plot(
         velocity_vals,
@@ -258,6 +265,7 @@ for rackStep in rack_offsets:
 
 plt.xlabel("Velocity (m/s)")
 plt.ylabel("Understeer Gradient (rad/g)")
+# plt.ylim(0.152, 0.155)
 plt.title(f"USG vs Velocity at δ = {fixedSteer:.2f} rad")
 plt.grid(True)
 plt.legend()

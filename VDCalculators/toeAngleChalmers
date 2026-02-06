@@ -56,6 +56,8 @@ def updateSteerGeo(rackStep): #rackStep should be +/- ~5mm, this is from equatio
     print(f"Old Toe Rod Length: {storeOldRod}, Updated TRL: {l_rod}")
     return 0
 def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equation 2
+    print(f"{wheelInput=}")
+    
     leftSteerAngle = 0
     rightSteerAngle = 0
 
@@ -77,7 +79,8 @@ def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equati
 
     return leftSteerAngle, rightSteerAngle #OUTPUT WILL ALSO BE IN RAD
 
-L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(90))
+# L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(90))
+L_sa, R_sa = calculateSteerAngles(.35)
 print(f"LSA: {numpy.rad2deg(L_sa)}, RSA: {numpy.rad2deg(R_sa)}")
 L_sa, R_sa = calculateSteerAngles(numpy.deg2rad(numpy.negative(90)))
 print(f"LSA: {numpy.rad2deg(L_sa)}, RSA: {numpy.rad2deg(R_sa)}")
