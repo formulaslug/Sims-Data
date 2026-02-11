@@ -13,10 +13,10 @@ import polars as pl
 import matplotlib.pyplot as plt
 # import cantools.database as db
 
-from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
-from AnalysisFunctions import *
-from integralsAndDerivatives import *
-from fftTools import *
+from Data.DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
+from Data.FSLib.AnalysisFunctions import *
+from Data.FSLib.IntegralsAndDerivatives import *
+from Data.FSLib.fftTools import *
 
 # lv = "GLV"
 # v = "Violation"
