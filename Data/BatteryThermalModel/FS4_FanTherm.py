@@ -2,6 +2,7 @@ import polars as pl
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+from Data.FSLib.IntegralsAndDerivatives import *
 # from Data.integralsAndDerivatives import in_place_derive
 
 def simpleTimeCol (dfa, dt=60/5035):
@@ -19,20 +20,6 @@ dfa = dfa.with_columns((pl.col("Time") - dfa["Time"][0]).alias("Time"))
 dfb = dfb.with_columns((pl.col("Time") - dfb["Time"][0]).alias("Time"))
 #rows = arr.shape[0]
 #Derivative
-
-def in_place_derive(integral, deltaT=60/5035):
-    def derivative_at_point (arr, i):
-        rows = arr.shape[0]
-        if i > 6 and i < (rows - 7):
-                return ( 5*arr[i+7] - 72*arr[i+6] + 495*arr[i+5] - 2200*arr[i+4] + 7425*arr[i+3] - 23760*arr[i+2] + 23760*arr[i-2] - 7425*arr[i-3] + 2200*arr[i-4] - 495*arr[i-5] + 72*arr[i-6] - 5*arr[i-7] ) / (27720 * deltaT)
-        elif i <=6:
-            return ( 5*arr[i+7] - 72*arr[i+6] + 495*arr[i+5] - 2200*arr[i+4] + 7425*arr[i+3] - 23760*arr[i+2] + 23760*arr[0] - 7425*arr[0] + 2200*arr[0] - 495*arr[0] + 72*arr[0] - 5*arr[0] ) / (27720 * deltaT)
-        elif i >= (rows - 7):
-                return ( 5*arr[rows-1] - 72*arr[rows-1] + 495*arr[rows-1] - 2200*arr[rows-1] + 7425*arr[rows-1] - 23760*arr[rows-1] + 23760*arr[i-2] - 7425*arr[i-3] + 2200*arr[i-4] - 495*arr[i-5] + 72*arr[i-6] - 5*arr[i-7]) / (27720 * deltaT)
-    out = np.zeros_like(integral)
-    for i in range(len(integral)):
-        out[i] = derivative_at_point(integral, i)
-    return out
 
 temp_cols = [f"ACC_SEG{s}_TEMPS_CELL{c}" for s in range(5) for c in range(6)]
 
