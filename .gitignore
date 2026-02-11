@@ -210,3 +210,4 @@ __marimo__/
 /Docs/todo.md
 .fake
 *.joblib
+FullVehicleSim/simulation_output.parquet
