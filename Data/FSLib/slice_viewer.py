@@ -24,8 +24,8 @@ class SliceViewer:
         self.im = self.ax.imshow(self.data[:, :, self.current_z], 
                                   cmap='viridis', 
                                   origin='lower',
-                                  vmin=2,
-                                  vmax=4.5)
+                                  vmin=self.vmin,
+                                  vmax=self.vmax)
         self.ax.set_title(f'{title} - Z slice: {self.current_z}')
         plt.colorbar(self.im, ax=self.ax)
         

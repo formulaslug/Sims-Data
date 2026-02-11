@@ -1,12 +1,8 @@
 import polars as pl
 import matplotlib.pyplot as plt
-from integralsAndDerivatives import *
-from fftTools import *
-from AnalysisFunctions import *
-from scipy.interpolate import NearestNDInterpolator
-from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import readCorrectedFSDAQ
-from scipy.optimize import curve_fit
-from CellModel import CellInterpolatorVTC5A
+from Data.FSLib.IntegralsAndDerivatives import *
+from Data.FSLib.fftTools import *
+from Data.FSLib.AnalysisFunctions import *
 
 dbcPath = "../fs-3/CANbus.dbc"
 
@@ -67,7 +63,8 @@ heBR = "TPERIPH_BR_DATA_WHEELSPEED"
 
 blueMaxGPS_Square = ((-121.7330999, 38.5759097),(-121.7328352, 38.5757670)) ## Tuned! Generally make it bigger than you need probably beacuse GPS is infrequent.
 
-dfautox = readValid("FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet")
+
+dfautox = readValid("../fs-data/FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet")
 dfautox.insert_column(0, simpleTimeCol(dfautox))
 
 dfautox1 = dfautox.filter(pl.col(t) > 139).filter(pl.col(t) < 230)
@@ -86,7 +83,7 @@ dfautox2 = dfautox2.with_columns(
     integrate_with_tCol(dfautox2[P], dfautox2[t]).alias(E) #type: ignore
 )
 
-dfendur1P1 = readValid("FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
+dfendur1P1 = readValid("../fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
 dfendur1P1.insert_column(0, timeCol(dfendur1P1))
 dfendur1P1 = dfendur1P1.filter(pl.col(t) > 276.4).filter(pl.col(t) < 1087)
 dfendur1P1.insert_column(1, lapSegmentation(dfendur1P1, blueMaxGPS_Square))
@@ -100,7 +97,7 @@ dfendur1P1 = dfendur1P1.with_columns(
 
 
 
-dfendur1P2 = readValid("FS-3/08102025/08102025Endurance1_SecondHalf.parquet")
+dfendur1P2 = readValid("../fs-data/FS-3/08102025/08102025Endurance1_SecondHalf.parquet")
 dfendur1P2.insert_column(0, timeCol(dfendur1P2))
 dfendur1P2 = dfendur1P2.filter(pl.col(t) > 72).filter(pl.col(t) < 870.3)
 dfendur1P2.insert_column(1, lapSegmentation(dfendur1P2, blueMaxGPS_Square))
@@ -112,130 +109,25 @@ dfendur1P2 = dfendur1P2.with_columns(
     dfendur1P2.select([f"ACC_SEG{i}_TEMPS_CELL{j}" for i in range(5) for j in range(6)]).max_horizontal().alias("MaxTemp")
 )
 
-# def voltageLookup
+dfRegenTest = read("../fs-data/FS-3/11222025/11222025_6_RegenTest1.parquet")
+dfRegenTest.insert_column(0, simpleTimeCol(dfRegenTest))
 
-# Fit a few cubic functions to charge used in the last 20 sec, current draw, # of discharges, and SOC
-def voltagePredictionFunction(x, a1, a2, a3, b1, b2, b3, c1, c2, c3):
-    # a1-3 are linear, quad, and cubic of current draw
-    # b1-3 are ... for charge used in last 20 sec
-    # c1-3 are ... for number of discharges
+basicView(dfRegenTest)
+plt.plot(dfRegenTest["SME_CURRLIM_ChargeCurrentLim"])
+plt.show()
 
-    # Get Current draw
-    # Calculate Charge Used in last 20 sec
-    # Get number of discharges
-    # Get a voltage from linear interpolation
-    df = x
-    curr = df[busC]
-    # charge = integrate_with_Scipy_tCol(df[busC], df[t])
-    # 20 sec range is ~1678
-    # Window gets flipped so bits at the end face backward and are now dependent on past charge usage.
-    window = np.zeros(1678*2 + 1) # ~20 sec to either side of the middle.
-    window[1678:] = np.ones_like(window[1678:])*60/5035 # Effectively performing an integral of the ~20 sec before your current location. Off the beginning is just 0 which works.
-    chargeLast20Sec = np.convolve(curr, window, "same") # In coulombs. Ah is /3600. mAh is /3.6
-    
-    ## TODO: The above should be reimplemented to work based on a time range, rather than a set of indexes because that varies over time/throught. Repeated integrals may be time consuming.
-    # May be a good idea to make a column which is ((t[n+1] - t[n]) * I[n]) and do an integral of that over the right time range. Would save some computation.
+dfRegenTest2 = read("../fs-data/FS-3/11222025/11222025_12.parquet")
+dfRegenTest2.insert_column(0, simpleTimeCol(dfRegenTest2))
+basicView(dfRegenTest2)
 
-    ## TODO: Train on data where # of discharges is well documented to record the effect of that for this model. For now it will be my guess of about 10.
+plt.plot(dfRegenTest2[heBL], label=heBL)
+plt.plot(dfRegenTest2[heFL], label=heFL)
+plt.plot(dfRegenTest2[heBR], label=heBR)
+plt.plot(dfRegenTest2[heFR], label=heFR)
+plt.show()
 
-    discharges = 10
-
-    NearestNDInterpolator
-
-    return
-
-# df = dfautox1
-# curr = df[busC]
-# charge = integrate_with_Scipy_tCol(df[busC], df[t])
-# window = np.zeros(1678*2 + 1)
-# window[1678:] = np.ones_like(window[1678:])*60/5035
-# chargeLast20Sec = np.convolve(curr, window, "same")
-
-
-# plt.plot(charge, label="Charge")
-# plt.plot(curr, label="Current")
-# plt.plot(chargeLast20Sec, label="Charge in last 20 sec")
-# plt.legend()
-# plt.show()
-
-
-## Laptime vs Energy Graph
-
-# dfLapEnergy = pl.concat([laptimesNEnergy(dfendur1P1), laptimesNEnergy(dfendur1P2)])
-# dfLapEnergy
-
-# plt.scatter(dfLapEnergy["LapTime"], dfLapEnergy[E])
-# plt.xlabel("BlueMax LapTime (s)")
-# plt.ylabel("Energy (kWh)")
-# plt.show()
-
-# laptimesNEnergy(dfendur1P1)
-# laptimesNEnergy(dfendur1P2)
-
-# dfa = readValid("FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
-# dfa.insert_column(0, timeCol(dfa))
-
-# Comparison of the different time methods
-# plt.plot(dfa[t])
-# plt.plot(np.arange(0, dfa.height * 60/5035, 60/5035))
-# plt.plot((dfa["VDM_UTC_TIME_SECONDS"] - dfa["VDM_UTC_TIME_SECONDS"].min()).cast(pl.Int32)*60)
-# plt.legend(["timeCol Estimation", "Raw 60/5035", "VDM Minutes * 60"])
-# plt.xlabel("timePoint")
-# plt.ylabel("Seconds")
-# plt.show()
-
-# Used to determine the 60/5035 thingy
-# dfautox1.filter(pl.col("VDM_UTC_TIME_SECONDS") > 41).filter(pl.col("VDM_UTC_TIME_SECONDS") < 47).height / 5
-
-# basicView(readValid("FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet"))
-# basicView(readValid("FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet"))
-# basicView(readValid("FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet"), tFun=simpleTimeCol)
-# basicView(readValid("FS-3/08172025/08172025_26autox1.parquet"))
-# basicView(readValid("FS-3/08172025/08172025_20_Endurance1P1.parquet"))
-
-## Stuff to debug weird MC current logging
-# FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet
-# FS-3/08172025/08172025_26autox1.parquet
-
-# dfa = readValid("FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
-# dfa = readValid("FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet")
-# dfa.insert_column(0,timeCol(dfa))
-# dfa = dfa.filter(pl.col("Time")>260)
-# dfa.insert_column(1, lapSegmentation(dfa, blueMaxGPS_Square))
-
-# plt.plot(dfa[t],dfa["SME_TEMP_DC_Bus_V"], label="BUS V")
-# plt.plot(dfa[t],dfa["SME_TEMP_FaultCode"], label="Fault Code")
-# plt.plot(dfa[t],dfa["SME_TEMP_ControllerTemperature"], label = "Controller Temp")
-# plt.plot(dfa[t],dfa["SME_THROTL_MBB_Alive"], label = "mbb alive")
-# plt.plot(dfa[t],dfa["SME_TRQSPD_Speed"], label="rpm")
-# plt.plot(dfa[t],dfa["SME_TEMP_BusCurrent"], label="current")
-# plt.plot(dfa[t],dfa["ACC_STATUS_PRECHARGE_DONE"]*1000, label="prechargeDone")
-# plt.legend()
-# plt.show()
-
-
-
-## GPS Lap View
-
-# printLaptimes(dfa)
-# dfaGPSFiltered = dfa.filter(pl.col(lat) != 0).filter(pl.col(long) != 0)
-
-# plt.plot(dfa[t], lapSegmentation(dfa, blueMaxGPS_Square))
-# plt.xlabel("Time (s)")
-# plt.ylabel("Lap")
-# plt.show()
-
-# laps = dfa["Lap"].max()
-# colors = [(i/laps, 1 - i/laps, i/laps) for i in range(laps)]
-# for lap in range(laps):
-#     dfLap = dfa.filter(pl.col("Lap") == lap + 1)
-#     plt.plot(dfLap[long], dfLap[lat], c=colors[lap])
-# plt.scatter(dfa[long], dfa[lat], c=dfa["Lap"], s=1)
-# plt.axis("scaled")
-# plt.show()
-
-# df = readCorrectedFSDAQ("FS-3/08172025raw/08172025fsdaq/08172025_20.fsdaq", dbcPath)
-# basicView(df.filter(pl.col("VDM_GPS_VALID1") == 1))
+plt.plot(dfRegenTest2["SME_CURRLIM_ChargeCurrentLim"])
+plt.show()
 
 fig1 = plt.figure(layout="constrained")
 ax1 = fig1.add_subplot(221)
@@ -373,10 +265,10 @@ plt.legend(["rpm convesion","speed vdm"])
 plt.show()
 
 ## Determine Values for Mechanical Resistance for the car
-dfa = readValid("FS-3/08102025/08102025RollingResistanceTestP1.parquet")
-dfb = readValid("FS-3/08102025/08102025RollingResistanceTestP2.parquet")
-dfc = readValid("FS-3/08102025/08102025RollingResistanceTestP3.parquet")
-dfd = readValid("FS-3/08102025/08102025RollingResistanceTestP4.parquet")
+dfa = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP1.parquet")
+dfb = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP2.parquet")
+dfc = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP3.parquet")
+dfd = readValid("../fs-data/FS-3/08102025/08102025RollingResistanceTestP4.parquet")
 dfa.insert_column(0, timeCol(dfa))
 dfb.insert_column(0, timeCol(dfb))
 dfc.insert_column(0, timeCol(dfc))
@@ -396,53 +288,180 @@ dragTrainingDFs = [
 
 dragTrainingdf = pl.concat([dfa.with_columns(pl.col(t) - pl.col(t).min()) for dfa in dragTrainingDFs])
 
-def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
-    carMass = 221.4# kg
-    carNormalForce = 9.805*carMass # N
-    airDensity = 1.23 # kg / m^3
-    def drag(speed):
-        return 0.5*airDensity*dragCoeff*(speed**2)
+# def resistanceCurveFun (x, coeffRollingResistance, dragCoeff):
+#     carMass = 221.4# kg
+#     carNormalForce = 9.805*carMass # N
+#     airDensity = 1.23 # kg / m^3
+#     def drag(speed):
+#         return 0.5*airDensity*dragCoeff*(speed**2)
     
-    outList = []
+#     outList = []
 
-    dfs = []
-    pos = 1
-    while (True):
-        try:
-            ind = x["Time"].to_list().index(0, pos)
-            dfs.append(x[pos-1:ind])
-            pos = ind+1
-            continue
-        except:
-            dfs.append(x[pos-1:])
-            break
+#     dfs = []
+#     pos = 1
+#     while (True):
+#         try:
+#             ind = x["Time"].to_list().index(0, pos)
+#             dfs.append(x[pos-1:ind])
+#             pos = ind+1
+#             continue
+#         except:
+#             dfs.append(x[pos-1:])
+#             break
 
-    for df in dfs:
-        arr = np.zeros(df.height)
-        time = df[t] - df[t].min() # s
-        speed = df[rpm]*11/40*0.2*2*np.pi/60 # m/s
-        arr[0] = speed[0]
-        for i in range(1, df.height):
-            dt = time[i] - time[i-1]
-            force = carNormalForce*coeffRollingResistance + drag(arr[i-1])
-            accel = force/(carMass + 22.68)
-            arr[i] = arr[i-1] - (dt * accel)
-        outList.append(speed.to_numpy() - arr)
-    print(np.concatenate(outList))
-    return np.concatenate(outList)
-    # return outList
+#     for df in dfs:
+#         arr = np.zeros(df.height)
+#         time = df[t] - df[t].min() # s
+#         speed = df[rpm]*11/40*0.2*2*np.pi/60 # m/s
+#         arr[0] = speed[0]
+#         for i in range(1, df.height):
+#             dt = time[i] - time[i-1]
+#             force = carNormalForce*coeffRollingResistance + drag(arr[i-1])
+#             accel = force/(carMass + 22.68)
+#             arr[i] = arr[i-1] - (dt * accel)
+#         outList.append(speed.to_numpy() - arr)
+#     print(np.concatenate(outList))
+#     return np.concatenate(outList)
+#     # return outList
         
 
-args = curve_fit(resistanceCurveFun, dragTrainingdf, np.zeros(sum([df.height for df in dragTrainingDFs])), p0=[0.1, 0.1])
+# args = curve_fit(resistanceCurveFun, dragTrainingdf, np.zeros(sum([df.height for df in dragTrainingDFs])), p0=[0.1, 0.1])
 
-args[0]
+# args[0]
 
-arr = np.array([CellInterpolatorVTC5A(5.75, q)] for q in np.arange())
+# arr = np.array([CellInterpolatorVTC5A(5.75, q)] for q in np.arange())
 
-basicView(read("FS-3/08102025/08102025FirstTurnOn.parquet"), tFun=simpleTimeCol)
+# basicView(read("FS-3/08102025/08102025FirstTurnOn.parquet"), tFun=simpleTimeCol)
 
 
-plt.plot(dfendur1P1[t], low_pass_filter(dfendur1P1["TMAIN_DATA_BRAKES_F"]*10, 0.95), label = "Main FB")
-plt.plot(dfendur1P1[t], (dfendur1P1["ETC_STATUS_BRAKE_SENSE_VOLTAGE"]/1000), label="ETC Brake")
-plt.legend()
-plt.show()
+# plt.plot(dfendur1P1[t], low_pass_filter(dfendur1P1["TMAIN_DATA_BRAKES_F"]*10, 0.95), label = "Main FB")
+# plt.plot(dfendur1P1[t], (dfendur1P1["ETC_STATUS_BRAKE_SENSE_VOLTAGE"]/1000), label="ETC Brake")
+# plt.legend()
+# plt.show()
+
+
+# df = dfautox1
+# curr = df[busC]
+# charge = integrate_with_Scipy_tCol(df[busC], df[t])
+# window = np.zeros(1678*2 + 1)
+# window[1678:] = np.ones_like(window[1678:])*60/5035
+# chargeLast20Sec = np.convolve(curr, window, "same")
+
+
+# plt.plot(charge, label="Charge")
+# plt.plot(curr, label="Current")
+# plt.plot(chargeLast20Sec, label="Charge in last 20 sec")
+# plt.legend()
+# plt.show()
+
+
+## Laptime vs Energy Graph
+
+# dfLapEnergy = pl.concat([laptimesNEnergy(dfendur1P1), laptimesNEnergy(dfendur1P2)])
+# dfLapEnergy
+
+# plt.scatter(dfLapEnergy["LapTime"], dfLapEnergy[E])
+# plt.xlabel("BlueMax LapTime (s)")
+# plt.ylabel("Energy (kWh)")
+# plt.show()
+
+# laptimesNEnergy(dfendur1P1)
+# laptimesNEnergy(dfendur1P2)
+
+# dfa = readValid("FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
+# dfa.insert_column(0, timeCol(dfa))
+
+# Comparison of the different time methods
+# plt.plot(dfa[t])
+# plt.plot(np.arange(0, dfa.height * 60/5035, 60/5035))
+# plt.plot((dfa["VDM_UTC_TIME_SECONDS"] - dfa["VDM_UTC_TIME_SECONDS"].min()).cast(pl.Int32)*60)
+# plt.legend(["timeCol Estimation", "Raw 60/5035", "VDM Minutes * 60"])
+# plt.xlabel("timePoint")
+# plt.ylabel("Seconds")
+# plt.show()
+
+# Used to determine the 60/5035 thingy
+# dfautox1.filter(pl.col("VDM_UTC_TIME_SECONDS") > 41).filter(pl.col("VDM_UTC_TIME_SECONDS") < 47).height / 5
+
+# basicView(readValid("FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet"))
+# basicView(readValid("FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet"))
+# basicView(readValid("FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet"), tFun=simpleTimeCol)
+# basicView(readValid("FS-3/08172025/08172025_26autox1.parquet"))
+# basicView(readValid("FS-3/08172025/08172025_20_Endurance1P1.parquet"))
+
+## Stuff to debug weird MC current logging
+# FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet
+# FS-3/08172025/08172025_26autox1.parquet
+
+# dfa = readValid("FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
+# dfa = readValid("FS-3/08172025/08172025_22_6LapsAndWeirdCurrData.parquet")
+# dfa.insert_column(0,timeCol(dfa))
+# dfa = dfa.filter(pl.col("Time")>260)
+# dfa.insert_column(1, lapSegmentation(dfa, blueMaxGPS_Square))
+
+# plt.plot(dfa[t],dfa["SME_TEMP_DC_Bus_V"], label="BUS V")
+# plt.plot(dfa[t],dfa["SME_TEMP_FaultCode"], label="Fault Code")
+# plt.plot(dfa[t],dfa["SME_TEMP_ControllerTemperature"], label = "Controller Temp")
+# plt.plot(dfa[t],dfa["SME_THROTL_MBB_Alive"], label = "mbb alive")
+# plt.plot(dfa[t],dfa["SME_TRQSPD_Speed"], label="rpm")
+# plt.plot(dfa[t],dfa["SME_TEMP_BusCurrent"], label="current")
+# plt.plot(dfa[t],dfa["ACC_STATUS_PRECHARGE_DONE"]*1000, label="prechargeDone")
+# plt.legend()
+# plt.show()
+
+
+
+## GPS Lap View
+
+# printLaptimes(dfa)
+# dfaGPSFiltered = dfa.filter(pl.col(lat) != 0).filter(pl.col(long) != 0)
+
+# plt.plot(dfa[t], lapSegmentation(dfa, blueMaxGPS_Square))
+# plt.xlabel("Time (s)")
+# plt.ylabel("Lap")
+# plt.show()
+
+# laps = dfa["Lap"].max()
+# colors = [(i/laps, 1 - i/laps, i/laps) for i in range(laps)]
+# for lap in range(laps):
+#     dfLap = dfa.filter(pl.col("Lap") == lap + 1)
+#     plt.plot(dfLap[long], dfLap[lat], c=colors[lap])
+# plt.scatter(dfa[long], dfa[lat], c=dfa["Lap"], s=1)
+# plt.axis("scaled")
+# plt.show()
+
+# df = readCorrectedFSDAQ("FS-3/08172025raw/08172025fsdaq/08172025_20.fsdaq", dbcPath)
+# basicView(df.filter(pl.col("VDM_GPS_VALID1") == 1))
+
+
+# def voltageLookup
+
+# Fit a few cubic functions to charge used in the last 20 sec, current draw, # of discharges, and SOC
+# def voltagePredictionFunction(x, a1, a2, a3, b1, b2, b3, c1, c2, c3):
+#     # a1-3 are linear, quad, and cubic of current draw
+#     # b1-3 are ... for charge used in last 20 sec
+#     # c1-3 are ... for number of discharges
+
+#     # Get Current draw
+#     # Calculate Charge Used in last 20 sec
+#     # Get number of discharges
+#     # Get a voltage from linear interpolation
+#     df = x
+#     curr = df[busC]
+#     # charge = integrate_with_Scipy_tCol(df[busC], df[t])
+#     # 20 sec range is ~1678
+#     # Window gets flipped so bits at the end face backward and are now dependent on past charge usage.
+#     window = np.zeros(1678*2 + 1) # ~20 sec to either side of the middle.
+#     window[1678:] = np.ones_like(window[1678:])*60/5035 # Effectively performing an integral of the ~20 sec before your current location. Off the beginning is just 0 which works.
+#     chargeLast20Sec = np.convolve(curr, window, "same") # In coulombs. Ah is /3600. mAh is /3.6
+    
+#     ## TODO: The above should be reimplemented to work based on a time range, rather than a set of indexes because that varies over time/throught. Repeated integrals may be time consuming.
+#     # May be a good idea to make a column which is ((t[n+1] - t[n]) * I[n]) and do an integral of that over the right time range. Would save some computation.
+
+#     ## TODO: Train on data where # of discharges is well documented to record the effect of that for this model. For now it will be my guess of about 10.
+
+#     discharges = 10
+
+#     NearestNDInterpolator
+
+#     return

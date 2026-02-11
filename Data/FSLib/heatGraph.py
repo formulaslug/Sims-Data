@@ -69,7 +69,7 @@ def colored_line(x, y, c, ax, **lc_kwargs):
     coord_end = np.column_stack((x_midpts[1:], y_midpts[1:]))[:, np.newaxis, :]
     segments = np.concatenate((coord_start, coord_mid, coord_end), axis=1)
 
-    lc = LineCollection(segments, **default_kwargs)
+    lc = LineCollection(segments, **default_kwargs) #type: ignore
     lc.set_array(c)  # set the colors of each segment
 
     return ax.add_collection(lc)

@@ -1,7 +1,7 @@
 ## Magnetic Field and Accelerometer Histograms
 
 # df.columns = ['time', 'voltage', 'state_of_charge', 'charge_rate', 'xA', 'yA', 'zA', 'xG', 'yG', 'zG','ISM330.temp', 'xB', 'yB', 'zB', 'MMC5983.temp']
-from IMUCalibrationFunctions import *
+from Data.FSLib.IMUCalibrationFunctions import *
 
 # df = pl.read_parquet("Nathaniel_IMU_Data/Orientation.parquet")
 
@@ -17,7 +17,7 @@ plt.stairs(counts, bins)
 plt.xlabel('Magnetic Field Magnitude (Gauss)')
 plt.ylabel('Counts')
 plt.title('Histogram of Magnetic Field Magnitude')
-plt.axvline(df["mB"].median(), color='red', linestyle='dashed', linewidth=1, label='Median')
+plt.axvline(df["mB"].median(), color='red', linestyle='dashed', linewidth=1, label='Median') #type: ignore
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -27,7 +27,7 @@ plt.stairs(counts, bins)
 plt.xlabel('Acceleration Magnitude (m/s²)')
 plt.ylabel('Counts')
 plt.title('Histogram of Acceleration Magnitude')
-plt.axvline(df["mA"].median(), color='red', linestyle='dashed', linewidth=1, label='Median')
+plt.axvline(df["mA"].median(), color='red', linestyle='dashed', linewidth=1, label='Median') #type: ignore
 plt.legend()
 plt.tight_layout()
 plt.show()

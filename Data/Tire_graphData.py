@@ -3,8 +3,6 @@
 
 import polars as pl
 from matplotlib import pyplot as plt
-import os
-import re
 
 # folder = r""
 # files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]

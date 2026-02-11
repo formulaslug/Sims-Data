@@ -2,10 +2,10 @@ import polars as pl
 import matplotlib.pyplot as plt
 import cantools.database as db
 
-from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
-from AnalysisFunctions import *
-from integralsAndDerivatives import *
-from fftTools import *
+# from DataDecoding_N_CorrectionScripts.dataDecodingFunctions import *
+from Data.FSLib.AnalysisFunctions import *
+from Data.FSLib.IntegralsAndDerivatives import *
+from Data.FSLib.fftTools import *
 
 # lv = "GLV"
 # v = "Violation"
@@ -63,8 +63,8 @@ heBL = "TPERIPH_BL_DATA_WHEELSPEED"
 heBR = "TPERIPH_BR_DATA_WHEELSPEED"
 tm = "TempMean"
 
-df100 = readValid("FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
-df0 = readValid("FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet")
+df100 = readValid("../fs-data/FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
+df0 = readValid("../fs-data/FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet")
 
 segs = np.array([[i for i in df100.columns if i.startswith(f"ACC_SEG{j}_TEMPS")] for j in range(5)]).flatten()
 
@@ -101,3 +101,6 @@ ax1.legend()
 ax2.legend()
 
 fig.show()
+
+plt.plot(df100F.rolling_mean(21))
+plt.show()

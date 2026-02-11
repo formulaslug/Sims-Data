@@ -1,4 +1,4 @@
-from IMUCalibrationFunctions import *
+from Data.FSLib.IMUCalibrationFunctions import *
 
 df = pl.read_parquet("Nathaniel_IMU_Data/Orientation.pq")
 # print(df.columns)

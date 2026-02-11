@@ -18,10 +18,10 @@ import scipy.interpolate as itp
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
-from heatGraph import colored_line
-from integralsAndDerivatives import *
+from Data.FSLib.heatGraph import colored_line
+from Data.FSLib.IntegralsAndDerivatives import *
 from scipy import fftpack
-from fftTools import *
+from Data.FSLib.fftTools import *
 
 # df = pl.read_csv("C:/Projects/FormulaSlug/fs-data/Nathaniel_IMU_Data/realTrip1.txt",infer_schema_length=10000,ignore_errors=True).with_columns(pl.all().cast(pl.Float32, strict=False))
 # df.write_parquet("Nathaniel_IMU_Data/realTrip1.parquet")
@@ -291,17 +291,17 @@ plt.show()
 #Cuts for Gs (Car IMU)
 cuts = df.filter(pl.col("vAConvolve").abs() > 0.04)[time] #Look for places where the edge detection is large (above 50)
 cuts = df[10000:46500].filter(pl.col("vAConvolve").abs() > 0.04)[time] #Look for places where the edge detection is large (above 50)
-plt.scatter(cuts*100, np.ones(cuts.height), s=0.5)
+plt.scatter(cuts*100, np.ones(cuts.shape[0]), s=0.5)
 plt.show()
 
 #Cuts for milliG IMU
 plt.plot(df["vAConvolve"])
 cuts = df.filter(pl.col("vAConvolve").abs() > 20)[time] #Look for places where the edge detection is large (above 50)
-plt.scatter(cuts, np.ones(cuts.height), s=0.5)
+plt.scatter(cuts, np.ones(cuts.shape[0]), s=0.5)
 plt.show()
 
 
-for i in range(0, cuts.height - 1):
+for i in range(0, cuts.shape[0] - 1):
 #checks every region bounded by 2 cut locations. If the region is large enough, save it to "regions"
     if i == 0:
         regions = []

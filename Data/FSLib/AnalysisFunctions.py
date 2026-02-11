@@ -104,7 +104,8 @@ def timeCol(df, verbose = False):
 
 def simpleTimeCol (df, verbose=False):
     stepSize = 60/5035
-    return pl.Series(np.arange(0,df.height*stepSize, stepSize)).alias("Time")
+    ser = pl.Series(np.arange(0,df.height*stepSize, stepSize)).alias("Time")
+    return ser.slice(0, df.height)
 
 def mcErrorView (df, title="", tFun=timeCol, verbose=False):
     '''
@@ -136,13 +137,13 @@ def mcErrorView (df, title="", tFun=timeCol, verbose=False):
     ax2.plot(df[t], df[smeFaultCode], label = "Fault Code")
     ax2.plot(df[t], df[smeFaultLevel], label = "Fault Level")
 
-    ax3.plot(df[t], df[rpm]/100, label="RPM/100")
-    ax3.plot(df[t], df[torqueDemand]/32767*180, label = "Torque Demand (Nm)")
+    ax3.plot(df[t], df[rpm]/100, label="RPM/100", alpha=0.7)
+    ax3.plot(df[t], df[torqueDemand]/32767*180, label = "Torque Demand (Nm)", alpha=0.7)
 
-    ax4.plot(df[t], df[pedalTravel], label = "Pedal Travel")
+    ax4.plot(df[t], df[pedalTravel]*3, label = "Pedal Travel (%*3)")
     ax4.plot(df[t], df[etcBrakeVoltage], label = "Brake Voltage")
-    ax4.plot(df[t], df[etcImplausibility]*500, label = "ETC Implausibility")
-    ax4.plot(df[t], df[etcRTDButton], label = "RTD Button")
+    ax4.plot(df[t], df[etcImplausibility].cast(pl.Int16)*300, label = "ETC Implausibility")
+    ax4.plot(df[t], df[etcRTDButton].cast(pl.Int16)*250, label = "RTD Button")
 
     ax1.set_title("Voltages")
     ax2.set_title("MC Error and code")
@@ -162,10 +163,12 @@ def mcErrorView (df, title="", tFun=timeCol, verbose=False):
     ax3.legend()
     ax4.legend()
 
+    fig.suptitle(title)
+
     fig.show()
 
 
-def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellVoltages=False, verbose=False, faults=False):
+def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellVoltages=False, verbose=False, faults=False, tempsInsteadOfVoltages=False):
     '''
     Loads a basic view of a given run. Built for FS-3 Data generated and collected by the team.
 
@@ -185,7 +188,20 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
         Whether to plot the cell voltages on the plot with ACC and MC voltages
     verbose
         Whether to print debug messages while generating the graph
+    faults
+        Whether to plot fault codes on the graph
+    tempsInsteadOfVoltages
+        Whether to plot temperatures instead of voltages for the ACC segments
     '''
+
+    tempVoltStr = "TEMPS" if tempsInsteadOfVoltages else "VOLTS"
+
+    df = df.with_columns(
+        pl.Series(np.convolve(df["ACC_STATUS_BMS_FAULT"].to_numpy(), [1, -1], 'same')).alias("BMS_FaultStart"),
+        pl.Series(np.convolve(df["ACC_STATUS_IMD_FAULT"].to_numpy(), [1, -1], 'same')).alias("IMD_FaultStart"),
+        pl.Series(np.convolve(df["ETC_STATUS_IMPLAUSIBILITY"].to_numpy(), [1, -1], 'same')).alias("APPS_ImplausibilityStart")
+        )
+
     if not ("Time" in df.columns):
         df.insert_column(0, tFun(df, verbose))
 
@@ -198,8 +214,13 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
     ax6 = fig.add_subplot(326)
     for i in range(5):
         for j in range(6):
-            ax1.plot(df[t],df[f"ACC_SEG{i}_VOLTS_CELL{j}"])
-    ax1.set_title("Acc Seg Voltages")
+            ax1.plot(df[t],df[f"ACC_SEG{i}_" + tempVoltStr + f"_CELL{j}"])
+    ax1.set_title(f"Acc Seg {tempVoltStr}")
+    ax1.vlines(df.filter(pl.col("BMS_FaultStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="red", label="BMS Fault")
+    ax1.vlines(df.filter(pl.col("IMD_FaultStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="orange", label="IMD Fault")
+    ax1.vlines(df.filter(pl.col("APPS_ImplausibilityStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="blue", label="APPS Implausibility")
+    ax1.legend()
+
     ax2.plot(df[t],df[V], color="cyan", label="Total As Reported by Acc")
     b = sum([sum([df[f"ACC_SEG{i}_VOLTS_CELL{j}"] for j in range(6)]) for i in range (5)])
     ax2.plot(df[t],b, color="pink", label="Sum of Cells")
@@ -213,6 +234,8 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
         ax22.legend()
         ax22.set_ylabel("Voltage (V)")
     ax2.set_title("Voltages")
+    if faults:
+        ax2.plot(df[t],df[smeFaultCode], label="MC Fault Code", color="red")
     ax2.legend()
     # ax3.plot(df[t],df[tsC], label="Accumulator Current")
     ax3.plot(df[t],df[busC], label = "Motor Controller Current")
@@ -235,7 +258,7 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
     ax6.set_title("Acceleration (X)")
 
     ax1.set_xlabel("Time (s)")
-    ax1.set_ylabel("Voltage (V)")
+    ax1.set_ylabel("Voltage (V)" if not tempsInsteadOfVoltages else "Temperature (C)")
     ax2.set_xlabel("Time (s)")
     ax2.set_ylabel("Voltage (V)")
     ax3.set_xlabel("Time (s)")
@@ -243,7 +266,7 @@ def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellV
     ax4.set_xlabel("Longitude (deg)")
     ax4.set_ylabel("Latitude (deg)")
     ax5.set_xlabel("Time (s)")
-    ax5.set_ylabel("Voltage (V)")
+    # ax5.set_ylabel("Voltage (V)")
     ax6.set_xlabel("Time (s)")
     ax6.set_ylabel("Acceleration (Gs)")
 
@@ -263,7 +286,7 @@ def speedGraph(df, tFun=timeCol):
     ax1.legend()
     fig3.show()
 
-def lapSegmentation(df, square, verbose=False, superVerbose=False):
+def lapSegmentation(df, square=((-121.7330999, 38.5759097),(-121.7328352, 38.5757670)), verbose=False, superVerbose=False):
     lat = "VDM_GPS_Latitude"
     long = "VDM_GPS_Longitude"
     longs = [square[0][0], square[1][0]]

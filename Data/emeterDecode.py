@@ -1,8 +1,8 @@
 from nptdms import TdmsFile
 import polars as pl
 import matplotlib.pyplot as plt
-from integralsAndDerivatives import *
-from AnalysisFunctions import *
+from Data.FSLib.IntegralsAndDerivatives import *
+from Data.FSLib.AnalysisFunctions import *
 
 autoxDaniel2File = "FS-3/compEmeterData/autoxDaniel2.tdms"
 autoxDaniel11File = "FS-3/compEmeterData/autoxDaniel11.tdms"

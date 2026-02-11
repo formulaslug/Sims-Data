@@ -3,8 +3,8 @@
 ## Made and commented by Nathaniel Platt
 import polars as pl
 import matplotlib.pyplot as plt
-from heatGraph import colored_line
-from fftTools import *
+from Data.FSLib.heatGraph import colored_line
+from Data.FSLib.fftTools import *
 
 # df = pl.read_parquet("FS-2/Parquet/2025-03-06-BrakingTests1.parquet")
 df = pl.read_parquet("FS-2/Parquet/2025-03-06-BrakingTests1.parquet").vstack(pl.read_parquet("FS-2/Parquet/2025-03-06-Part2.parquet"))
