@@ -1,2 +1,2 @@
-from FullVehicleSim.paramLoader import Parameters, Magic
+from FullVehicleSim.paramLoader import *
 

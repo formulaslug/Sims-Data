@@ -1,4 +1,4 @@
-from paramLoader import Parameters
+from paramLoader import *
 
 def calcLoadTransfer(accelerationX, accelerationY, yawVelocity:float) -> tuple[float, float, float, float]:
     # TODO: add weight transfer for torsional compliancy

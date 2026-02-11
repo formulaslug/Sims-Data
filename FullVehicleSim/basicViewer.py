@@ -2,22 +2,17 @@ import polars as pl
 import matplotlib.pyplot as plt
 
 df = pl.read_parquet("FullVehicleSim/simulation_output.parquet")
+t = df["time"]
 
-cols = ["x", "y", "z", "vX", "vY", "vZ", "speed", 
-                    "headingX", "headingY", "headingZ", 
-                    "yawRate", "frontBrakeTemperature", "rearBrakeTemperature", 
-                    "charge", "drag", "resistiveForces", 
-                    "motorTorque", "motorForce", "netForce", 
-                    "maxTraction", "wheelRotationsHZ", "motorRPM",
-                    "motorRotationsHZ", "current", 
-                    "maxWheelTorque", "maxPower", "power", 
-                    "voltage", 
-                    "frontBrakeForce", "rearBrakeForce", 
-                    "frontBrakeHeating", "rearBrakeHeating", 
-                    "frontBrakeCooling", "rearBrakeCooling",
-                    "frontSlipAngle", "rearSlipAngle"]
 
-plt.plot(df["time"], df["motorForce"], label="motorForce")
-plt.plot(df["time"], df["frontBrakeForce"] + df["rearBrakeForce"], label="Brake Force")
+plt.plot(t, df["throttle"]*300, label="throttle")
+plt.plot(t, df["brakePressureFront"], label="brakesF")
+plt.plot(t, df["netForce"], label="netForce")
+plt.plot(t, df["motorForce"], label="motorForce")
+plt.plot(t, df["motorTorque"], label="motorTorque")
+# plt.plot(t, df["motorRPM"], label="motorRPM")
+plt.plot(t, df["speed"], label="speed")
 plt.legend()
 plt.show()
+
+df["speed"].max()

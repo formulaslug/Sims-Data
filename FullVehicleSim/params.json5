@@ -11,6 +11,9 @@
         "initialBatteryTemperature": 20, // °C
         "vehicleSOC": 1.0, // Out of 1
         "initSpeed": 0.0, // m/s
+        "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
+        "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
+        "initVelocity": [0.0, 0.0, 0.0], // Initial velocity vector in the world frame
 
         "airDensity": 1.230,
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
