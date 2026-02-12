@@ -2,7 +2,12 @@ import polars as pl
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
-from Data.FSLib.IntegralsAndDerivatives import *
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from FSLib.IntegralsAndDerivatives import *
 # from Data.integralsAndDerivatives import in_place_derive
 
 def simpleTimeCol (dfa, dt=60/5035):
