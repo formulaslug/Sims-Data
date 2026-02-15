@@ -22,7 +22,7 @@ l_rod = 383.211 #fs4 mm (length of "tie rod")
 d = 32.905 #fs4 mm (sta to rack, longitudinal)
 l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1.524 #fs4 m lwb
-phiStatic = numpy.deg2rad(5.531) #fs4 degrees
+phiStatic = numpy.deg2rad(1.531) #fs4 degrees
 d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 def calculateAckermannOther(steerAngle): #input in rad
     import scipy
@@ -214,12 +214,12 @@ minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
-fixedSteer = 1.99 #in rad btw
+fixedSteer = 1.5 #in rad btw
 
 # -run solver (USG graph)
 steer_vals = np.arange(fixedSteer)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-100, 101, 20)  #steps would be in mm
+rack_offsets = np.arange(-80, 81, 20)  #steps would be in mm
 base_state = getSteeringState()
 
 
