@@ -34,8 +34,11 @@ def compute_spring_rates(v, ay, trg):
     frontFloor = floorTotal * 0.5
     rearFloor = floorTotal * 0.5
 
-    frontAero = frontFloor + frontWing
-    rearAero = rearFloor + rearWing
+    # frontAero = frontFloor + frontWing
+    # rearAero = rearFloor + rearWing
+
+    frontAero = 0
+    rearAero = 0
 
     print("Aero Balance (front%) =", frontAero/2000)
     print("Compute_spring_rates is running")
