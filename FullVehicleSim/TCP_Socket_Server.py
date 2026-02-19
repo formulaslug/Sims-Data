@@ -8,11 +8,16 @@ def setup():
     sock.listen(5)
 
 def closeSocket():
-    return -1
+    sock.shutdown()
+    sock.close()
 
 def run_socket():
+    ghost_var = "Velocity data will be here"
     while True:
         clientsocket, address = sock.accept()
-        
+        data = clientsocket.recv(1024)
+        if(data == None):
+            closeSocket()
+        clientsocket.send(ghost_var)
     return 0
 
