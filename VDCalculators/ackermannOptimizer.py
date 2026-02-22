@@ -20,9 +20,9 @@ tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering ax
 rackRatio = 82.55/numpy.deg2rad(248) #fs4/3 mm rack displacement/deg pinion rotation
 l_rod = 383.211 #fs4 mm (length of "tie rod")
 d = 32.905 #fs4 mm (sta to rack, longitudinal)
-l_arm = 75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+l_arm = 75.946 #75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1.524 #fs4 m lwb
-phiStatic = numpy.deg2rad(1.531) #fs4 degrees
+phiStatic = numpy.deg2rad(4.531) #fs4 degrees
 d_lat = 387.194 #fs4 mm (sta to rack, lateral)
 def calculateAckermannOther(steerAngle): #input in rad
     import scipy
@@ -121,7 +121,7 @@ def calculateUSG(steerAngle, yawRate, velocity): #try to change this to be done 
     L_wb = 1.589989 #wheelbase length, in meters
     if (yawRate == 0): #just return 0 so as not to throw invalid division error
         return 0
-    R_p = velocity/yawRate #ideal cornering radius, in meter
+    R_p = 16.75 #m, in skidpad cornering radius
     ay = velocity*yawRate #lateral acceleration, m/s
     rhoPerfect = L_wb/R_p #chalmer's formula for "perfect steering angle"
     usg = ((steerAngle - rhoPerfect))/ay #chalmer's formula
@@ -219,7 +219,7 @@ fixedSteer = 1.5 #in rad btw
 # -run solver (USG graph)
 steer_vals = np.arange(fixedSteer)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-80, 81, 20)  #steps would be in mm
+rack_offsets = np.arange(-25, 25, 5)  #steps would be in mm
 base_state = getSteeringState()
 
 
