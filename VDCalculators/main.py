@@ -95,24 +95,24 @@ def main():
     
     """ Plot """
     kin.plot(
-        # suspension=True,  # Visualize the corner
+        suspension=True,  # Visualize the corner
         
         bump_steer=True,  # Bump Steer vs vertical travel
-        bump_steer_in_deg=False,  # Sets y-axis of bump steer plot to roll angle in deg
+        bump_steer_in_deg=True,  # Sets y-axis of bump steer plot to roll angle in deg
 
-        # camber_gain=False,  # Camber Gain vs vertical travel
-        # camber_gain_in_deg=False,  # Sets y-axis of camber gain plot to roll angle in deg
+        camber_gain=False,  # Camber Gain vs vertical travel
+        camber_gain_in_deg=False,  # Sets y-axis of camber gain plot to roll angle in deg
 
-        # caster_gain=False,  # Caster gain plot
-        # caster_gain_in_deg=False,  # Sets y-axis of caster gain plot to roll angle in deg
+        caster_gain=False,  # Caster gain plot
+        caster_gain_in_deg=False,  # Sets y-axis of caster gain plot to roll angle in deg
 
-        # scrub_gain = False, # Scrub change plot
-        # scrub_gain_in_deg = False,    # Sets y-axis of scrub gain plot to roll angle in deg
+        scrub_gain = False, # Scrub change plot
+        scrub_gain_in_deg = False,    # Sets y-axis of scrub gain plot to roll angle in deg
 
-        # roll_center_in_roll=False,  # Path of roll center as the car rolls
+        roll_center_in_roll=False,  # Path of roll center as the car rolls
         
-        # motion_ratio=False, # Motion Ratio vs vertical travel
-        # motion_ratio_in_deg=False # Sets y-axis of motion ratio plot to roll angle in deg
+        motion_ratio=False, # Motion Ratio vs vertical travel
+        motion_ratio_in_deg=False # Sets y-axis of motion ratio plot to roll angle in deg
     )
 
 
