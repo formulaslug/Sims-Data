@@ -118,7 +118,7 @@ def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffn
     r_inf = (C2 * stepSteerInput) / k
     return r_inf
 def calculateUSG(steerAngle, yawRate, velocity): #try to change this to be done by LLT? 
-    L_wb = 1.589989 #wheelbase length, in meters
+    L_wb = 1.524 #wheelbase length, in meters
     if (yawRate == 0): #just return 0 so as not to throw invalid division error
         return 0
     R_p = velocity/yawRate #ideal cornering radius, in meter
@@ -214,12 +214,12 @@ minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
 maxSteer = 1.75
 minVelocity = 10
 maxVelocity = 30
-fixedSteer = 1.99 #in rad btw
+fixedSteer = 1.65 #in rad btw
 
 # -run solver (USG graph)
 steer_vals = np.arange(fixedSteer)
 velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-100, 101, 20)  #steps would be in mm
+rack_offsets = np.arange(-80, 81, 20)  #steps would be in mm
 base_state = getSteeringState()
 
 
