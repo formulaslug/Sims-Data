@@ -7,7 +7,7 @@ Created on Tue Jul 12 13:21:41 2022
 """
 from kinsolve import *
 
-
+#COORDINATES FOR REAR RIGHT QUARTER OF CAR SUSPENSION
 def main():
 
     """ Suspension Points """
