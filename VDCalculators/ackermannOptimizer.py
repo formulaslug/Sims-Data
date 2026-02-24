@@ -30,7 +30,7 @@ def calculateAckermannOther(steerAngle): #input in rad
     import matplotlib.pyplot as plt
     global d, l_rod
 
-    def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS, this is from equation 1B
+    def findAckermannFactor(leftAngle, rightAngle): #INPUT MUST BE IN RADIANS, this is from equation 1B on the whiteboard
         angleIn = 0
         if (leftAngle < 0 or rightAngle > 0):
             angleIn = rightAngle
