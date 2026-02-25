@@ -1,36 +1,39 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from FSLib.IntegralsAndDerivatives import *
 from FSLib.fftTools import *
 from FSLib.AnalysisFunctions import *
-print(df.columns)
 
-import pandas as pd
-import matplotlib.pyplot as plt
+df = readValid("") #parquet link
 
-data = pd.read_csv("data.csv")
+speed_channel = "VDM_GPS_SPEED"
+drag_coefficient = 1.0858790012112278  
+air_density = 1.225 
 
-time = data["time"]
-speed = data["speed"]
-drag = data["drag"]
+dt = 0.01 #can be adjusted accordingly
+time = np.arange(df.height) * dt
 
+speed_vals = df[speed_channel].to_numpy()
+drag_vals = 0.5 * air_density * drag_coefficient * speed_vals**2
+speed_drag = speed_vals * drag_vals
 
-speed_drag = speed * drag
+plt.figure(figsize=(12, 6))
 
-# -------- Graph 1: Speed vs Time --------
-plt.figure()
-plt.plot(time, speed)
-plt.title("Speed vs Time")
-plt.xlabel("Time")
-plt.ylabel("Speed")
-plt.grid()
-plt.show()
+ax1 = plt.subplot(1, 2, 1)
+ax1.plot(time, speed_vals, label="Speed", color='blue')
+ax1.set_xlabel("Time (s)")
+ax1.set_ylabel("Speed (mph)")
+ax1.set_title("Speed vs Time")
+ax1.legend()
+ax1.grid(True)
 
-# -------- Graph 2: Speed × Drag vs Time --------
-plt.figure()
-plt.plot(time, speed_drag)
-plt.title("Speed × Drag Coefficient vs Time")
-plt.xlabel("Time")
-plt.ylabel("Speed × Drag")
-plt.grid()
+ax2 = plt.subplot(1, 2, 2)
+ax2.plot(time, speed_drag, label="Speed × Drag Force", color='red')
+ax2.set_xlabel("Time (s)")
+ax2.set_ylabel("Speed × Drag Force")
+ax2.set_title("Speed × Drag Force vs Time")
+ax2.legend()
+ax2.grid(True)
+
+plt.tight_layout()
 plt.show()
