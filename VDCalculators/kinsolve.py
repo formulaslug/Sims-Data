@@ -31,6 +31,9 @@ def angle(v1: List[float], v2: List[float]):
     """
     uv1 = v1 / norm(v1)
     uv2 = v2 / norm(v2)
+    # print(f"line 32 num {v2} \n")
+    if (norm(v2) == 0):
+        print(f"line 33 denom failure {norm(v2)} \n")
     dot12 = dot(uv1, uv2)
     ang = np.degrees(np.arccos(dot12))
     return ang
@@ -122,6 +125,11 @@ def intersection_of_spheres_radii(center_1,center_2, r1, r2):
     h = 0.5 + (r1*r1 - r2*r2) / (2 * d*d)
     
     # Radius of circle of intersection
+    # print(f"line 127 first term {r1*r1} \n")
+    # print(f"line 128 second term {h*h} \n")
+    # print(f"line 129  third term {d*d} \n")
+    if ((h*h * d*d) > (r1*r1)):
+        print(f"line 131 sqrt failure")
     r_i = np.sqrt(r1*r1 - h*h * d*d)
     
     # Normal vector
@@ -532,7 +540,9 @@ class KinSolve:
         self.shock_len = [norm(a-self.shock[0].origin) for a in self.shock[1].hist]
         self.shock_travel = [l for l in np.diff(self.shock_len)]
         self.shock_travel2 = [a-b for a,b in zip(self.shock_len[:-1],self.shock_len[1:])]
+        iterationCounter = 0
         if any(t<0 for t in self.shock_travel):
+            print(f"line 541 'shock travel' negative {self.shock_travel[iterationCounter]} \n")
             print("Ruh roh, your shock went over center")
         
         print("* Dynamic Motion Ratio")
