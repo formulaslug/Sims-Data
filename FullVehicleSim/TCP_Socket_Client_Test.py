@@ -10,5 +10,8 @@ s.sendall(b'start protocol.R?R')
 data = s.recv(1024) ##data gets recieved
 print(f"Received {data.decode()!r}")
 
-s.sendall(b'end protocol') ##why doesnt this get run?
+s.sendall(b'I am still listening!.R?R') 
+data = s.recv(1024)
+print(f"Received {data.decode()!r}")
+s.sendall(b'end protocol')
 
