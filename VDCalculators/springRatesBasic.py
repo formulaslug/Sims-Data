@@ -34,12 +34,10 @@ def compute_spring_rates(v, ay, trg):
     frontFloor = floorTotal * 0.5
     rearFloor = floorTotal * 0.5
 
-    # frontAero = frontFloor + frontWing
-    # rearAero = rearFloor + rearWing
-
-    frontAero = 0
-    rearAero = 0
-
+    frontAero = frontFloor + frontWing
+    rearAero = rearFloor + rearWing
+    
+    
     print("Aero Balance (front%) =", frontAero/2000)
     print("Compute_spring_rates is running")
   
@@ -47,8 +45,7 @@ def compute_spring_rates(v, ay, trg):
 
     ###     Axle Weights    ###
 
-    frontAW = frontWD * weight + frontAero
-    rearAW = rearWD * weight + rearAero
+    _, _, _, _, M_pitch_aero, frontAW, rearAW = aero_load_model(v, truncate_to_CG=True)
 
     ###     Roll Moments    ###
 
@@ -134,6 +131,149 @@ def roll_and_pitch_gradients(v, ay, ax, frontKS, rearKS):
     pitch_gradient = np.degrees(theta / ax)
 
     return roll_gradient, pitch_gradient
+
+def aero_load_model(v, truncate_to_CG=True):
+    """
+    Computes aerodynamic loading and pitch moment.
+
+    Parameters
+    ----------
+    v : float
+        vehicle speed (m/s)
+
+    truncate_to_CG : bool
+        If True, aero force is assumed to act through CG (no pitch moment)
+        If False, real center of pressure is used
+
+    Returns
+    -------
+    frontAero : float   (N)
+    rearAero  : float   (N)
+    totalAero : float   (N)
+    x_cop     : float   (m from front axle)
+    M_pitch_aero : float (Nm about CG, positive = nose up)
+    frontAxleLoad : float (N)
+    rearAxleLoad  : float (N)
+    """
+
+    # ===============================
+    # 1. COMPONENT AERO FORCES
+    # ===============================
+    frontWing = 0.88888 * v**2
+    rearWing  = 1.111   * v**2
+    floorTotal = 0.22222 * v**2
+
+    frontFloor = 0.5 * floorTotal
+    rearFloor  = 0.5 * floorTotal
+
+    frontAero = frontWing + frontFloor
+    rearAero  = rearWing  + rearFloor
+
+    totalAero = frontAero + rearAero
+
+    # ===============================
+    # 2. CG LOCATION FROM FRONT AXLE
+    # ===============================
+    x_cg = wheelBase * rearWD
+
+    # ===============================
+    # 3. TRUE CENTER OF PRESSURE
+    # ===============================
+    if totalAero > 0:
+        x_cop_true = (rearAero * wheelBase) / totalAero
+    else:
+        x_cop_true = x_cg   # avoid divide by zero
+
+    # ===============================
+    # 4. OPTION: TRUNCATE COP TO CG
+    # ===============================
+    if truncate_to_CG:
+        x_cop = x_cg
+    else:
+        x_cop = x_cop_true
+
+    # ===============================
+    # 5. PITCH MOMENT ABOUT CG
+    # ===============================
+    # positive moment = nose up
+    M_pitch_aero = totalAero * (x_cop - x_cg)
+
+    # ===============================
+    # 6. VERTICAL LOAD DISTRIBUTION
+    # ===============================
+    # static weight
+    frontStatic = frontWD * weight
+    rearStatic  = rearWD  * weight
+
+    # distribute aero vertically to axles
+    # based on COP position along wheelbase
+    frontAero_axle = totalAero * (wheelBase - x_cop) / wheelBase
+    rearAero_axle  = totalAero * x_cop / wheelBase
+
+    frontAxleLoad = frontStatic + frontAero_axle
+    rearAxleLoad  = rearStatic  + rearAero_axle
+
+    return (
+        frontAero,
+        rearAero,
+        totalAero,
+        x_cop,
+        M_pitch_aero,
+        frontAxleLoad,
+        rearAxleLoad
+    )
+
+def spring_displacement_model(v, ay, ax, frontKS, rearKS, truncate_to_CG=True):
+    """
+    Computes spring compression at front and rear due to
+    weight + aero + acceleration.
+
+    Returns:
+    front_spring_disp : meters
+    rear_spring_disp  : meters
+    """
+
+    # --- Aero loads and axle loads ---
+    _, _, _, _, M_pitch_aero, frontAW, rearAW = aero_load_model(v, truncate_to_CG)
+
+    # --- Longitudinal pitch load transfer (simplified) ---
+    PCHeight = 0.5 * (RCFront + RCRear)
+    M_pitch_long = weight * (CGHeight - PCHeight) * ax
+
+    M_pitch_total = M_pitch_long + M_pitch_aero
+
+    af = wheelBase * rearWD
+    ar = wheelBase * frontWD
+
+    # Axle load changes from pitch
+    deltaF_front = -M_pitch_total / wheelBase
+    deltaF_rear  =  M_pitch_total / wheelBase
+
+    frontAW += deltaF_front
+    rearAW  += deltaF_rear
+
+    # --- Per-wheel vertical load ---
+    front_wheel_load = frontAW / 2
+    rear_wheel_load  = rearAW / 2
+
+    # --- Convert springs to wheel rates ---
+    frontKW = frontKS * motionRatioF**2
+    rearKW  = rearKS  * motionRatioR**2
+
+    # --- Wheel displacement ---
+    front_wheel_disp = front_wheel_load / frontKW
+    rear_wheel_disp  = rear_wheel_load  / rearKW
+
+    # --- Spring displacement ---
+    front_spring_disp = front_wheel_disp / motionRatioF
+    rear_spring_disp  = rear_wheel_disp  / motionRatioR
+
+    return front_spring_disp, rear_spring_disp
+
+
+
+
+
 
 
 ###     Graphs      ###
@@ -269,4 +409,3 @@ print("roll gradient:", roll_gradient*0.0174533, "rads/g")
 print(roll_gradient)
 print("pitch gradient:", pitch_gradient*0.0174533, "rads/g")
 print(pitch_gradient)
-
