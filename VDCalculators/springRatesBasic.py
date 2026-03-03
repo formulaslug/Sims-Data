@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 mass = 293.97 #FS-3 Comp weight + 160lb driver, DOES NOT INCLUDE AERO PACKAGE
-weight = 2736  # N
+weight = 2883.8457  # N
 frontWD = 0.4632
 rearWD = 1 - frontWD
 leftWD = 0.492
@@ -18,7 +18,7 @@ RCRear = 0.0493
 motionRatioF = 1.006
 motionRatioR = 1.004
 multiplier = 0.00571015 #n/m -> lbf/in
-masterAy= 1
+masterAy= 1.7
 masterV = 30
 TRG = 0.01524409115   # target roll gradient in rad/g
 print("TRG = ", TRG)
@@ -139,7 +139,7 @@ def roll_and_pitch_gradients(v, ay, ax, frontKS, rearKS):
 ###     Graphs      ###
 def spring_rates_vs_speed_fixed_g():
     speeds = np.linspace(10, 35, 30)
-    ay = 1.7
+    ay = 2.2
     front_rates = []
     rear_rates = []
     for v in speeds:
