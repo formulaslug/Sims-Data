@@ -12,13 +12,31 @@
   - r_sw       : Steering wheel radius (m)
 
 """
-
+import os
+import sys
 import math
-from Mech.traction import calcCorneringStiffness
-from Mech.tireLoad import calcLoadTransfer
-from Mech.steering import calcSlipAngle
-from paramLoader import Parameters, Magic
+import json
+import numpy
+import traction
+import tireLoad
+import steering
+import math
+from traction import getCorneringStiffness
+from tireLoad import getloadTransfer
+from steering import calculateSlipAngle #might want to take this from ackermann model
+import json
+magic:dict
+parameters:dict
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) #gpt-generated way to find params
+params_path = os.path.join(BASE_DIR, '..', 'FullVehicleSim', 'params.json')
 
+with open(params_path, 'r') as file:
+    params = json.load(file)
+    Magic = params["Magic"]
+    Parameters = params["Parameters"]
+    del params
+
+# import params
 
 def compute_steering_forces(
     # Tyre — from team cornering stiffness calculator
@@ -53,16 +71,16 @@ def compute_steering_forces(
 
     # Compute C_alpha from team calculator
     slip_tuple = (math.radians(alpha_deg), math.radians(alpha_deg))
-    C_alpha, _ = calcCorneringStiffness(tireLoad, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure)
-    results["C_alpha"] = C_alpha
+    C_alpha, _ = getCorneringStiffness(tireLoad, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure)
+    results["cornering stiffness"] = C_alpha
 
     # STEP 1: Lateral tyre force (per tire)
     # Fy = C_alpha * alpha
     alpha_rad = math.radians(alpha_deg)
     Fy = C_alpha * alpha_rad
-    results["alpha_deg"] = alpha_deg
-    results["alpha_rad"] = alpha_rad
-    results["Fy_N"] = Fy
+    results["slip angle deg"] = alpha_deg
+    results["slip angle rad"] = alpha_rad
+    results["tire lateral force"] = Fy
 
     #pneumatic poopoo
     # t_p = Mz / Fy
@@ -127,7 +145,7 @@ def print_results(results: dict):
     print("=" * 58 + "\n")
 
 
-tireLoad = calcLoadTransfer(0, 9.81, 0)  # ax, ay, yawRate — 1g cornering
+tireLoad = getloadTransfer(0, 9.81, 0)  # ax, ay, yawRate — 1g cornering
 
 results = compute_steering_forces(
     tireLoad           = tireLoad,
