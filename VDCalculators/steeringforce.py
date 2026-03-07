@@ -22,7 +22,7 @@ import tireLoad
 import steering
 import math
 from traction import getCorneringStiffness
-from tireLoad import getloadTransfer
+from tireLoad import getLatLoadTransfer
 from steering import calculateSlipAngle #might want to take this from ackermann model
 import json
 magic:dict
@@ -36,11 +36,13 @@ with open(params_path, 'r') as file:
     Parameters = params["Parameters"]
     del params
 
-# import params
+# global variables
+track = 1.234 #m
+hcg = 0.3048 #m, from ground
 
 def compute_steering_forces(
     # Tyre — from team cornering stiffness calculator
-    tireLoad: tuple,
+    tireFN: tuple,
     slipRatio: float,
     speed: float,
     surfaceTemperature: float,
@@ -71,13 +73,13 @@ def compute_steering_forces(
 
     # Compute C_alpha from team calculator
     slip_tuple = (math.radians(alpha_deg), math.radians(alpha_deg))
-    C_alpha, _ = getCorneringStiffness(tireLoad, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure)
-    results["cornering stiffness"] = C_alpha
+    F_cornerstiff, extraneous1 = getCorneringStiffness(tireFN, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure)
+    results["cornering stiffness"] = F_cornerstiff
 
     # STEP 1: Lateral tyre force (per tire)
     # Fy = C_alpha * alpha
     alpha_rad = math.radians(alpha_deg)
-    Fy = C_alpha * alpha_rad
+    Fy = F_cornerstiff * alpha_rad
     results["slip angle deg"] = alpha_deg
     results["slip angle rad"] = alpha_rad
     results["tire lateral force"] = Fy
@@ -91,8 +93,8 @@ def compute_steering_forces(
     # M_axis = Fy * s_m * cos(caster)
 
     cos_caster = math.cos(math.radians(caster_deg))
-    results["caster_deg"] = caster_deg
-    results["cos_caster"] = cos_caster
+    results["degrees caster"] = caster_deg
+    results["cos(caster)"] = cos_caster
     M_axis = Fy * s_m * cos_caster
     results["M_axis_Nm"] = M_axis
 
@@ -104,14 +106,14 @@ def compute_steering_forces(
     # STEP 4: Steering wheel torque
     # T_wheel = M_axis / SR
     T_wheel = M_axis / SR
-    results["SR"] = SR
-    results["T_wheel_Nm"] = T_wheel
+    results["steering ratio"] = SR
+    results["torque at steering column"] = T_wheel
 
     # STEP 5: Driver rim force
     # F_driver = T_wheel / r_sw
     F_driver_N = T_wheel / r_sw
-    results["r_sw_m"] = r_sw
-    results["F_driver_N"] = F_driver_N
+    results["steering wheel radius"] = r_sw
+    results["steering wheel torque"] = F_driver_N
 
     return results
 
@@ -121,7 +123,7 @@ def print_results(results: dict):
     print("RESULTS")
     print("=" * 58)
 
-    labels = {
+    labels = { #need to re-label literaly all of these (maybe not literally)
         # "Mz_Nm":     "Self-Aligning Torque            [Nm]",  
         # "t_p_m":     "Pneumatic Trail                  [m]",  
         "C_alpha":     "Cornering Stiffness          [N/rad]",
@@ -145,13 +147,16 @@ def print_results(results: dict):
     print("=" * 58 + "\n")
 
 
-tireLoad = getloadTransfer(0, 9.81, 0)  # ax, ay, yawRate — 1g cornering
+# tireLoad = getloadTransfer(0, 9, 81, 0)  this is wrong since this is for longitudinal anyway
+a_y = 2.2
+
+tireFN, extraneous2 = getLatLoadTransfer(Parameters, track, a_y, hcg)
 
 results = compute_steering_forces(
-    tireLoad           = tireLoad,
+    tireFN          = tireFN,
     slipRatio          = 0.15,
     speed              = 20,
     surfaceTemperature = 80,
-    tirePressure       = 40,
+    tirePressure       = 12,
 )
 print_results(results)
