@@ -20,9 +20,11 @@ import numpy
 import traction
 import tireLoad
 import steering
+import tireState
 import math
 from traction import getCorneringStiffness
 from tireLoad import getLatLoadTransfer
+from tireState import Tire
 from steering import calculateSlipAngle #might want to take this from ackermann model
 import json
 magic:dict
@@ -72,17 +74,18 @@ def compute_steering_forces(
     results = {}
 
     # Compute C_alpha from team calculator
-    slip_tuple = (math.radians(alpha_deg), math.radians(alpha_deg))
-    F_cornerstiff, extraneous1 = getCorneringStiffness(tireFN, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure)
-    results["cornering stiffness"] = F_cornerstiff
+    # slip_tuple = (math.radians(alpha_deg), math.radians(alpha_deg))
+    # # getCorneringStiffness(tireLoad, slipAngle, slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic):
+    # F_cornerstiff, extraneous1 = getCorneringStiffness(tireFN, slip_tuple, slipRatio, speed, surfaceTemperature, tirePressure, Parameters, Magic)
+    # results["cornering stiffness"] = F_cornerstiff
 
     # STEP 1: Lateral tyre force (per tire)
     # Fy = C_alpha * alpha
     alpha_rad = math.radians(alpha_deg)
-    Fy = F_cornerstiff * alpha_rad
+    Fy = Tire.getLateralForce()
     results["slip angle deg"] = alpha_deg
     results["slip angle rad"] = alpha_rad
-    results["tire lateral force"] = Fy
+    results["max tire lateral load"] = Fy
 
     #pneumatic poopoo
     # t_p = Mz / Fy
