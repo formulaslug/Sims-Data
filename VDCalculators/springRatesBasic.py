@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-
+import json
 
 mass = 293.97 #FS-3 Comp weight + 160lb driver, DOES NOT INCLUDE AERO PACKAGE
 weight = 2883.8457  # N
@@ -409,3 +408,17 @@ print("roll gradient:", roll_gradient*0.0174533, "rads/g")
 print(roll_gradient)
 print("pitch gradient:", pitch_gradient*0.0174533, "rads/g")
 print(pitch_gradient)
+
+output = {
+    "frontKS": frontKS,
+    "rearKS":  rearKS,
+    "frontRS": frontRS,
+    "rearRS": rearRS,
+    "frontKW": frontKW,
+    "rearKW": rearKW,
+    "roll_gradient_deg_per_g": roll_gradient,
+    "pitch_gradient_deg_per_g": pitch_gradient
+}
+with open("spring_rates_output.json", "w") as f:
+    json.dump(output, f)
+print("Saved spring rates to spring_rates_output.json")
