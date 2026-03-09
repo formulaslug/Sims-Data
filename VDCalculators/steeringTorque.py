@@ -8,6 +8,7 @@ import tireLoad
 import steering
 import tireState
 import math
+import ackermannOptimizer
 from traction import getCorneringStiffness
 from tireLoad import getLatLoadTransfer
 from tireState import Tire
@@ -23,17 +24,33 @@ with open(params_path, 'r') as file:
     Magic = params["Magic"]
     Parameters = params["Parameters"]
     del params
+# CONSTS
+LEFT = 1
+RIGHT = 0
 
-# global variables
+# GLOBAL VARIABLES -------------
+#upright kinematics
+splen = 0 #spindle length, m
+kpi = 0 #kpi, deg
+
 track = 1.0833862 #m
 hcg = 0.3048 #m, from ground
 larm = 75.946 #steering ARM length (uprights, mm)
 lrod = 383.211 #tie rod length (mm)
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees (KPI to toe rod pickup)
-wheelRadius = 0 #steering wheel radius (m)
-rackRatio = 0 #steering rack ratio
 d = 32.905 #fs4 mm (sta to rack, longitudinal)
 d_lat = 387.194 #fs4 mm (sta to rack, lateral)
+
+#ergo values
+rackRatio = 82.55/numpy.deg2rad(248) #steering rack ratio
+wheelRadius = 0 #steering wheel radius (m)
+pinionRadius = 0 
+
+#tire values
+tireRadius = 0 #m
+slipRatio = 0.15 #arbitrary value?
+temp = 0 #idk
+pressure = 0 #idk
 
 def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equation 2
         # print(f"{wheelInput=}")
@@ -57,7 +74,74 @@ def calculateSteerAngles(wheelInput): #INPUT MUST BE IN RAD, this is from equati
         rightSteerAngle = phiStatic - RS_firstTerm + RS_secondTerm
         
         return leftSteerAngle, rightSteerAngle #OUTPUT WILL ALSO BE IN RAD
+def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons. 
+    #caster in deg, "side" = 1 or 0 for left or right
+    trail = (splen * numpy.sin(caster) + tireRadius   * numpy.tan(caster)) #rudimentary mechanical trail, m
+    scrub     = (splen * numpy.sin(kpi) + tireRadius   * numpy.tan(kpi)) #rudimentary scrub radius, m
+    momentTrail = F_y * trail #moment derived by mechanical trail, pneumatic trail omitted because i don't know how to model it
+    if (side == 0):
+         sign = 1
+    if (side == 1):
+         sign = -1
+    momentScrub = sign * F_y * scrub * numpy.cos(numpy.deg2rad(kpi))
 
-def solveSteeringTorque(steerAngle, casterAngle, KPI):
-    #asd
-    return 0
+    return momentTrail + momentScrub 
+# def solveSlipAngle(v_fwd, steerAngle): #FOR A SINGLE WHEEL! output in rad
+#     Vx = v_fwd / math.cos(steerAngle)
+#     Vy = v_fwd * math.tan(steerAngle)
+#     return math.atan(Vy/Vx)
+def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT for Fz's, rest is self explanatory
+    leftAngle, rightAngle = calculateSteerAngles(wheelInput) 
+    leftSlip = calculateSlipAngle(v_fwd, leftAngle)
+    rightSlip = calculateSlipAngle(v_fwd, rightAngle)
+    #creation of tire objects (daniel pls help) to derive lat forces
+    leftTire = tire.Tire(F_zL, slipRatio, leftSlip, v_fwd, temp, pressure)
+    rightTire = tire.Tire(F_zR, slipRatio, rightSlip, v_fwd, temp, pressure)
+    F_yL = leftTire.getLateralForce()
+    F_yR = rightTire.getLateralForce()
+    #calculation of Ls/Rs steering moments
+    leftMomentComposite = solveSteerMoment(F_yL, casterAngle, LEFT)
+    rightMomentComposite = solveSteerMoment(F_yR, casterAngle, RIGHT)
+    #tie rod magic
+    d_latL = d_lat + (rackRatio * wheelInput)
+    d_latR = d_lat - (rackRatio * wheelInput)
+    phi_rodL = numpy.arctan2(d, d_latL)
+    phi_rodR = numpy.arctan2(d, d_latR)
+    phi_armL = phiStatic + leftAngle
+    phi_armR = phiStatic + rightAngle
+    phi_includedL = phi_armL - phi_rodL
+    phi_includedR = phi_armR - phi_rodR
+
+    eff_armL = larm * numpy.sin(phi_includedL)
+    eff_armR = larm * numpy.sin(phi_includedR)
+    #forces and force projections, from rotational equilibrium [steer mom + TR force * effective mom arm = 0]
+    tieRodForceL = -leftMomentComposite / eff_armL #also if any of these moments are messed up or 0 the entire thing gets cooked, so watch out
+    tieRodForceR = -rightMomentComposite / eff_armR 
+    #rack forces
+    rackForceL = tieRodForceL * numpy.cos(phi_rodL)
+    rackForceR = tieRodForceR * numpy.cos(phi_rodR)
+
+    rackForce = rackForceL + rackForceR
+    return rackForce
+if __name__ == '__main__':
+    velocity = 20 #m/s
+    #step caster value [degs]
+    #step steering wheel inputs [rads] 
+    steerStep = 0 #right is pos, left is neg
+    casterStep = 0 #some arbitrary set of values, probably like 1-10 with 0.5 deg steps
+    
+    #meat of the solver
+    yR = calculateYawRate(stiff_Front, stiff_Rear, velocity, steerStep)
+    a_y = velocity*yR #lateral acceleration, m/s
+    if (a_y > 0): #car is turning right?
+        Fn_out, Fn_in = getLoadTransfer(Parameters, track, a_y, hcg) 
+        rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
+    if (a_y < 0): #car is turning left?
+        Fn_out, Fn_in = getLoadTransfer(Parameters, track, a_y, hcg) 
+        rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_in, Fn_out)
+    columnTorque = rackForce * pinionRadius
+    steeringTorque = columnTorque / wheelRadius
+
+    #plot stuff i will do later
+        #plot a graph of steering wheel torque (steeringTorque) vs slip angle? or maybe steering wheel input
+            #make it multi-curve, based on how much caster there is
