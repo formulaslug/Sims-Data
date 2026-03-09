@@ -86,10 +86,6 @@ def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons.
     momentScrub = sign * F_y * scrub * numpy.cos(numpy.deg2rad(kpi))
 
     return momentTrail + momentScrub 
-# def solveSlipAngle(v_fwd, steerAngle): #FOR A SINGLE WHEEL! output in rad
-#     Vx = v_fwd / math.cos(steerAngle)
-#     Vy = v_fwd * math.tan(steerAngle)
-#     return math.atan(Vy/Vx)
 def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT for Fz's, rest is self explanatory
     leftAngle, rightAngle = calculateSteerAngles(wheelInput) 
     leftSlip = calculateSlipAngle(v_fwd, leftAngle)
