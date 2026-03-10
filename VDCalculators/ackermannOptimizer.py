@@ -100,7 +100,7 @@ def calculateSlipAngle(steerAngle, velocity):
     Vx = velocity / math.cos(steerAngle)
     Vy = velocity * math.tan(steerAngle)
     return math.atan(Vy/Vx)
-def calculateYawRate(steerAngle, frontCorneringStiffnessDeg, rearCorneringStiffnessDeg, speed, stepSteerInput):
+def calculateYawRate(frontCorneringStiffnessDeg, rearCorneringStiffnessDeg, speed, stepSteerInput):
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     CR = rearCorneringStiffnessDeg * 180 / np.pi
     a = 0.853506
@@ -163,7 +163,7 @@ def solveUSG(minSteer, maxSteer, minVelocity, maxVelocity, steerStep=0.1, veloci
             outCorneringStiff = traction.getCorneringStiffness(carMass, (outSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
             netCF = (inCorneringStiff + outCorneringStiff)/2
             netCR = -70 # i still dont know bruh xd
-            yawRate = calculateYawRate(steer, netCF, netCR, velocity, steer) * -1
+            yawRate = calculateYawRate(netCF, netCR, velocity, steer) * -1
             if (yawRate == 0): #avoid invalid division error
                 radius = 0
             else:
@@ -198,7 +198,7 @@ def solveUSG_singleSteer(steerAngle, minVelocity, maxVelocity, velocityStep):
         netCR = -70 
 
         yawRate = calculateYawRate(
-            steerAngle, netCF, netCR, velocity, steerAngle
+            netCF, netCR, velocity, steerAngle
         ) * -1
 
         usg = calculateUSG(steerAngle, yawRate, velocity)
