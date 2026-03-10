@@ -8,7 +8,7 @@ import tireLoad
 import steering
 import tireState
 import math
-import ackermannOptimizer
+import ackermannOptimizer as ack
 from traction import getCorneringStiffness
 from tireLoad import getLatLoadTransfer
 from tireState import Tire
@@ -91,8 +91,8 @@ def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT
     leftSlip = calculateSlipAngle(v_fwd, leftAngle)
     rightSlip = calculateSlipAngle(v_fwd, rightAngle)
     #creation of tire objects (daniel pls help) to derive lat forces
-    leftTire = tire.Tire(F_zL, slipRatio, leftSlip, v_fwd, temp, pressure)
-    rightTire = tire.Tire(F_zR, slipRatio, rightSlip, v_fwd, temp, pressure)
+    leftTire = Tire(F_zL, slipRatio, leftSlip, v_fwd, temp, pressure)
+    rightTire = Tire(F_zR, slipRatio, rightSlip, v_fwd, temp, pressure)
     F_yL = leftTire.getLateralForce()
     F_yR = rightTire.getLateralForce()
     #calculation of Ls/Rs steering moments
@@ -127,13 +127,13 @@ if __name__ == '__main__':
     casterStep = 0 #some arbitrary set of values, probably like 1-10 with 0.5 deg steps
     
     #meat of the solver
-    yR = calculateYawRate(stiff_Front, stiff_Rear, velocity, steerStep)
+    yR = ack.calculateYawRate(stiff_Front, stiff_Rear, velocity, steerStep)
     a_y = velocity*yR #lateral acceleration, m/s
     if (a_y > 0): #car is turning right?
-        Fn_out, Fn_in = getLoadTransfer(Parameters, track, a_y, hcg) 
+        Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
         rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
     if (a_y < 0): #car is turning left?
-        Fn_out, Fn_in = getLoadTransfer(Parameters, track, a_y, hcg) 
+        Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
         rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_in, Fn_out)
     columnTorque = rackForce * pinionRadius
     steeringTorque = columnTorque / wheelRadius
