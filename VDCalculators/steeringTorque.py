@@ -39,11 +39,11 @@ kpi = numpy.deg2rad(2.197) #kpi, deg
 
 track = 1.0833862 #m
 hcg = 0.3048 #m, from ground
-larm = 75.946 #steering ARM length (uprights, mm)
-lrod = 383.211 #tie rod length (mm)
+larm = 75.946 * 0.001 #steering ARM length (uprights, mm)
+lrod = 383.211 * 0.001 #tie rod length (mm)
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees (KPI to toe rod pickup)
-d = 32.905 #fs4 mm (sta to rack, longitudinal)
-d_lat = 387.194 #fs4 mm (sta to rack, lateral)
+d = 32.905 * 0.001 #fs4 mm (sta to rack, longitudinal)
+d_lat = 387.194 * 0.001 #fs4 mm (sta to rack, lateral)
 
 #ergo values
 rackRatio = 82.55/numpy.deg2rad(248) #steering rack ratio
@@ -86,10 +86,10 @@ def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons.
     #caster in deg, "side" = 1 or 0 for left or right
     trail = (splen * numpy.sin(caster) + tireRadius   * numpy.tan(caster)) #rudimentary mechanical trail, m
     scrub     = (splen * numpy.sin(kpi) + tireRadius   * numpy.tan(kpi)) #rudimentary scrub radius, m
-    momentTrail = F_y * trail #moment derived by mechanical trail, pneumatic trail omitted because i don't know how to model it
-    if (side == 0):
+    momentTrail = F_y * trail * numpy.cos(caster) #moment derived by mechanical trail, pneumatic trail omitted because i don't know how to model it
+    if (side == LEFT):
          sign = 1
-    if (side == 1):
+    if (side == RIGHT):
          sign = -1
     momentScrub = sign * F_y * scrub * numpy.cos(numpy.deg2rad(kpi))
 
@@ -154,11 +154,12 @@ if __name__ == '__main__':
             inCorneringStiff = traction.getCorneringStiffness(wheelLoad, (leftSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic)[0]
             outCorneringStiff = traction.getCorneringStiffness(wheelLoad, (rightSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
             stiff_Front = (inCorneringStiff + outCorneringStiff)/2 # ^^^i determine that in vs. out doesn't matter since it's just scalar addition in this line anyway
-            stiff_Rear = -70 # lol who knows bruh
+            stiff_Rear = -2000 # changing the arbitrary value to something larger 
             yR = ack.calculateYawRate(stiff_Front, stiff_Rear, velocity, steerStep)
             a_y = velocity*yR #lateral acceleration, m/s
             if (a_y > 0): #car is turning right?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
+                print(f"normal out, normal in:{Fn_out, Fn_in}")
                 rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
             elif (a_y < 0): #car is turning left?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
