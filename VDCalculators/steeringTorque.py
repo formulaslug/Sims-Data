@@ -87,9 +87,9 @@ def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons.
     trail = (splen * numpy.sin(caster) + tireRadius   * numpy.tan(caster)) #rudimentary mechanical trail, m
     scrub     = (splen * numpy.sin(kpi) + tireRadius   * numpy.tan(kpi)) #rudimentary scrub radius, m
     momentTrail = F_y * trail #moment derived by mechanical trail, pneumatic trail omitted because i don't know how to model it
-    if (side == 0):
+    if (side == LEFT):
          sign = 1
-    if (side == 1):
+    if (side == RIGHT):
          sign = -1
     momentScrub = sign * F_y * scrub * numpy.cos(numpy.deg2rad(kpi))
 
@@ -157,6 +157,7 @@ if __name__ == '__main__':
             a_y = velocity*yR #lateral acceleration, m/s
             if (a_y > 0): #car is turning right?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
+                print(f"normal out, normal in:{Fn_out, Fn_in}")
                 rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
             elif (a_y < 0): #car is turning left?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
