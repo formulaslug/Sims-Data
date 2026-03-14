@@ -96,6 +96,7 @@ def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons.
     return momentTrail + momentScrub 
 def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT for Fz's, rest is self explanatory
     leftAngle, rightAngle = calculateSteerAngles(wheelInput) 
+    # print(f"steer angles at {numpy.rad2deg(wheelInput)},  L/R: {numpy.rad2deg(leftAngle)}/{numpy.rad2deg(rightAngle)}")
     leftSlip = ack.calculateSlipAngle(v_fwd, leftAngle)
     rightSlip = ack.calculateSlipAngle(v_fwd, rightAngle)
     #creation of tire objects (daniel pls help) to derive lat forces
@@ -115,7 +116,7 @@ def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT
     phi_armR = phiStatic + rightAngle
     phi_includedL = phi_armL - phi_rodL
     phi_includedR = phi_armR - phi_rodR
-
+    
     eff_armL = larm * numpy.sin(phi_includedL)
     eff_armR = larm * numpy.sin(phi_includedR)
     #forces and force projections, from rotational equilibrium [steer mom + TR force * effective mom arm = 0]
@@ -126,6 +127,7 @@ def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT
     rackForceR = tieRodForceR * numpy.cos(phi_rodR)
 
     rackForce = rackForceL + rackForceR
+    print(f"{rackForce} rack force at {numpy.rad2deg(wheelInput)} degrees steer and {numpy.rad2deg(casterAngle)} caster") 
     return rackForce
 if __name__ == '__main__':
     velocity = 20 #m/s
@@ -161,6 +163,7 @@ if __name__ == '__main__':
             elif (a_y < 0): #car is turning left?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
                 rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_in, Fn_out)
+                
             else:
                 rackForce = 0.0
             columnTorque = rackForce * pinionRadius
