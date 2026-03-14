@@ -152,7 +152,7 @@ if __name__ == '__main__':
             inCorneringStiff = traction.getCorneringStiffness(wheelLoad, (leftSlip, 0), 0.15, velocity, 80, 40, Parameters, Magic)[0]
             outCorneringStiff = traction.getCorneringStiffness(wheelLoad, (rightSlip, 0),  0.15, velocity, 80, 40, Parameters, Magic)[0]
             stiff_Front = (inCorneringStiff + outCorneringStiff)/2 # ^^^i determine that in vs. out doesn't matter since it's just scalar addition in this line anyway
-            stiff_Rear = -70 # lol who knows bruh
+            stiff_Rear = -2000 # changing the arbitrary value to something larger 
             yR = ack.calculateYawRate(stiff_Front, stiff_Rear, velocity, steerStep)
             a_y = velocity*yR #lateral acceleration, m/s
             if (a_y > 0): #car is turning right?
