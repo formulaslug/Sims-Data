@@ -211,67 +211,69 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # --- solver inputs ---
-minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
-maxSteer = 1.75
-minVelocity = 10
-maxVelocity = 30
-fixedSteer = 1.5 #in rad btw
+if __name__ == "__main__":
 
-# -run solver (USG graph)
-steer_vals = np.arange(fixedSteer)
-velocity_vals = np.arange(minVelocity, maxVelocity, 1)
-rack_offsets = np.arange(-25, 25, 5)  #steps would be in mm
-base_state = getSteeringState()
+    minSteer = -1.75 #changed to 0.1 because graph was throwing some crazy values
+    maxSteer = 1.75
+    minVelocity = 10
+    maxVelocity = 30
+    fixedSteer = 1.5 #in rad btw
+
+    # -run solver (USG graph)
+    steer_vals = np.arange(fixedSteer)
+    velocity_vals = np.arange(minVelocity, maxVelocity, 1)
+    rack_offsets = np.arange(-25, 25, 5)  #steps would be in mm
+    base_state = getSteeringState()
 
 
-S, V, Z = [], [], []
-all_USG_values = []
-USG_vals, R_vals = solveUSG(
-    minSteer, maxSteer, minVelocity, maxVelocity
-)
-
-for i in range(len(USG_vals)):
-    for j in range(len(USG_vals[0])):
-        usg = USG_vals[i][j]
-        if np.isfinite(usg):
-            S.append(steer_vals)
-            V.append(velocity_vals[j])
-            Z.append(usg)
-
-S = np.array(S)
-V = np.array(V)
-Z = np.array(Z)
-
-plt.figure(figsize=(10, 6))
-
-for rackStep in rack_offsets:
-    setSteeringState(base_state)
-    updateSteerGeo(rackStep)
-    print(f"\nRack Δ = {rackStep} mm:")
-    print(f"rack distance to axle: {d}")
-    
-    velocity_vals, USG_curve = solveUSG_singleSteer(
-        fixedSteer, minVelocity, maxVelocity, 1
-    )
-    
-    
-    # print(f"  USG range: [{np.min(USG_curve):.10f}, {np.max(USG_curve):.10f}]")
-    # print(f"  USG at 15 m/s: {USG_curve[5]:.10f}")
-    
-    plt.plot(
-        velocity_vals,
-        USG_curve,
-        label=f"Rack Δ = {rackStep} mm"
+    S, V, Z = [], [], []
+    all_USG_values = []
+    USG_vals, R_vals = solveUSG(
+        minSteer, maxSteer, minVelocity, maxVelocity
     )
 
-plt.xlabel("Velocity (m/s)")
-plt.ylabel("Understeer Gradient (rad/g)")
-# plt.ylim(0.1525, .1535)
-# plt.xlim(22.5, 27.5)
-plt.title(f"USG vs Velocity at δ = {fixedSteer:.2f} rad")
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.show()
+    for i in range(len(USG_vals)):
+        for j in range(len(USG_vals[0])):
+            usg = USG_vals[i][j]
+            if np.isfinite(usg):
+                S.append(steer_vals)
+                V.append(velocity_vals[j])
+                Z.append(usg)
+
+    S = np.array(S)
+    V = np.array(V)
+    Z = np.array(Z)
+
+    plt.figure(figsize=(10, 6))
+
+    for rackStep in rack_offsets:
+        setSteeringState(base_state)
+        updateSteerGeo(rackStep)
+        print(f"\nRack Δ = {rackStep} mm:")
+        print(f"rack distance to axle: {d}")
+        
+        velocity_vals, USG_curve = solveUSG_singleSteer(
+            fixedSteer, minVelocity, maxVelocity, 1
+        )
+        
+        
+        # print(f"  USG range: [{np.min(USG_curve):.10f}, {np.max(USG_curve):.10f}]")
+        # print(f"  USG at 15 m/s: {USG_curve[5]:.10f}")
+        
+        plt.plot(
+            velocity_vals,
+            USG_curve,
+            label=f"Rack Δ = {rackStep} mm"
+        )
+
+    plt.xlabel("Velocity (m/s)")
+    plt.ylabel("Understeer Gradient (rad/g)")
+    # plt.ylim(0.1525, .1535)
+    # plt.xlim(22.5, 27.5)
+    plt.title(f"USG vs Velocity at δ = {fixedSteer:.2f} rad")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
