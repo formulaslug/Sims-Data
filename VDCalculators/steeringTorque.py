@@ -39,16 +39,20 @@ kpi = numpy.deg2rad(2.197) #kpi, deg
 
 track = 1.0833862 #m
 hcg = 0.3048 #m, from ground
-larm = 75.946 * 0.001 #steering ARM length (uprights, mm)
-lrod = 383.211 * 0.001 #tie rod length (mm)
+larm1 = 75.946 * 0.001 #steering ARM length (uprights, mm)
+larm = 75.946
+lrod1 = 383.211 * 0.001 #tie rod length (mm)
+lrod = 383.211
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees (KPI to toe rod pickup)
-d = 32.905 * 0.001 #fs4 mm (sta to rack, longitudinal)
-d_lat = 387.194 * 0.001 #fs4 mm (sta to rack, lateral)
+d1 = 32.905 * 0.001 #fs4 mm (sta to rack, longitudinal)
+d = 32.905
+d_lat1 = 387.194 * 0.001 #fs4 mm (sta to rack, lateral)
+d_lat = 387.194
 
 #ergo values
 rackRatio = 82.55/numpy.deg2rad(248) #steering rack ratio
 wheelRadius = 0.13335 #steering wheel radius (m)
-pinionRadius = 0.022225 #m 
+pinionRadius = 0.020955 #m 
 
 #tire values
 tireRadius = 0.2032 #m
@@ -91,43 +95,46 @@ def solveSteerMoment(F_y, caster, side): # FOR A SINGLE SIDE! output in newtons.
          sign = 1
     if (side == RIGHT):
          sign = -1
-    momentScrub = sign * F_y * scrub * numpy.cos(numpy.deg2rad(kpi))
+    momentScrub = sign * F_y * scrub * numpy.cos(kpi)
 
     return momentTrail + momentScrub 
 def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT for Fz's, rest is self explanatory
     leftAngle, rightAngle = calculateSteerAngles(wheelInput) 
-    # print(f"steer angles at {numpy.rad2deg(wheelInput)},  L/R: {numpy.rad2deg(leftAngle)}/{numpy.rad2deg(rightAngle)}")
     leftSlip = ack.calculateSlipAngle(v_fwd, leftAngle)
     rightSlip = ack.calculateSlipAngle(v_fwd, rightAngle)
-    #creation of tire objects (daniel pls help) to derive lat forces
-    leftTire = Tire(F_zL, slipRatio, leftSlip, v_fwd, pressure, temp, Parameters, Magic)
-    rightTire = Tire(F_zR, slipRatio, rightSlip, v_fwd, pressure, temp, Parameters, Magic)
+    rightTire = Tire(F_zL, slipRatio, leftSlip, v_fwd, pressure, temp, Parameters, Magic)
+    leftTire = Tire(F_zR, slipRatio, rightSlip, v_fwd, pressure, temp, Parameters, Magic)
     F_yL = leftTire.getLateralForce()
     F_yR = rightTire.getLateralForce()
+    # print(f"steer angles at {numpy.rad2deg(wheelInput)},  L/R: {numpy.rad2deg(leftAngle)}/{numpy.rad2deg(rightAngle)}")
     #calculation of Ls/Rs steering moments
     leftMomentComposite = solveSteerMoment(F_yL, casterAngle, LEFT)
     rightMomentComposite = solveSteerMoment(F_yR, casterAngle, RIGHT)
     #tie rod magic
-    d_latL = d_lat + (rackRatio * wheelInput)
-    d_latR = d_lat - (rackRatio * wheelInput)
-    phi_rodL = numpy.arctan2(d, d_latL)
-    phi_rodR = numpy.arctan2(d, d_latR)
+    d_latL = d_lat1 + (rackRatio * wheelInput)
+    d_latR = d_lat1 - (rackRatio * wheelInput)
+    phi_rodL = numpy.arctan2(d1, d_latL)
+    phi_rodR = numpy.arctan2(d1, d_latR)
     phi_armL = phiStatic + leftAngle
     phi_armR = phiStatic + rightAngle
     phi_includedL = phi_armL - phi_rodL
     phi_includedR = phi_armR - phi_rodR
     
-    eff_armL = larm * numpy.sin(phi_includedL)
-    eff_armR = larm * numpy.sin(phi_includedR)
+    eff_armL = larm1 * numpy.sin(phi_includedL)
+    eff_armR = larm1 * numpy.sin(phi_includedR)
     #forces and force projections, from rotational equilibrium [steer mom + TR force * effective mom arm = 0]
-    tieRodForceL = -leftMomentComposite / eff_armL #also if any of these moments are messed up or 0 the entire thing gets cooked, so watch out
-    tieRodForceR = -rightMomentComposite / eff_armR 
+    tieRodForceL = leftMomentComposite / eff_armL #also if any of these moments are messed up or 0 the entire thing gets cooked, so watch out
+    tieRodForceR = rightMomentComposite / eff_armR 
     #rack forces
     rackForceL = tieRodForceL * numpy.cos(phi_rodL)
     rackForceR = tieRodForceR * numpy.cos(phi_rodR)
 
     rackForce = rackForceL + rackForceR
-    print(f"{rackForce} rack force at {numpy.rad2deg(wheelInput)} degrees steer and {numpy.rad2deg(casterAngle)} caster") 
+    print(f"F_yL={F_yL:.1f}  F_yR={F_yR:.1f}  steer={numpy.rad2deg(wheelInput):.1f}deg")
+    print(f"M_L={leftMomentComposite:.3f}  M_R={rightMomentComposite:.3f}")
+    print(f"eff_armL={eff_armL:.4f}  eff_armR={eff_armR:.4f}")
+    print(f"tieRodL={tieRodForceL:.1f}  tieRodR={tieRodForceR:.1f}")
+    # print(f"{rackForce} rack force at {numpy.rad2deg(wheelInput)} degrees steer and {numpy.rad2deg(casterAngle)} caster") 
     return rackForce
 if __name__ == '__main__':
     velocity = 20 #m/s
@@ -159,14 +166,15 @@ if __name__ == '__main__':
             a_y = velocity*yR #lateral acceleration, m/s
             if (a_y > 0): #car is turning right?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
-                print(f"normal out, normal in:{Fn_out, Fn_in}")
-                rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
+                # print(f"normal out, normal in:{Fn_out, Fn_in}, a_y = {a_y}")
+                rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_in, Fn_out)
             elif (a_y < 0): #car is turning left?
                 Fn_out, Fn_in = tireLoad.getLatLoadTransfer(Parameters, track, a_y, hcg) 
-                rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_in, Fn_out)
-                
+                # print(f"normal out, normal in:{Fn_out, Fn_in}, a_y = {a_y}")
+                rackForce = solveRackForces(steerStep, velocity, casterStep, Fn_out, Fn_in)
             else:
                 rackForce = 0.0
+            # print(f"rackForce {rackForce} a_y {a_y}")
             columnTorque = rackForce * pinionRadius
             steeringTorque = columnTorque / wheelRadius
 
