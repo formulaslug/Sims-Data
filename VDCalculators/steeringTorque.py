@@ -39,15 +39,15 @@ kpi = numpy.deg2rad(2.197) #kpi, deg
 
 track = 1.0833862 #m
 hcg = 0.3048 #m, from ground
-larm1 = 75.946 * 0.001 #steering ARM length (uprights, mm)
-larm = 75.946
-lrod1 = 383.211 * 0.001 #tie rod length (mm)
-lrod = 383.211
+larm1 = 56.515 * 0.001 #steering ARM length (uprights, mm)
+larm = 56.515
+lrod1 = 339.1154 * 0.001 #tie rod length (mm)
+lrod = 339.1154
 phiStatic = numpy.deg2rad(4.531) #fs4 degrees (KPI to toe rod pickup)
-d1 = 32.905 * 0.001 #fs4 mm (sta to rack, longitudinal)
-d = 32.905
-d_lat1 = 387.194 * 0.001 #fs4 mm (sta to rack, lateral)
-d_lat = 387.194
+d1 = 68.9356 * 0.001 #fs4 mm (sta to rack, longitudinal)
+d = 68.9356
+d_lat1 = 319.7098 * 0.001 #fs4 mm (sta to rack, lateral)
+d_lat = 319.7098
 
 #ergo values
 rackRatio = 82.55/numpy.deg2rad(248) #steering rack ratio
@@ -130,10 +130,10 @@ def solveRackForces(wheelInput, v_fwd, casterAngle, F_zL, F_zR): #need input LLT
     rackForceR = tieRodForceR * numpy.cos(phi_rodR)
 
     rackForce = rackForceL + rackForceR
-    print(f"F_yL={F_yL:.1f}  F_yR={F_yR:.1f}  steer={numpy.rad2deg(wheelInput):.1f}deg")
-    print(f"M_L={leftMomentComposite:.3f}  M_R={rightMomentComposite:.3f}")
-    print(f"eff_armL={eff_armL:.4f}  eff_armR={eff_armR:.4f}")
-    print(f"tieRodL={tieRodForceL:.1f}  tieRodR={tieRodForceR:.1f}")
+    print(f"TLat L={F_yL:.1f}  TLat R={F_yR:.1f}  steer={numpy.rad2deg(wheelInput):.1f}deg")
+    print(f"Mmt L={leftMomentComposite:.3f}  Mmt R={rightMomentComposite:.3f}")
+    # print(f"eff_armL={eff_armL:.4f}  eff_armR={eff_armR:.4f}")
+    print(f"Ftie L={tieRodForceL:.1f}  Ftie R={tieRodForceR:.1f}\n")
     # print(f"{rackForce} rack force at {numpy.rad2deg(wheelInput)} degrees steer and {numpy.rad2deg(casterAngle)} caster") 
     return rackForce
 if __name__ == '__main__':
@@ -193,9 +193,10 @@ if __name__ == '__main__':
     ax.axvline(0, color='black', linewidth=0.8, linestyle='--', alpha=0.4)
 
 
-    ax.set_xlabel('Steering Wheel Input [deg]',     fontsize=12)
-    ax.set_ylabel('Steering Wheel Torque [N·m]',    fontsize=12)
-    ax.set_title( 'Steer Torque vs. Steer Input, Caster Variations', fontsize=13)
+    ax.set_xlabel('Turn Angle',     fontsize=12)
+    ax.set_ylabel('Wheel Torque [N·m]',    fontsize=12)
+    ax.set_title( 'Turn Angle vs. Wheel Torque, Caster Variations', fontsize=13)
+
 
     legend = ax.legend(
         title='Caster [deg]',
