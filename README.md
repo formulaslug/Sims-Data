@@ -10,5 +10,5 @@ You can install dependencies either from requirements.txt or environment.yml
 
 ## Drag Calculations
 - edited blueMaxAnalysis -- added physics of the Drag Equation and used rolling resistance tests. (https://github.com/formulaslug/Sims-Data/blob/43-drag-and-downforce-calculations/Data/blueMaxDragAnalysis.py)
--  Speed with and without drag graphs
+-  Speed vs Time and SpeedxDrag vs Time graphs
 <img width="1206" height="670" alt="image" src="https://github.com/user-attachments/assets/b1cf47bf-f9d7-474a-87d9-29674864c157" />
