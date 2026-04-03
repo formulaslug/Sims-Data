@@ -7,3 +7,7 @@ You can install dependencies either from requirements.txt or environment.yml
 ## Docs
 - [Full Vehicle Simulation Documentation](FullVehicleSim/README.md)
 - [General Guide to fs-data (Accompanying data repository)](<Docs/General Guide.md>)
+
+## Drag Calculations
+- edited blueMaxAnalysis -- added physics of the Drag Equation and used rolling resistance tests. (https://github.com/formulaslug/Sims-Data/blob/43-drag-and-downforce-calculations/Data/blueMaxDragAnalysis.py)
+- 
