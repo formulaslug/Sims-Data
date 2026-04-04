@@ -10,13 +10,20 @@ def setup():
 def closeSocket():
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
+def is_connected_to_client():
+    try:  
+        sock.send(b'some data')
 
+    except:
+        return False
+    print('Server is connected to client!')
+    return True
 def run_socket():
     setup()
     ghost_var = "Velocity data will be here"
     var1 = 0
     clientsocket, address = sock.accept()
-    while True:
+    while is_connected_to_client():
         print(address)
         data = clientsocket.recv(1024).decode()
          ##Code gets stuck on here since it blocks? 
@@ -26,8 +33,8 @@ def run_socket():
             break
         arr = data.split('.')
         if(arr[1] == 'R?R'):
-            clientsocket.send(ghost_var.encode("utf-8"))
-            print('sent fake velocity data')
+            phrase = str(input("Input something here: "))
+            clientsocket.send(phrase.encode("utf-8"))
     return 0
 
 
