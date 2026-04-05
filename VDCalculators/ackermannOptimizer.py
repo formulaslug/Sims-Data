@@ -16,14 +16,14 @@ with open(params_path, 'r') as file:
     Magic = params["Magic"]
     Parameters = params["Parameters"]
     del params
-tw = 1.0833862 #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
+tw = 604.0374*2  #fs4/3m (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
 rackRatio = 82.55/numpy.deg2rad(248) #fs4/3 mm rack displacement/deg pinion rotation
-l_rod = 383.211 #fs4 mm (length of "tie rod")
-d = 32.905 #fs4 mm (sta to rack, longitudinal)
-l_arm = 75.946 #75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+l_rod = 414.76004932 #fs4 mm (length of "tie rod")
+d = 70.7136 #fs4 mm (sta to rack, longitudinal)
+l_arm = 67.3927626996 #75.946 #fs4 mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
 LWB = 1.524 #fs4 m lwb
-phiStatic = numpy.deg2rad(4.531) #fs4 degrees
-d_lat = 387.194 #fs4 mm (sta to rack, lateral)
+phiStatic = numpy.deg2rad(-15.88013878) #fs4 degrees
+d_lat = 414.6804 #fs4 mm (sta to rack, lateral)
 def calculateAckermannOther(steerAngle): #input in rad
     import scipy
     import numpy
