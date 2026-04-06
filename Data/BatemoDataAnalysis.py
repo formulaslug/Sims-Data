@@ -1,7 +1,7 @@
 import scipy
 import scipy.integrate
 
-batemoData = scipy.io.loadmat("C:\\Users\\Goob\\Downloads\\OneDrive_2026-01-07\\Batemo Sponsorship\\Batemo Cell Data Molicel INR18650P30B\\Batemo Cell Data Package\\Molicel_INR18650P30B_measurement.mat",
+batemoData = scipy.io.loadmat("C:/Users/Goob/Downloads/OneDrive_2026-01-07/Batemo Sponsorship/Batemo Cell Data Molicel INR18650P30B/Batemo Cell Data Package/Molicel_INR18650P30B_measurement.mat",
                               simplify_cells=True)
 
 
