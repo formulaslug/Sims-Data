@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import os
+import os 
 
 DATA_DIRS = [
     '/Users/aanyajain/Documents/GitHub/fs-data/FS-3/01112026',
