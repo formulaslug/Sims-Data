@@ -4,7 +4,7 @@ import math
 from paramLoader import Parameters, Magic
 
 class Tire:
-    def __init__(self, normalForce, slipRatio, slipAngle, velocityX, pressure, temperature):
+    def __init__(self, normalForce, slipRatio, slipAngle, velocityX, pressure, temperature, massTire, accelX, accelY, carHeight, frontBack, leftRight, frontAxleFraction, remainingFraction, springConstant, dampingCoeff):
         self.normalForce = normalForce * -1
         self.velocityX = velocityX
         self.slipRatioInit = slipRatio
@@ -14,6 +14,17 @@ class Tire:
         self.tireTemperature = temperature
         self.actPressure = 12 # Actual PSI
         self.camber = 0 # Radians
+        self.mass = massTire
+        self.gravity = 9.81
+        self.accelX = accelX
+        self.accelY = accelY
+        self.carHeight = carHeight
+        self.frontBackDist = frontBack
+        self.leftRightDist = leftRight
+        self.frontAxleFraction = frontAxleFraction
+        self.remainingFraction = remainingFraction
+        self.springConstant = springConstant
+        self.dampingCoeff = dampingCoeff
 
         #if(lat):
         self.normDeltaLoadLat = self.normalizeLoadLat()
@@ -212,3 +223,75 @@ class Tire:
             self.slipRatio = slipRatio
         if velocityX != -1:
             self.velocityX = velocityX
+
+    
+    w = (self.mass*self.gravity)/4 ## If tires are the same
+
+    @property
+    def F_long(self):
+        f_long = (self.mass * self.accelX * self.carHeight)/self.frontBackDist
+        return f_long
+    @property
+    def F_lat(self):
+        f_lat = (self.mass * self.accelY * self.carHeight)/self.leftRightDist
+        return f_lat
+    @property
+    def F_front_left(self):
+        f_front_left = self.remainingFraction(self.frontAxleFraction * self.mass * self.gravity)
+        return f_front_left
+    @property
+    def F_front_right(self):
+        f_front_right = (1-self.remainingFraction) * (self.frontAxleFraction * self.mass * self.gravity)
+        return f_front_right
+    @property
+    def F_back_left(self):
+        f_back_left = self.remainingFraction * ((1-self.frontAxleFraction) * self.mass * self.gravity)
+        return f_back_left
+    @property
+    def F_back_right(self):
+        f_back_right = (1-self.remainingFraction) * ((1-self.frontAxleFraction) * self.mass * self.gravity)
+        return f_back_right
+    
+    ## vertical load on each tire : F_z
+    @property
+    def F_zfl(self):
+        f_z = (F_front_left + (F_long)/2 + (F_lat)/2)
+        return f_z
+    
+    @property
+    def F_zfr(self):
+        f_z = (F_front_right + (F_long)/2 - (F_lat)/2)
+        return f_z
+    
+    @property
+    def F_zbl(self):
+        f_z = (F_back_left - (F_long)/2 + (F_lat)/2)
+        return f_z
+    
+    @property
+    def F_zbr(self):
+        f_z = (F_back_right - (F_long)/2 - (F_lat)/2)
+        return f_z
+    
+    ## suspension travel: 
+    @property
+    def x_fl(self): 
+        x_fl = (F_zfl - self.dampingCoeff)/self.springConstant
+        return x_fl
+    
+    @property
+    def x_fr(self): 
+        x_fr = (F_zfr - self.dampingCoeff)/self.springConstant
+        return x_fr
+    
+    @property
+    def x_bl(self): 
+        x_bl = (F_zbl - self.dampingCoeff)/self.springConstant
+        return x_bl
+    
+    @property
+    def x_br(self): 
+        x_br = (F_zbr - self.dampingCoeff)/self.SpringConstant
+        return x_br
+    
+    
