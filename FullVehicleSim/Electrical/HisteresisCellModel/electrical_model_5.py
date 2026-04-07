@@ -49,9 +49,7 @@ def ocv_from_soc(soc, T_K=298.15):
     return V0 + (C2 * (R * T_K / F) * log_term)
 
 
-# -------------------------
-# SOC trajectory
-# -------------------------
+
 soc = initial_SOC
 soc_log = []
 
@@ -63,10 +61,7 @@ for I in current_profile:
 soc_log = np.array(soc_log, dtype=float)
 print("Final SOC:", soc_log[-1])
 
-# -------------------------
-# Train residual model:
-# measured ≈ base_model + bias + kernel(current history)
-# -------------------------
+
 ocv_log = np.array([ocv_from_soc(s) for s in soc_log], dtype=float)
 base_model = ocv_log - (R0 * current_profile)
 residual_target = meas_cell_voltage - base_model
@@ -74,10 +69,8 @@ residual_target = meas_cell_voltage - base_model
 N = len(current_profile)
 X = np.zeros((N, KERNEL_LEN + 1), dtype=float)
 
-# bias column
 X[:, 0] = 1.0
 
-# history columns
 for t in range(N):
     for k in range(KERNEL_LEN):
         idx = t - k
@@ -88,7 +81,6 @@ mask = np.abs(current_profile) > 2.0
 X_fit = X[mask]
 y_fit = residual_target[mask]
 
-# weighted ridge regression so spikes matter more
 weights = 1.0 + 3.0 * (np.abs(current_profile[mask]) / np.max(np.abs(current_profile)))
 W = np.sqrt(weights)[:, None]
 

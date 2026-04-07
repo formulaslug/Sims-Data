@@ -1,17 +1,32 @@
+// Base SI Units unless otherwise specified
 {
     "Parameters": {
-        "ambientTemperature": 20,
+        "stepsPerSecond": 300,
+        "simulationDuration": 40.0,
+        "interpolationMethod": "linear", // "linear" or "cubic"
 
+        "ambientTemperature": 20, // °C
+        "tractiveIMax": 300, // A
+        "initialBrakeTemperature": 20, // °C
+        "initialBatteryTemperature": 20, // °C
+        "vehicleSOC": 1.0, // Out of 1
+        "initSpeed": 0.0, // m/s
+
+        "airDensity": 1.230,
+        "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
+        "rollingResistanceCoeff": 0.020926359062619436,
+
+        "brakeDiscRadius": 0.09525, // meters (3.75 inches) -- Brake pad is ~1 inch wide near the edge of an 8 inch diamater rotor
+        "brakeCaliperArea": 1.23, // in^2
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216,
-        "gearRatio": 3.33333333,
+        "gearRatio": 3.41667,
         "maxTorque": 180,
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
         "unloaded-radius": 1.7333,
         "p_0": 82000,
         "load_0": 300,
-        "tractiveIMax": 300,
 
         "Mass": 300,
         "wheelBase": 1.65471,
@@ -31,9 +46,16 @@
         "brakeSurfaceArea": 0.001180643,
         "brakepadThickness": 0.007874,
         "brakeMass": 0.408,
-        "maxBrakeForce": 1500
+        "maxBrakeForce": 1500,
+
+        "seriesCells": 30,
+        "cellCapacity_Ah": 2.6
     },
     "Magic": {
+
+        "cellModelSigma": 3.0,
+        "hysteresisGain": 0.015,
+
         "shape-factor": 0.696268618106842,
         "curvature-scaling-factor": 1.7177082300186157,
         "horizontal-shift-factor": 1.0,

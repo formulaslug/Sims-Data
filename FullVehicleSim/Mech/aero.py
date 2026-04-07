@@ -1,7 +1,9 @@
 import numpy as np
+from paramLoader import Parameters, Magic
+from state import VehicleState
 
-def calculateDrag(heading, speed, crossSectionalArea=0.63, dragCoefficient=0.6, airDensity=1.230):
-    return  0.5 * airDensity * dragCoefficient * crossSectionalArea * speed**2
+def calcDrag(prevWorld:VehicleState) -> float:
+    return  0.5 * Parameters["airDensity"] * Parameters["dragCoeffAreaCombo"] * prevWorld.speed**2
 
-def calculateDownForce(heading, speed, parameters):
+def calcDownForce(prevWorld:VehicleState) -> np.ndarray:
     return np.asarray([0,0,0,0], dtype=float)
