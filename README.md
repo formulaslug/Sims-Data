@@ -13,3 +13,6 @@ You can install dependencies either from requirements.txt or environment.yml
 - calculated drag by pulling RR tests and initially creates a speed array, then looks at residuals with the difference of predicted vs actual, then changes our estimates to lower error, and repeats until the values all line up
 -  Speed vs Time and SpeedxDrag vs Time graphs
 <img width="1206" height="670" alt="image" src="https://github.com/user-attachments/assets/b1cf47bf-f9d7-474a-87d9-29674864c157" />
+
+## Drag Testing Ideas
+- accelerate to high speed, shift to neutral, measure deacceleration, and use for better drag and RR calculations
