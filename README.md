@@ -16,3 +16,4 @@ You can install dependencies either from requirements.txt or environment.yml
 
 ## Drag Testing Ideas
 - accelerate to high speed, shift to neutral, measure deacceleration, and use for better drag and RR calculations
+  (https://github.com/formulaslug/Sims-Data/blob/43-drag-and-downforce-calculations/testing-plan/drag_test.md)
