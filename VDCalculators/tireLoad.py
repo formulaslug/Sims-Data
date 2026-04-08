@@ -9,15 +9,13 @@ def getLongLoadTransfer(params: dict, accelerationX):
     return [frontAxleLoad/2, frontAxleLoad/2, rearAxleLoad/2, rearAxleLoad/2]
 
 def getLatLoadTransfer(params: dict, track, a_y, hcg): # axle track, lateral acceleration, height cg from contact patch (ground)
-    if (a_y > 0): #vehicle turning LEFT
-        Fn_out = params["Mass"] * ((9.81/2) - a_y*(hcg/track))
-        Fn_in = params["Mass"] - Fn_out
-    elif (a_y < 0): #vehicle turning RIGHT 
-        Fn_out = params["Mass"] * ((9.81/2) + a_y*(hcg/track))
-        Fn_in = params["Mass"] - Fn_out
-    else:
-        return 0
-    return (Fn_out, Fn_in)
+    mass_axle   = params["Mass"]
+    static_load = mass_axle * 9.81 / 2          # per-wheel static load on the axle
+    latTransfer = mass_axle * abs(a_y) * hcg / track
+    Fn_outside = static_load - latTransfer
+    Fn_inside = static_load + latTransfer
+
+    return Fn_outside, Fn_inside
 
 
 
