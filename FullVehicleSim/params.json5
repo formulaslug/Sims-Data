@@ -56,6 +56,10 @@
         "histeresisKernelLength": 10.0, // seconds
     },
     "Magic": {
+
+        "cellModelSigma": 3.0,
+        "hysteresisGain": 0.015,
+
         "shape-factor": 0.696268618106842,
         "curvature-scaling-factor": 1.7177082300186157,
         "horizontal-shift-factor": 1.0,

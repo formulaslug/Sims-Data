@@ -1,0 +1,147 @@
+import os, sys, json
+import numpy as np
+try:
+    _HERE = os.path.dirname(__file__)
+except NameError:
+    _HERE = os.getcwd()
+def _find_fullvehiclesim(start_dir): #CC: function to find files??? 
+    d = os.path.abspath(start_dir)
+    for _ in range(10):
+        cand = os.path.join(d, "FullVehicleSim")
+        if os.path.isdir(cand):
+            return cand
+        d = os.path.dirname(d)
+    raise FileNotFoundError("Could not find 'FullVehicleSim' directory above current location.")
+FULLSIM_PATH = _find_fullvehiclesim(_HERE)
+MECH_PATH    = os.path.join(FULLSIM_PATH, "Mech")
+if FULLSIM_PATH not in sys.path:
+    sys.path.append(FULLSIM_PATH)
+if MECH_PATH not in sys.path:
+    sys.path.append(MECH_PATH)
+import traction  # FullVehicleSim/Mech/traction.py
+# ---------- Load Parameters + Magic ----------
+PARAMS_PATH = os.path.join(FULLSIM_PATH, "params.json")
+with open(PARAMS_PATH, "r") as f:
+    params = json.load(f)
+Parameters = params["Parameters"]
+Magic      = params["Magic"]
+#L, Tf, Tr, h_cg (m)
+#m (kg)
+#g (m/s^2)
+L  = 1.589989 
+Tf = 1.234008
+Tr = 1.186
+m  = 210.92
+g  = 9.81
+h_cg = 0.3048
+front_frac = 0.4632
+rear_frac  = 1.0 - front_frac
+b = front_frac * L
+a = L - b
+FzF0 = (m * g * front_frac) / 2.0
+FzR0 = (m * g * rear_frac)  / 2.0
+def _to_tire_units(alpha_rad: float) -> float:
+    return float(np.rad2deg(alpha_rad))
+def tire_Fy(Fz, slip_ratio, alpha_rad, U, surfaceTemperature, tirePressure):
+    t = traction.tire.Tire(
+        float(Fz),
+        float(slip_ratio),
+        _to_tire_units(alpha_rad),
+        float(U),
+        float(surfaceTemperature),
+        float(tirePressure),
+        Parameters,
+        Magic
+    )
+    return float(t.getLateralForce())
+def toe_out_ideal(delta_avg_rad: float) -> float:
+    if abs(delta_avg_rad) < 1e-12:
+        return 0.0
+    R = L / np.tan(delta_avg_rad)
+    Rin  = abs(R) - Tf/2.0
+    Rout = abs(R) + Tf/2.0
+    sgn = np.sign(delta_avg_rad)
+    delta_in  = sgn * np.arctan(L / Rin)
+    delta_out = sgn * np.arctan(L / Rout)
+    return float(delta_in - delta_out)
+def inner_outer_angles(delta_avg_rad: float, ack_percent: float):
+    toe = (ack_percent / 100.0) * toe_out_ideal(delta_avg_rad)
+    return float(delta_avg_rad + toe/2.0), float(delta_avg_rad - toe/2.0)
+# ---------- 4-wheel steady-state solver (RETURNS beta, r ONLY) ----------
+def solve_yaw_rate_4wheel(
+    U: float,
+    delta_avg_rad: float,
+    ack_percent: float = 50.0,
+    use_load_transfer: bool = True,
+    slipRatio: float = 0.15,
+    surfaceTemperature: float = 80.0,
+    tirePressure: float = 40.0,
+    max_iter: int = 50,
+    tol: float = 1e-8
+):
+    """
+    Solve steady-state sideslip beta and yaw rate r using:
+      (1) Sum(Fy) = m * U * r
+      (2) a*Sum(Fy_front) = b*Sum(Fy_rear)
+    Returns exactly: (beta, r)
+    """
+    U = float(U)
+    if U < 0.2:
+        return 0.0, 0.0
+    beta = 0.0
+    r    = 0.0
+    def residuals(beta, r):
+        ay = U * r
+        if use_load_transfer:
+            phi_f = a / L
+            phi_r = b / L
+            dF_front = phi_f * m * ay * h_cg / Tf
+            dF_rear  = phi_r * m * ay * h_cg / Tr
+        else:
+            dF_front = 0.0
+            dF_rear  = 0.0
+        if delta_avg_rad >= 0:
+            Fz_fl, Fz_fr = FzF0 - dF_front, FzF0 + dF_front
+            Fz_rl, Fz_rr = FzR0 - dF_rear,  FzR0 + dF_rear
+        else:
+            Fz_fl, Fz_fr = FzF0 + dF_front, FzF0 - dF_front
+            Fz_rl, Fz_rr = FzR0 + dF_rear,  FzR0 - dF_rear
+        eps = 1.0
+        Fz_fl, Fz_fr = max(eps, Fz_fl), max(eps, Fz_fr)
+        Fz_rl, Fz_rr = max(eps, Fz_rl), max(eps, Fz_rr)
+        d_in, d_out = inner_outer_angles(delta_avg_rad, ack_percent)
+        if delta_avg_rad >= 0:
+            d_fl, d_fr = d_in, d_out
+        else:
+            d_fl, d_fr = d_out, d_in
+        alpha_fl = d_fl - (beta + (a * r / U) + ((Tf/2.0) * r / U))
+        alpha_fr = d_fr - (beta + (a * r / U) - ((Tf/2.0) * r / U))
+        alpha_rl = 0.0 - (beta + (-b * r / U) + ((Tr/2.0) * r / U))
+        alpha_rr = 0.0 - (beta + (-b * r / U) - ((Tr/2.0) * r / U))
+        Fy_fl = tire_Fy(Fz_fl, slipRatio, alpha_fl, U, surfaceTemperature, tirePressure)
+        Fy_fr = tire_Fy(Fz_fr, slipRatio, alpha_fr, U, surfaceTemperature, tirePressure)
+        Fy_rl = tire_Fy(Fz_rl, slipRatio, alpha_rl, U, surfaceTemperature, tirePressure)
+        Fy_rr = tire_Fy(Fz_rr, slipRatio, alpha_rr, U, surfaceTemperature, tirePressure)
+        Fy_total = Fy_fl + Fy_fr + Fy_rl + Fy_rr
+        Fy_front = Fy_fl + Fy_fr
+        Fy_rear  = Fy_rl + Fy_rr
+        f1 = Fy_total - m * U * r
+        f2 = a * Fy_front - b * Fy_rear
+        return np.array([f1, f2], dtype=float)
+    for _ in range(max_iter):
+        F = residuals(beta, r)
+        if np.linalg.norm(F, 2) < tol:
+            return float(beta), float(r)
+        h = 1e-6
+        Fb = residuals(beta + h, r)
+        Fr = residuals(beta, r + h)
+        J = np.column_stack([(Fb - F)/h, (Fr - F)/h])
+        try:
+            step = np.linalg.solve(J, -F)
+        except np.linalg.LinAlgError:
+            step = np.linalg.lstsq(J, -F, rcond=None)[0]
+        beta += float(step[0])
+        r    += float(step[1])
+        if np.linalg.norm(step, 2) < tol:
+            return float(beta), float(r)
+    return float(beta), float(r)

@@ -22,7 +22,6 @@ def calculateHeading(worldArray:np.ndarray, step:int) -> np.ndarray:
     ])
 
     new_heading = rotation_matrix @ initial_heading
-
     new_heading = new_heading / np.linalg.norm(new_heading)
 
     return np.append(new_heading, 0)

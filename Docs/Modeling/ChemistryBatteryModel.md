@@ -35,3 +35,17 @@ $$V = V_0*C_4 + C_2\frac{RT}{F}*ln(\frac{C_1(SOC-0.1^3) + C_3}{1-(SOC-0.1^3)})$$
 1. $C_2$ accounts for any error in temperature dependence, to best fit the discharge curve slope, and for any errors in by assumption abotu $n$.
 1. $C_3$ is part of the $0.001M$ correction and helps shift it in the correct direction.
 1. $C_4$ accounts for errors in my assumption that the nominal voltage is equal to $V_0$ and generally just allows the model to fit that value rather than take it as an input.
+
+### Fix 1:
+
+So turns out I forgot ln rules and the $C_4$ and $C_1$ are redundant so removing $C_4$...
+
+### Fix 2:
+
+Adding $C_4$ to the bottom to do something similar to $C_3$. Also adjusting it so $C_1$ multiplies $C_3$ which makes it less separable but less confusing.
+
+$$V = V_0 + C_2\frac{RT}{F}*ln(\frac{C_1(SOC-0.1^3 + C_3)}{1-(SOC-0.1^3) + C_4})$$
+
+This is the fit to 2.5A data from murata VTC5A cells
+
+![ChemBatteryModelImage](chemModel2.png)
