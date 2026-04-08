@@ -11,6 +11,9 @@
         "initialBatteryTemperature": 20, // °C
         "vehicleSOC": 1.0, // Out of 1
         "initSpeed": 0.0, // m/s
+        "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
+        "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
+        "initVelocity": [0.0, 0.0, 0.0], // Initial velocity vector in the world frame
 
         "airDensity": 1.230,
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
@@ -48,7 +51,7 @@
         "brakeMass": 0.408,
         "maxBrakeForce": 1500,
 
-        "seriesCells": 30,
+        "seriesCells": 30,s
         "cellCapacity_Ah": 2.6
     },
     "Magic": {
@@ -156,6 +159,6 @@
         "pressureYA": -3.086921788053587e-05,
         "pressureYB": -9.812999633140862e-05,
         "pressureYC": 0.9998338222503662,
-        "gysign": -0.10000000149011612
+        "gysign": -0.10000000149011612,
     }
 }
