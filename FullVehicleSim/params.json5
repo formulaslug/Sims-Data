@@ -50,6 +50,10 @@
         "brakepadThickness": 0.007874,
         "brakeMass": 0.408,
         "maxBrakeForce": 1500,
+
+        "seriesCells": 30,
+        "cellCapacity_Ah": 2.6,
+        "histeresisKernelLength": 10.0, // seconds
     },
     "Magic": {
         "shape-factor": 0.696268618106842,

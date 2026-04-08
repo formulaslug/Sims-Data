@@ -34,6 +34,50 @@ def calcMotorForce(maxWheelTorque:float) -> float:
 def calcMaxPower(voltage:float) -> float:
         return Parameters["tractiveIMax"] * voltage
 
-def calcVoltage():
-        # return 28.0 * lookup(self.charge, self.lastCurrent)
-        return 120.0 # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
+
+## Not working, needs changes
+def calcVoltage(worldArray:np.ndarray, step:int) -> float:
+#     delta = 1 / Parameters["stepsPerSecond"]
+#     capacity_Ah = Parameters["cellCapacity_Ah"]
+#     soc = worldArray[step-1, varCharge]
+
+#     sigma = Parameters["cellModelSigma"]
+#     hystGain = Parameters["hysteresisGain"]
+
+#     # Sliding window: last 10 seconds of current
+#     I_hist = np.zeros(int(10 * Parameters["stepsPerSecond"]))
+#     I_hist[:max(0, step - len(I_hist))] = worldArray[max(0, step - len(I_hist)):step, varCurrent]  # Get the current history up to the current step
+
+#     # Hysteresis kernel
+#     t = Parameters["histeresisKernelLength"]
+#     kernel = np.exp(-(t**2) / (2 * sigma**2))
+#     kernel /= np.sum(kernel)
+
+#     def ocv_from_soc(self, soc):
+#         return 3.0 + 0.9 * soc + 0.25 * np.exp(-12 * (1 - soc))s
+
+#     def sag(self, current):
+#         return 0.02 * current + 0.004 * (current ** 1.3)
+
+#     def step(self, current):
+
+#         # Update SOC
+#         self.SOC -= (current * self.dt) / (3600 * self.capacity_Ah)
+#         self.SOC = np.clip(self.SOC, 0.0, 1.0)
+
+#         # -------- Sliding array logic --------
+#         self.I_hist[:-1] = self.I_hist[1:]   # shift old values
+#         self.I_hist[-1] = current             # add new current
+
+#         # Hysteresis voltage
+#         V_hyst = self.hyst_gain * np.sum(self.I_hist * self.kernel)
+
+#         # Terminal voltage
+#         voltage = (
+#             self.ocv_from_soc(self.SOC)
+#             - self.sag(current) * (1 - self.SOC)
+#             - V_hyst
+#         )
+
+#         return voltage
+        return 120.0

@@ -52,7 +52,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     delta = 1/Parameters["stepsPerSecond"]
 
     arr[varMaxTraction] = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
-    arr[varVoltage] = calcVoltage() # Not yet implemented. Returns 120 for now.
+    arr[varVoltage] = calcVoltage(worldArray, step) # Not yet implemented. Returns 120 for now.
     arr[varMaxPower] = calcMaxPower(arr[varVoltage]) # Watts
     
     arr[varResistiveForces] = calcResistiveForces(worldArray, step)
