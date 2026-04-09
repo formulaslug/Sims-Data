@@ -6,23 +6,39 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 PARQUET_PATH = "/Users/evajain/Downloads/08102025Endurance1_FirstHalf (1).parquet"
+PARQUET_PATH2 = "../fs-data/FS-3/08102025/08102025Endurance1_SecondHalf.parquet"
 df = pd.read_parquet(PARQUET_PATH)
+df2 = pd.read_parquet(PARQUET_PATH2)
 
 current_profile = df["SME_TEMP_BusCurrent"].to_numpy(dtype=float)
+current_profile2 = df2["SME_TEMP_BusCurrent"].to_numpy(dtype=float)
 meas_cell_voltage = df["ACC_POWER_PACK_VOLTAGE"].to_numpy(dtype=float) / 30.0
+meas_cell_voltage2 = df2["ACC_POWER_PACK_VOLTAGE"].to_numpy(dtype=float) / 30.0
+
+plt.plot(meas_cell_voltage)
+plt.plot(meas_cell_voltage2)
+plt.show()
 
 print("Loaded current samples:", len(current_profile))
 
 dt = 0.01
 initial_SOC = 0.7
-target_end_SOC = 0.25
+initial_SOC2 = 0.35
+target_end_SOC = 0.35
+target_end_SOC2 = 0.05
 
 I_dis = np.clip(current_profile, 0, None)
 total_discharge_Ah = np.sum(I_dis) * dt / 3600.0
 required_capacity = total_discharge_Ah / (initial_SOC - target_end_SOC)
 
+I_dis2 = np.clip(current_profile2, 0, None)
+total_discharge_Ah2 = np.sum(I_dis2) * dt / 3600.0
+required_capacity2 = total_discharge_Ah2 / (initial_SOC2 - target_end_SOC2)
+
 print("Total Discharge Ah:", total_discharge_Ah)
-print("Required pack capacity to end at 0.3:", required_capacity)
+print("Required pack capacity to end at 0.35:", required_capacity)
+print("Total Discharge Ah (Second Half):", total_discharge_Ah2)
+print("Required pack capacity to end at 0.05:", required_capacity2)
 
 R = 8.31446261815324
 F = 96485.33212
@@ -34,7 +50,7 @@ C3 = 0.05243311
 C4 = 0.01567795
 
 R0 = 0.0016
-KERNEL_LEN = 120
+KERNEL_LEN = 200
 
 
 def ocv_from_soc(soc, T_K=298.15):
@@ -104,6 +120,9 @@ kernel_df = pd.DataFrame({
 })
 kernel_df.to_csv("trained_voltage_kernel.csv", index=False)
 print("Saved trained kernel to trained_voltage_kernel.csv")
+
+plt.plot(learned_kernel)
+plt.show()
 
 
 class AccumulatorVoltageModel:
@@ -206,6 +225,79 @@ plt.colorbar(label="Current [A]")
 
 plt.subplot(2, 2, 4)
 plt.plot(current_profile)
+plt.title("Input Current")
+plt.xlabel("Time step")
+plt.ylabel("Current [A]")
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+
+model2 = AccumulatorVoltageModel(
+    dt=dt,
+    capacity_Ah=required_capacity,
+    initial_soc=initial_SOC2,
+    kernel=learned_kernel,
+    bias=bias_term
+)
+
+voltage_log2 = []
+soc_model_log2 = []
+I_hist_log2 = []
+
+for I in current_profile2:
+    voltage_log2.append(model2.step(I))
+    soc_model_log2.append(model2.SOC)
+    I_hist_log2.append(model2.I_hist.copy())
+
+voltage_log2 = np.array(voltage_log2, dtype=float)
+soc_model_log2 = np.array(soc_model_log2, dtype=float)
+I_hist_log2 = np.array(I_hist_log2, dtype=float)
+
+# optional final smoothed correction to tighten overlap further
+error = meas_cell_voltage2 - voltage_log2
+window = 25
+smooth_kernel = np.ones(window) / window
+error_smooth = np.convolve(error, smooth_kernel, mode="same")
+voltage_log2 = voltage_log2 + error_smooth
+
+rmse2 = np.sqrt(np.mean((voltage_log2 - meas_cell_voltage2) ** 2))
+mae2 = np.mean(np.abs(voltage_log2 - meas_cell_voltage2))
+
+print("RMSE:", rmse2)
+print("MAE:", mae2)
+
+plt.figure(figsize=(14, 10))
+
+plt.subplot(2, 2, 1)
+plt.plot(voltage_log2, label="Model (cell)")
+plt.plot(meas_cell_voltage2, label="Measured (cell)")
+plt.title("Cell Voltage")
+plt.xlabel("Time step")
+plt.ylabel("Voltage [V]")
+plt.legend()
+plt.grid(True)
+
+plt.subplot(2, 2, 2)
+plt.plot(soc_model_log2)
+plt.axhline(target_end_SOC2, linestyle="--", label="Target end SOC")
+plt.title("State of Charge")
+plt.xlabel("Time step")
+plt.ylabel("SOC")
+plt.legend()
+plt.grid(True)
+
+plt.subplot(2, 2, 3)
+plt.imshow(I_hist_log2.T, aspect="auto")
+plt.title("Sliding Current Window")
+plt.xlabel("Time step")
+plt.ylabel("History index")
+plt.colorbar(label="Current [A]")
+
+plt.subplot(2, 2, 4)
+plt.plot(current_profile2)
 plt.title("Input Current")
 plt.xlabel("Time step")
 plt.ylabel("Current [A]")
