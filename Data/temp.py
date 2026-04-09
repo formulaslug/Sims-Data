@@ -74,3 +74,60 @@ df = read("C:/Projects/FormulaSlug/fs-data/FS-3/10082025/fixed_wheels_nathaniel_
 
 plt.plot(df[busV])
 plt.show()
+
+
+df = pl.read_parquet("C:/Projects/FormulaSlug/fs-data/FS-3/10112025/firstDriveMCError30-filled-null.parquet")
+
+df.select([a for a in df.columns if a.startswith("ACC") and a[9] == "T"]).mean_horizontal()
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+ax.plot(df[t], df[frT], label=frT, c="blue")
+ax.set_title("Suspension Travel during First Drive with MC Fault")
+ax.set_xlabel("Time")
+ax.set_ylabel("Suspension Travel (mm)")
+ax.legend()
+plt.show()
+
+
+heFR = "TELEM_FR_WHEELSPEED"
+heFL = "TELEM_FL_WHEELSPEED"
+heBR = "TELEM_BR_WHEELSPEED"
+heBL = "TELEM_BL_WHEELSPEED"
+
+df = read("C:/Projects/FormulaSlug/fs-data/FS-2/Parquet/2025-03-06-BrakingTests1.parquet")
+df = df.with_columns(
+    simpleTimeCol(df)
+)
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+ax.plot(df[t], df[heFR], label=heFR, c="orange")
+ax.plot(df[t], df[heFL], label=heFL, c="red")
+ax.plot(df[t], df[heBR], label=heBR, c="blue")
+ax.plot(df[t], df[heBL], label=heBL, c="cyan")
+ax.set_title("HE Sensors")
+ax.set_xlabel("Time")
+ax.set_ylabel("idk lol, 0-32767")
+ax.legend()
+plt.show()
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax1 = ax.twinx()
+
+ax.plot(df[t], df[heFR], label="frontRight", c="red")
+ax.plot(df[t], df.select([heBL, heBR]).mean_horizontal(), label="meanBack", c="blue")
+ax1.plot(df[t],df.select([heBL, heBR]).mean_horizontal() / df[heFR], label="ratio", c="green")
+# ax.plot(df[t], df[rpm]*11/41, label="RPM", c="orange") ## Cursed until we have proper wheel speed calibration
+ax.set_title("HE Sensors")
+ax.set_xlabel("Time")
+ax.set_ylabel("idk lol, 0-32767")
+ax.legend()
+ax1.set_ylim(0,2)
+plt.show()

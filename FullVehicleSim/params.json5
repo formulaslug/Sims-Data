@@ -3,7 +3,7 @@
     "Parameters": {
         "stepsPerSecond": 300,
         "simulationDuration": 40.0,
-        "interpolationMethod": "linear", // "linear" or "cubic"
+        "interpolationMethod": "linear", // "linear" or "cubic", this is for interpolating the simultion controls.
 
         "ambientTemperature": 20, // °C
         "tractiveIMax": 300, // A
@@ -31,7 +31,7 @@
         "p_0": 82000,
         "load_0": 300,
 
-        "Mass": 300,
+        "Mass": 300, // kg
         "wheelBase": 1.65471,
         "a": 0.853506,
         "frontWeightDist": 46.46,
