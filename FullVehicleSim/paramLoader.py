@@ -1,14 +1,26 @@
 import json5
 from typing import Dict, List, Tuple
+import polars as pl
+import numpy as np
 
 Magic: dict
 Parameters: dict
 with open('params.json5', 'r') as file:
     params = json5.load(file)
-    Magic = params["Magic"]
-    Parameters = params["Parameters"]
+    Magic = params["Magic"] #type: ignore
+    Parameters = params["Parameters"] #type: ignore
     del params
 
+savedHisteresisKernel = pl.read_csv("Electrical/HisteresisCellModel/trained_voltage_kernel.csv").to_numpy()
+kernelStepSize = Magic["cellModel_KernelStepSize"]
+newKernelLen = int(savedHisteresisKernel.shape[0] * Parameters["stepsPerSecond"] * kernelStepSize)
+histeresisKernel = np.interp(
+    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, newKernelLen, endpoint=False),
+    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, savedHisteresisKernel.shape[0], endpoint=False),
+    savedHisteresisKernel[:, 1]
+)
+ 
+## IMPORTANT: Do not name any other variable that starts with "var" in this file, as it will be included in the variable schema.
 # Variable definitions - maintain original order for compatibility
 
 varTime = 0

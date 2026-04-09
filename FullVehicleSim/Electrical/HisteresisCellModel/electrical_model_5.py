@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 PARQUET_PATH = "/Users/evajain/Downloads/08102025Endurance1_FirstHalf (1).parquet"
+PARQUET_PATH = "../fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet"
 PARQUET_PATH2 = "../fs-data/FS-3/08102025/08102025Endurance1_SecondHalf.parquet"
 df = pd.read_parquet(PARQUET_PATH)
 df2 = pd.read_parquet(PARQUET_PATH2)

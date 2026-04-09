@@ -36,12 +36,9 @@ def calcMaxPower(voltage:float) -> float:
 
 
 def calcVoltage(worldArray:np.ndarray, step:int) -> float:
-    delta = 1 / Parameters["stepsPerSecond"]
-    capacity_Ah = Parameters["cellCapacity_Ah"]
-    soc = worldArray[step-1, varCharge]
 
-    F = Magic["FaradaysConstant"]
-    R = Magic["GasConstant"]
+    F = Parameters["FaradaysConstant"]
+    R = Parameters["GasConstant"]
     
     V0 = Magic["cellModel_V0"]
     C1 = Magic["cellModel_C1"]
@@ -50,13 +47,15 @@ def calcVoltage(worldArray:np.ndarray, step:int) -> float:
     C4 = Magic["cellModel_C4"]
 
     R0 = Magic["cellModel_R0"]
-    KERNEL_LEN = Magic["cellModel_KERNEL_LEN"]
+    bias = Magic["cellModel_bias"]
 
-    # Sliding window: last 10 seconds of current
-    I_hist = np.zeros(int(10 * Parameters["stepsPerSecond"]))
-    I_hist[:max(0, step - len(I_hist))] = worldArray[max(0, step - len(I_hist)):step, varCurrent]  # Get the current history up to the current step
+    if step > newKernelLen:
+        histCurr = worldArray[step-(1+newKernelLen):step-1, varCurrent]
+    else:
+        histCurr = np.zeros(newKernelLen)
+        histCurr[-1*step:] = worldArray[:step, varCurrent]
 
-    def ocv_from_soc(self, soc, T_K=298.15):
+    def ocv_from_soc(soc, T_K=298.15):
         eps = 1e-9
         soc_shift = soc - (0.1 ** 3)
 
@@ -66,8 +65,9 @@ def calcVoltage(worldArray:np.ndarray, step:int) -> float:
         log_term = np.log(numer / denom)
 
         return V0 + (C2 * (R * T_K / F) * log_term)
-
-    return voltage
+    h = np.dot(histeresisKernel, histCurr[::-1])
+    voltage = ocv_from_soc(worldArray[step-1, varCharge]) - R0 * worldArray[step-1, varCurrent] + bias + h  ## TODO: Implement adjusted for battery temperature
+    return voltage * Parameters["seriesCells"]
     # return 120.0
 
 # def step(self, current):

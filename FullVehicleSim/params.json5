@@ -9,7 +9,7 @@
         "tractiveIMax": 300, // A
         "initialBrakeTemperature": 20, // °C
         "initialBatteryTemperature": 20, // °C
-        "vehicleSOC": 1.0, // Out of 1
+        "vehicleSOC": 0.85, // Out of 1
         "initSpeed": 0.0, // m/s
         "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
         "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
@@ -67,7 +67,8 @@
         "cellModel_C4": 0.01567795,
 
         "cellModel_R0": 0.0016,
-        "cellModel_KERNEL_LEN": 120,
+        "cellModel_KernelStepSize": 0.01, // Time in seconds between each value in the histeresis kernel.
+        "cellModel_bias": -0.022722354020559558,
 
         "shape-factor": 0.696268618106842,
         "curvature-scaling-factor": 1.7177082300186157,

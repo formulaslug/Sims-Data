@@ -136,6 +136,7 @@ if __name__ == "__main__":
     ax1.set_ylabel("Current (A) / Voltage (V)")
     ax1.plot(t, current, label="Current")
     ax11.plot(t, voltage, label="Voltage", color='orange')
+    ax1.legend()
 
     ax2.set_title("Speed vs Time")
     ax2.set_xlabel("Time (s)")
