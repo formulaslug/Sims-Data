@@ -54,11 +54,20 @@
         "seriesCells": 30,
         "cellCapacity_Ah": 2.6,
         "histeresisKernelLength": 10.0, // seconds
+
+        "GasConstant": 8.31446261815324,
+        "FaradaysConstant": 96485.33212,
     },
     "Magic": {
 
-        "cellModelSigma": 3.0,
-        "hysteresisGain": 0.015,
+        "cellModel_V0": 3.71,
+        "cellModel_C1": 1.127469,
+        "cellModel_C2": 6.96148085,
+        "cellModel_C3": 0.05243311,
+        "cellModel_C4": 0.01567795,
+
+        "cellModel_R0": 0.0016,
+        "cellModel_KERNEL_LEN": 120,
 
         "shape-factor": 0.696268618106842,
         "curvature-scaling-factor": 1.7177082300186157,

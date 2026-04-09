@@ -40,31 +40,32 @@ def calcVoltage(worldArray:np.ndarray, step:int) -> float:
     capacity_Ah = Parameters["cellCapacity_Ah"]
     soc = worldArray[step-1, varCharge]
 
-    sigma = Parameters["cellModelSigma"]
-    hystGain = Parameters["hysteresisGain"]
+    F = Magic["FaradaysConstant"]
+    R = Magic["GasConstant"]
+    
+    V0 = Magic["cellModel_V0"]
+    C1 = Magic["cellModel_C1"]
+    C2 = Magic["cellModel_C2"]
+    C3 = Magic["cellModel_C3"]
+    C4 = Magic["cellModel_C4"]
+
+    R0 = Magic["cellModel_R0"]
+    KERNEL_LEN = Magic["cellModel_KERNEL_LEN"]
 
     # Sliding window: last 10 seconds of current
     I_hist = np.zeros(int(10 * Parameters["stepsPerSecond"]))
     I_hist[:max(0, step - len(I_hist))] = worldArray[max(0, step - len(I_hist)):step, varCurrent]  # Get the current history up to the current step
 
-    # Hysteresis kernel
-    t = Parameters["histeresisKernelLength"]
-    kernel = np.exp(-(t**2) / (2 * sigma**2))
-    kernel /= np.sum(kernel)
+    def ocv_from_soc(self, soc, T_K=298.15):
+        eps = 1e-9
+        soc_shift = soc - (0.1 ** 3)
 
-    def ocv_from_soc(self, soc):
-        return 3.0 + 0.9 * soc + 0.25 * np.exp(-12 * (1 - soc))s
+        denom = np.clip(1.0 - soc_shift + C4, eps, None)
+        numer = np.clip(C1 * soc_shift + C3, eps, None)
 
-    def sag(self, current):
-        return 0.02 * current + 0.004 * (current ** 1.3)
-    
-    V_hyst = self.hyst_gain * np.sum(self.I_hist * self.kernel)
-    # Terminal voltage
-    voltage = (
-        self.ocv_from_soc(self.SOC)
-        - self.sag(current) * (1 - self.SOC)
-        - V_hyst
-        )
+        log_term = np.log(numer / denom)
+
+        return V0 + (C2 * (R * T_K / F) * log_term)
 
     return voltage
     # return 120.0
