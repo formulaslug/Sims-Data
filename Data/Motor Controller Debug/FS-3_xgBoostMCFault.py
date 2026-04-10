@@ -75,7 +75,12 @@ df = df.with_columns([
 
 df.columns = [x.replace(".", "_") for x in df.columns]
 
-drops = ["Label", smeFaultCode, smeFaultLevel, busV, "Seconds", "VDM_GPS_TRUE_COURSE", "SME_TRQSPD_MotorFlags"]
+drops = ["Label", smeFaultCode, smeFaultLevel, busV, "Seconds", lat, long, course, speed, vdmValid, "VDM_GPS_UTC_TIME", xA, yA, zA, vA, xA_uncorrected, yA_uncorrected, zA_uncorrected, xA_mps, yA_mps, zA_mps, xG, yG, zG, frT, flT, brT, blT, heFL, heFR, heBL, heBR, pedalTravel, etcBrakeVoltage, brakeF, brakeR]
+drops = [c for c in drops if c in df.columns]
+
+# Drop MotorFlags too
+if "SME_TRQSPD_MotorFlags" in df.columns:
+    drops.append("SME_TRQSPD_MotorFlags")
 
 data = df.drop(*drops)
 # X_train, X_test, y_train, y_test = train_test_split(data.drop(*drops), data['Label'], test_size=.2) #type: ignore
@@ -126,6 +131,7 @@ plt.show()
 df = pl.read_parquet("FS-3/10112025/firstDriveMCError30.parquet")
 sorted(df.columns)
 
+explainer.dump("explainer.joblib") 
 ## Identify events and label them
 ## Identify other times (equivalent number of negative events)
 ## Pull all input values from a half second before as features
