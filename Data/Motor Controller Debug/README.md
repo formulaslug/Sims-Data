@@ -1,321 +1,231 @@
-# Fault Code 26 Root Cause Analysis
-## XGBoost Model & Explainer Dashboard Investigation
+# Figuring Out Fault Code 26
+
+
+**The big takeaway:** Motor speed and throttle state are way more predictive than some random loose connection.
 
 ---
 
-## Overview
 
-This analysis uses machine learning (XGBoost) and SHAP value interpretation to diagnose the root cause of voltage dip faults (Code 26) in the Formula Slug FS-3 car. Rather than relying on traditional troubleshooting hunches, we trained a classifier on 24,851 fault window samples and tested it across multiple operational scenarios to isolate which signals actually predict the faults.
+## What each script does
 
-**Key Finding:** Motor speed and throttle state are the strongest predictors of the fault, not intermittent connection resistance.
+- **`build_model.py`** — Pulls data from 6 parquet files, extracts 30-second windows around each fault, adds electrical features (voltage drop, resistance stuff), trains the XGBoost model, saves it and the training data.
 
----
+- **`run_scenario.py`** — Takes the pre-trained model, filters to a specific scenario (high current, hot controller, whatever), samples down to 4,500 rows so the dashboard doesn't choke, computes SHAP values, and spins up the interactive dashboard. Also spits out some charts showing the label split.
 
-## What's in This Repository
+- **`build_all_scenarios.py`** — Batch processes all 12 scenarios without launching dashboards—useful if you want to just compute everything in parallel.
 
-### Python Scripts
+- **`FS-3_xgBoostMCFault.py`** — The original model (just here for reference).
 
-- **`build_model.py`** — Loads 6 parquet files containing fault code 26 events, extracts 30-second fault windows, adds derived electrical features (voltage drop, resistance estimate, etc.), trains XGBoost classifier, and saves the model + training data.
+## Data files
 
-- **`run_scenario.py`** — Loads the pre-trained model, filters the dataset to a specific scenario (high current, hot controller, etc.), samples down to 4,500 rows for dashboard performance, computes SHAP values, and launches the interactive explainer dashboard. Also generates label distribution charts.
+- **`windows_dataset.parquet`** — All 24,851 fault windows from the 6 parquet files. Has all the telemetry signals, labels (0=normal, 1=fault warning), time_to_fault, and which file it came from.
 
-- **`build_all_scenarios.py`** — Batch builder that creates explainer joblib files for all 12 scenarios without launching dashboards (useful for parallel processing).
+- **`model.joblib`** — The trained XGBoost model Nathaniel gave me, plus the feature list. Works for all scenarios.
 
-- **`FS-3_xgBoostMCFault.py`** — Original fault detection model (reference).
+- **`explainer_*.joblib`** — Pre-computed SHAP explainers for each scenario (like `explainer_high_current.joblib`). Just load these instead of recomputing SHAP values every time.
 
-### Data Artifacts
-
-- **`windows_dataset.parquet`** — Full dataset of fault windows extracted from all 6 parquet files (24,851 rows). Contains columns: all telemetry signals, Label (0=baseline, 1=imminent fault), time_to_fault, source_file.
-
-- **`model.joblib`** — Trained XGBoost classifier + feature column list. Reusable across all scenarios.
-
-- **`explainer_*.joblib`** — Saved SHAP explainers for each scenario (e.g., `explainer_high_current.joblib`, `explainer_hot_controller.joblib`). Load with `joblib.load()` to avoid re-computing SHAP values.
-
-- **`label_distribution_*.png`** — Bar charts showing the baseline vs. imminent fault split for each scenario tested.
+- **`label_distribution_*.png`** — Charts showing the split between normal vs. fault-warning for each scenario.
 
 ---
 
-## Methodology
+## How I set this up
 
-### Step 1: Window Extraction
-- Identified all occurrences of fault code 26 in the raw parquet files
-- For each fault onset, extracted a 40-second window: 30 seconds before + 10 seconds after
-- Labeled rows:
-  - **Label=1 (imminent fault):** Last 5 seconds before fault fires
-  - **Label=0 (baseline):** 30–10 seconds before fault (normal operation)
-  - **Label=-1 (excluded):** Transition and post-fault zones
+### Pulling the data out
+Found all the Code 26 faults in the raw parquet files and grabbed a 40-second chunk around each one (30 seconds before, 10 seconds after). Then labeled them:
+- **Label=1:** Last 5 seconds before the fault (warning zone)
+- **Label=0:** Normal operation (30–10 seconds before)
+- **Label=-1:** Transition and post-fault stuff (ignored)
 
-### Step 2: Feature Engineering
-Added 8 derived electrical features that directly proxy the intermittent-resistance hypothesis:
-- `voltage_drop_connection` = V_battery − V_mc (voltage lost in the path)
-- `est_resistance_mohm` = (V_battery − V_mc) / I_bus × 1000 (Ohm's law resistance estimate)
-- `dBusV_dt` = rate of MC voltage change (captures sudden collapses)
-- `busV_std_05s` = rolling voltage variability (captures flickering)
-- `busV_min_05s` = rolling minimum voltage (captures momentary dips)
-- `dBusC_dt` = rate of current change (captures spikes)
-- `busC_max_05s` = rolling peak current
-- `mc_power_W` = V × I at the motor controller
+### Features I added
+Built 8 electrical features to test if the intermittent-resistance thing was actually happening:
+- `voltage_drop_connection` = voltage lost between battery and MC
+- `est_resistance_mohm` = resistance estimate using Ohm's law
+- `dBusV_dt` = how fast the MC voltage is changing (catches sudden drops)
+- `busV_std_05s` = voltage noise (catches flickering)
+- `busV_min_05s` = lowest voltage in a 0.5s window
+- `dBusC_dt` = rate of current change
+- `busC_max_05s` = peak current in a 0.5s window
+- `mc_power_W` = power at the motor controller (V × I)
 
-### Step 3: Model Training
-- Dataset: 24,851 labeled rows from fault windows
-- Features: 241 electrical and operational signals (after dropping GPS, IMU, suspension, etc.)
-- Algorithm: XGBoost classifier with 200 trees, max_depth=5, learning_rate=0.05
-- Base score: 0.5 (fixed to avoid SHAP parsing bugs)
-- Class weighting: scale_pos_weight applied to handle imbalanced classes
+### Training the model
+Used 24,851 rows, 241 features (cut out GPS, IMU, suspension junk), ran XGBoost with 200 trees, max depth 5, learning rate 0.05. Set base_score to 0.5 to keep SHAP happy, and used class weighting to handle the imbalance.
 
-### Step 4: Scenario Analysis
-Tested 5 scenarios (7 more scenarios available but not analyzed yet):
+## Testing different scenarios
+I ran the model on 5 different scenarios (got 7 more I haven't looked at yet):
 
-| Scenario | Filter Criteria | Purpose |
-|----------|-----------------|---------|
-| `all` | No filter | Baseline: what predicts faults overall? |
-| `high_current` | BusCurrent > 150A | Does high current matter? |
-| `contactor_stable` | Contactor never opened | Rules out contactor bounce |
-| `contactor_flicker` | Contactor opened at some point | Isolates contactor behavior |
-| `hot_controller` | MC temp > 40°C | Is thermal state a factor? |
-| `early_in_session` | First half of session time | Does heating matter? |
-| `late_in_session` | Second half of session time | Compare to early session |
+| Scenario | Filter | Why |
+|----------|--------|-----|
+| `all` | No filter | Overall: what predicts faults? |
+| `high_current` | >150A | Does high current trigger it? |
+| `contactor_stable` | No contactor openings | Is contactor bounce the problem? |
+| `contactor_flicker` | Some contactor openings | How does contactor behavior play in? |
+| `hot_controller` | >40°C | Does heat matter? |
+| `early_in_session` | First half | Early on, before heating up? |
+| `late_in_session` | Second half | Later when it's hot? |
 
-For each scenario:
-1. Filter `windows_dataset.parquet` to matching rows
-2. Stratified sample down to 4,500 rows (keeping class ratio)
-3. Compute SHAP values (TreeExplainer, model_output='logodds')
-4. Save explainer joblib file
-5. Launch interactive dashboard
+For each scenario I:
+1. Filtered the dataset
+2. Sampled down to 4,500 rows (kept the class ratio balanced)
+3. Computed SHAP values
+4. Saved the explainer
+5. Launched the dashboard
 
 ---
 
-## Key Findings
+## What the model learned
 
-### Top 3 Features (Consistent Across ALL 5 Scenarios Tested)
+### Top 3 predictors (all 5 scenarios)
+These always showed up at the top, no matter what I was looking at:
 
-| Rank | Feature | What It Measures | Interpretation |
-|------|---------|------------------|-----------------|
-| #1 | `SME_TRQSPD_Speed` | Motor RPM | The fault is strongly tied to what speed the motor is running at |
-| #2 | `ETC_STATUS_HE2` | Throttle/brake state | Throttle position matters almost as much as speed |
-| #3 | `busV_min_05s` | Rolling minimum voltage (0.5s window) | Momentary voltage dips are captured, but not the resistance itself |
+| Rank | Feature | What it's measuring |
+|------|---------|---------------------|
+| #1 | `SME_TRQSPD_Speed` | Motor RPM—faults happen at certain speeds |
+| #2 | `ETC_STATUS_HE2` | Throttle/brake position—matters almost as much as speed |
+| #3 | `busV_min_05s` | Lowest voltage in a rolling 0.5s window—there's dipping happening, but... |
 
-**Critical Observation:** These three features dominate *regardless* of:
-- ❌ How much current is flowing (high_current vs. very_high_current: identical top 3)
-- ❌ Whether the controller is hot or cool (hot_controller vs. early_in_session: identical top 3)
-- ❌ Whether the contactor bounces (contactor_stable vs. contactor_flicker: identical top 3)
-- ❌ How late in the session we are (early_in_session vs. late_in_session: identical top 3)
+**This held true across everything:** whether current was high or low, controller was hot or cool, contactor was bouncing or stable. Always the same top 3.
 
-### Features That Ranked LOW (What We Ruled Out)
+### Features that ranked LOW (things that didn't matter)
+Stuff I thought would show up but didn't:
 
-| Feature | Rank | Expected If True | Actual | Conclusion |
-|---------|------|------------------|--------|-----------|
-| `voltage_drop_connection` | #25 | Would rank top 5 if resistance was the primary cause | Ranks very low | Intermittent resistance is NOT the primary predictor |
-| `est_resistance_mohm` | #21 | Would rank top 5 if Ohm's law was controlling the outcome | Ranks low | The fault is not predicted by how much resistance is in the path |
-| `contactor_closed` | Outside top 15 | Would vary between contactor_stable and contactor_flicker scenarios | Doesn't vary | Contactor state is NOT involved in predicting the fault |
-| Temperature features | Low ranking | Would rank higher in hot_controller scenario | Low in all scenarios | Temperature is secondary, not primary |
+| Feature | Rank | Why I thought it'd matter | What actually happened |
+|---------|------|--------------------------|------------------------|
+| `voltage_drop_connection` | #25 | Resistance = voltage drop, right? | Nope, ranks low |
+| `est_resistance_mohm` | #21 | Ohm's law should control it | Nope, not predictive |
+| `contactor_closed` | Outside top 15 | Should differ between contactor scenarios | Doesn't differ |
+| Temperature features | Low | Should matter more when it's hot | Same low rank everywhere |
 
 ---
 
-## What the Model is Actually Saying
-
-**"I can predict when a fault will fire by knowing:**
-1. **What speed the motor is at**
-2. **What throttle/brake state it's in**
-3. **Whether the voltage is dipping at that moment"**
-
-**I CANNOT predict it well by knowing:**
-- How much resistance is in the path
-- Whether the contactor is bouncing
-- How hot the controller is
-- How late in the session we are
+## Bottom line
+The model basically says:
+- **I can predict a fault if I know:** the motor speed, throttle position, and whether voltage is dipping
+- **I can't predict a fault from:** how much resistance is there, whether the contactor's bouncing, how hot the controller is, or how late in the session we are
 
 ---
 
-## Reconciliation with Your Lead's Theory
+## Back to the original hypothesis
+Nathaniel's (or Luca's?) theory was: *"loose cable/corroded terminal/bad contactor = resistance = voltage drop at high current = fault."*
 
-### Your Lead's Hypothesis
-*"A small intermittent resistance (loose cable, corroded terminal, failing contactor) causes a large voltage drop at high current, triggering Code 26."*
+What the data actually shows: *"Speed and throttle are the real predictors. Voltage dips show up but resistance as the main cause doesn't rank high enough."*
 
-### What the Data Shows
-*"Motor speed and throttle state are the strongest predictors. Voltage dips, but resistance-as-the-sole-cause doesn't rank high enough to be the primary predictor."*
+### What I think is happening
+There's probably some resistance somewhere, but it only triggers the fault when:
+1. Motor's spinning at a certain RPM range (typically >3,800–7,000)
+2. Throttle's at a specific position (that ETC_STATUS_HE2 value)
+3. At that combo, even a small resistance (20–50mΩ) makes the voltage sag enough to trip the ~52V threshold
 
-### Reconciliation
-**Your lead is NOT wrong—just incomplete.**
-
-The intermittent resistance likely **exists somewhere in the circuit**, but it only causes the fault when:
-1. Motor is spinning at a specific RPM range (typically >3,800 in your data, up to 7,000)
-2. Throttle is in a specific state (ETC_STATUS_HE2 value)
-3. At that combination, even a small resistance (20–50mΩ) causes enough voltage sag to trip the ~52V undervoltage threshold
-
-**The key insight:** The model learned to predict the fault from the **operating state** (speed + throttle), not from measuring the **resistance directly**. This suggests the fault is triggered by a **demand-response mismatch**: at certain speeds and throttle angles, the motor controller demands more current than the battery can sustainably deliver, causing the voltage to sag—and if there's any resistance in the path, that sag is amplified.
+**The real thing:** The model learned speed + throttle matter more than resistance itself. This feels like a **demand mismatch**: at high speed/throttle, the motor controller asks for way more current than the battery can actually deliver smoothly, voltage sags, and boom—if there's any resistance in the path it gets worse.
 
 ---
 
-## Example: Label Distribution (Early in Session)
-
+## Example label split (early in session)
 ```
-=== LABELED DATA DISTRIBUTION ===
-Total rows in scenario: 4,500
-Label=0 (baseline): 3,595 (79.9%)
-Label=1 (imminent fault): 905 (20.1%)
+Total rows: 4,500
+Normal operation: 3,595 (79.9%)
+Warning zone: 905 (20.1%)
 ```
 
-**What this means:**
-- 3,595 rows show **normal operation** (what the car looks like 30–10 seconds before a fault)
-- 905 rows show **warning signs** (what the car looks like in the final 5 seconds before a fault)
-- This 4:1 ratio is healthy for training (balanced enough to learn both states)
+So out of 4,500 windows, 80% looked normal (30–10 sec before fault) and 20% showed warning signs (last 5 sec before fault). That 4:1 ratio is pretty good for training.
 
 ---
 
-## How to Use the Explainer Dashboard
-
-### To Load and View a Scenario
-
-```bash
-# Change the LOAD_FILE variable in testingjoblib.py
-LOAD_FILE = "explainer_hot_controller.joblib"
-
-# Run the script
-python testingjoblib.py
-
-# Open http://127.0.0.1:8050 in your browser
-```
-
-### Dashboard Tabs to Check
-
-1. **Feature Importance** — Which signals matter most for this scenario
-2. **SHAP Summary** — Red dots (high values) push toward fault; blue dots (low values) push away from fault
-3. **SHAP Dependence** — Pick `voltage_drop_connection` to see if there's a threshold effect
-4. **Individual Predictions** — Pick a row where `time_to_fault ≈ -10s` to see the warning buildup
-5. **What-If** — Manually adjust signals to see how predictions change
+## Using the dashboard
+1. **Feature Importance** — See which signals matter for each scenario
+2. **SHAP Summary** — Red = pushes toward fault, blue = pushes away
+3. **SHAP Dependence** — Check if voltage drop actually has a threshold
+4. **Individual Predictions** — Look at a row ~10 seconds before a fault fires to see the buildup
+5. **What-If** — Tweak signals manually and see how predictions change
 
 ---
 
-## Inspection Checklist (3 Tiers)
+## If we need to dig into the hardware
 
-### TIER 1 — DO FIRST (15–30 minutes)
-**Before pulling anything apart, log sensor data to confirm the root cause.**
+### Step 1: Log the actual fault (15–30 min)
+Before we take anything apart, just record what's happening when the fault fires.
 
-- [ ] Set up data logger to capture: RPM, throttle (HE2), battery voltage, MC voltage, current
-- [ ] Drive the car until fault fires
-- [ ] At fault time, check:
-  - Does battery voltage drop? (indicates cell sag, not connection issue)
-  - Does MC voltage drop while battery is stable? (indicates connection resistance)
-  - Does RPM jump/glitch? (indicates speed sensor issue)
-  - Does throttle state change abruptly? (indicates control issue)
+- [ ] Capture: RPM, throttle (HE2), battery voltage, MC voltage, current
+- [ ] Drive until fault happens
+- [ ] Look at:
+  - Does battery voltage drop? (battery cell sag, not a connector problem)
+  - MC voltage drop while battery stays up? (connection resistance)
+  - RPM jumps around? (speed sensor noise)
+  - Throttle goes weird? (control/firmware thing)
 
----
+### Step 2: If it looks like a connector problem
+Only do this if Step 1 shows stable battery but MC voltage tanking.
 
-### TIER 2 — CHECK IF DATA POINTS TO RESISTANCE
-**Only if Tier 1 data shows: stable battery voltage, dropping MC voltage, clean RPM/throttle signals.**
+- [ ] Battery terminals: corrosion, loose bolts, cracked lugs
+- [ ] Main contactor: pitting/arcing, test it closes tight (<0.1Ω)
+- [ ] MC terminals (B+/B−): tight bolts, heat damage
+- [ ] Fuses/bus bars: heat marks, loose connections, measure resistance
 
-- [ ] **Battery terminals:** Check for corrosion, tighten bolts, check for cracked lugs
-- [ ] **Main contactor:** Inspect contacts for pitting/arcing, test continuity (<0.1Ω when closed)
-- [ ] **MC terminals (B+ / B−):** Ensure bolts are tight, check for heat damage
-- [ ] **Main fuses and bus bars:** Look for heat marks, check loose connections, measure resistance (<1mΩ)
+### Step 3: If it looks like a control/firmware problem
+Only if Step 1 shows stable voltage but sketchy RPM or throttle signals.
 
----
-
-### TIER 3 — CHECK IF DATA POINTS TO CONTROL/FIRMWARE ISSUE
-**Only if Tier 1 data shows: stable voltage, no obvious resistance, but RPM or throttle behaves oddly.**
-
-- [ ] **Motor speed sensor:** Check connector, log raw RPM signal for noise/glitches
-- [ ] **Throttle/ETC sensor:** Log exact HE2 value when fault fires, check connector
-- [ ] **MC Firmware/Parameters:** Review max power limit, compare to battery's rated output
+- [ ] Speed sensor: check the connector, look for noise in the raw RPM signal
+- [ ] Throttle/ETC sensor: what's the HE2 value when the fault fires? connector look ok?
+- [ ] MC firmware: what's the max power limit? can the battery actually deliver that?
 
 ---
 
-## What NOT to Do (Yet)
-
-❌ Don't start replacing the contactor — data shows it's not the issue  
-❌ Don't assume cell sag without logging battery voltage at fault time  
-❌ Don't replace the speed sensor without checking if it's actually noisy  
-❌ Don't assume firmware is wrong without confirming sensor data is clean  
-
-**Get the data first. Then target the fix.**
 
 ---
 
-## Scenarios Still to Test
-
-7 additional scenarios are available in `build_all_scenarios.py`:
+## More scenarios to test
+Got 7 more I haven't run yet:
 - `very_high_current` (>300A)
 - `high_torque` (>50%)
 - `large_v_drop` (>5V)
-- `autox_files` (high-performance runs only)
-- `rolling_resistance` (rolling resistance test runs)
-- Plus 2 more for additional slicing
+- `autox_files` (just the fast runs)
+- `rolling_resistance` (the rolling resistance test sessions)
 
 ---
 
-## Reference: SME Fault Code 2 (Under Voltage)
+## What the SME manual says (Code 26 = Under Voltage)
+The official fault list says Code 26 can be caused by:
+- Battery damaged/depleted
+- **Battery resistance too high** ← what we've been thinking
+- Battery disconnected
+- Bad key-switch fuse
+- External load drawing power
 
-From Official SME Controller Fault List (March 2017):
-
-**Possible Causes:**
-- Battery seriously damaged or exhausted
-- **Battery resistance too high** ← Your lead's hypothesis
-- Battery disconnected while driving
-- Blown key-switch fuse
-- External load drains power from battery
-
-**Set Condition:** Key-switch voltage is below the minimum level allowed for the controller (~52V)
-
-**Clear Condition:** Bring key-switch voltage above under-voltage limit and cycle key switch
+Basically: voltage drops below ~52V and the controller throws a fit. Goes away once you get the voltage back up.
 
 ---
 
-## Aggregated Statistics (Baseline vs Imminent Fault)
+## The numbers (stat breakdown)
+Ran stats on all 240 features. Here's the weird stuff that jumped out:
 
-To validate the XGBoost findings and provide actionable context, computed mean, median, min, max, and standard deviation for all 240 features across the full dataset:
+| Feature | Normal | Fault | Change |
+|---------|--------|-------|--------|
+| `SME_TRQSPD_Speed` | 940 RPM | 1,824 RPM | 2x faster |
+| `ETC_STATUS_HE2` | 586 | 902 | 54% higher |
+| `SME_THROTL_TorqueDemand` | 2,225 | 7,564 | 3.4x higher |
+| `voltage_drop_connection` | 21.3V | 1.6V | **drops to almost nothing** |
+| `est_resistance_mohm` | 6,463 mΩ | 22.5 mΩ | **goes to nearly zero** |
+| `SME_TEMP_BusCurrent` | 698A | 103A | drops 85% |
+| `mc_power_W` | 31,446W | 9,860W | drops 69% |
 
-**Key Observations:**
+**The weird part:** If resistance was the problem, faults should happen when resistance is HIGH and voltage drop is BIG. But the data shows the opposite—faults happen when both are LOW. This doesn't fit the "loose connection" theory. Instead it looks like the motor doing something (high speed, high torque demand) is what triggers it.
 
-| Feature | Baseline Mean | Fault Mean | Difference | % Change | Interpretation |
-|---------|---------------|-----------|------------|----------|-----------------|
-| `SME_TRQSPD_Speed` | 940.2 RPM | 1,823.9 RPM | +883.7 | +94.0% | Faults occur at ~2x higher speed |
-| `ETC_STATUS_HE2` | 586.1 | 901.5 | +315.3 | +53.8% | Throttle position is higher during faults |
-| `SME_THROTL_TorqueDemand` | 2,224.9 | 7,563.7 | +5,338.7 | +239.9% | Torque demand is 3.4x higher during faults |
-| `voltage_drop_connection` | 21.3V | 1.6V | -19.7 | -92.7% | Paradoxically LOWER during faults (not higher!) |
-| `est_resistance_mohm` | 6,463.1 mΩ | 22.5 mΩ | -6,440.6 | -99.7% | Resistance appears to DECREASE during faults |
-| `busV_min_05s` | 79.1V | 97.2V | +18.1 | +22.9% | Rolling min voltage is higher (less dipping) |
-| `SME_TEMP_BusCurrent` | 698.4A | 103.4A | -594.9 | -85.2% | Current is much lower during faults |
-| `mc_power_W` | 31,446 W | 9,860 W | -21,586 | -68.6% | Power draw is lower during faults |
-
-**Critical Insight:** The statistics reveal a **paradox** that contradicts the intermittent-resistance hypothesis:
-- If resistance were the cause, faults would occur at **high** voltage drop and **high** resistance
-- Yet the data shows faults occur at **low** voltage drop and **low** resistance
-- This suggests the fault is triggered by **what the motor is doing** (high speed, high torque demand), not by **connection quality**
-
-A full CSV with stats for all 240 features is saved in `aggregated_statistics.csv`.
+Full stats for all 240 features are in `aggregated_statistics.csv`.
 
 ---
 
-## Summary
+## TL;DR
 
-This analysis provides **data-driven evidence** that the voltage dip fault is **speed/throttle-dependent**, not purely load-dependent. While your lead's intermittent resistance theory is plausible and worth investigating, the model learned to predict the fault from the **operating state** (motor speed + throttle position), not from measuring resistance directly.
+The model says faults are **speed and throttle dependent**, not just "voltage is low." The intermittent-resistance theory might be real, but it doesn't rank as the top predictor. The data actually shows the opposite of what you'd expect if loose connections were the problem.
 
-The aggregated statistics confirm this: faults occur when the motor is running ~2x faster and demanding ~3.4x more torque, yet paradoxically at **lower** voltage drop and **lower** estimated resistance. This suggests either:
-1. A control/firmware limit being hit at high speed/torque
-2. A sensor reading glitch at high motor speeds
-3. A current limiting behavior that actually **reduces** the observed resistance during fault conditions
+The pattern: **high speed + high torque demand = fault conditions.** Even though the estimated resistance and voltage drop are actually LOW during these fault windows. That's backwards from the "loose cable" hypothesis.
 
-**The recommended approach:**
-1. **Log sensor data** during a fault event (15 min)
-2. **Feel connections** for hot spots (5 min)
-3. **Based on that data, target either:**
-   - Connection inspection (if voltage drops while battery is stable)
-   - Sensor/firmware review (if voltage is stable but speed or throttle is glitchy)
+Most likely what's happening:
+1. At certain speeds/throttle combos, the motor controller asks for more power than the system can smoothly deliver
+2. Voltage sags slightly
+3. If there IS resistance somewhere (and there probably is), it makes things worse
+4. Boom—under-voltage fault
 
-**This data-driven approach saves 2 hours of blind troubleshooting.**
-
----
-
-## Files to Attach to This README
-
-- Label distribution chart for each scenario: `label_distribution_early_in_session.png`, `label_distribution_hot_controller.png`, etc.
-- Screenshot from Feature Importance tab (for each scenario)
-- Screenshot from SHAP Summary tab (for each scenario)
-- Screenshot of the voltage dip from raw telemetry: `08172025_22_6LapsAndWeirdCurrData` graph
-- Screenshot of the SME fault code reference document
-
----
-
-**Last Updated:** April 8, 2026  
-**Analysis Status:** 5 of 12 scenarios tested; ongoing
+**Next steps:**
+1. Log actual sensor data when the fault fires (shows us if it's resistance, firmware, or sensor noise)
+2. If it looks like resistance: check cables, terminals, contactor
+3. If voltage is fine but speeds/throttle look weird: firmware/sensor issue
