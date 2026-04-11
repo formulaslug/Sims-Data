@@ -82,6 +82,8 @@ if __name__ == "__main__":
     worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
     worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
     worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
+    worldArray[0, varVelY] = Parameters["InitVelY"] # velocity in y direction (needed for yaw rate)
+    worldArray[0, varYawRate] = Parameters["InitYawRate"]
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     start = time.time()
@@ -150,7 +152,9 @@ if __name__ == "__main__":
     ax3.plot(t, df["throttle"], label="Throttle")
     ax33.plot(t, df["brakePressureFront"], color='orange')
 
-    ax4.set_title("rvt")
+    ax4.set_xlabel("Time (s)")
+    ax4.set_ylabel("Yaw Rate (radians)")
+    ax4.set_title("yawRate")
     ax4.plot(t, yawRate)
 
     #ax4.set_ylim([0, 190])

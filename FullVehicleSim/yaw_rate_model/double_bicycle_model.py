@@ -6,9 +6,12 @@ Based on Rajamani's bicycle model.
 """
 
 import numpy as np
+import pandas as pd
 from dataclasses import dataclass
 from typing import Tuple, List
 import matplotlib.pyplot as plt
+import sys
+from paramLoader import *
 
 
 @dataclass
@@ -148,6 +151,12 @@ class DoubleBicycleModel:
         else:
             raise ValueError(f"Unknown integration method: {method}")
     
+    """
+    
+    v_x = longitudinal velocty (forward speed of vehicle (m/s))
+    steering_inputs = time series of steering angles 
+    
+    """
     def simulate(self, v_x: float, steering_inputs: List[float],
                 dt: float = 0.01, method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
         """Run simulation with given steering input sequence"""
@@ -227,6 +236,7 @@ def validate_against_telemetry(csv_path: str, model: DoubleBicycleModel,
 
 
 def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
+
     if not model.time_history:
         print("No data. Run simulate() first.")
         return
@@ -259,6 +269,38 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
     plt.tight_layout()
     return fig
 
+# globally create these so calcYawRate() can use it.
+params = VehicleParameters()
+yaw_model = DoubleBicycleModel(params, tire_model="linear")
+
+def calcYawRate(worldArray:np.ndarray, step: int, v_x) -> float:
+    """
+    Calculate the Yaw Rate
+
+    :param worldArray: World State Array
+    :param step: Current step index
+    :return: Brake Force
+    """
+
+    dt = 1 / Parameters["stepsPerSecond"]
+
+    # load model's previous state so we can use it in integrate_step later
+    yaw_model.state = np.array([
+        worldArray[step-1, varLatVel], # v_y
+        worldArray[step-1, varYawRate] # r
+    ])
+
+    # find steering angle for integrating the step
+    delta = worldArray[step, varSteerAngle]
+    print(f"Delta = {delta}")
+
+    # create a new state with new v_x and dt
+    yaw_model.integrate_step(v_x, delta, dt)
+
+    # extract yaw rate in rad/s
+    yaw_rate = yaw_model.state[1]
+
+    return yaw_rate
 
 if __name__ == "__main__":
     print("\n--- FORMULA SLUG - DOUBLE BICYCLE YAW RATE MODEL ---\n")
@@ -296,8 +338,8 @@ if __name__ == "__main__":
     print(f"  G-force: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
 
     fig1 = plot_response(model, "Test 1: Step Steering")
-    fig1.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test1_step_steer.png', dpi=150)
-    print("Saved to test1_step_steer.png")
+    # fig1.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test1_step_steer.png', dpi=150)
+    # print("Saved to test1_step_steer.png")
 
     # Test 2: Ramp steer
     print("\nTEST 2: Ramp Steer")
@@ -322,8 +364,8 @@ if __name__ == "__main__":
     print(f"  Steady-state G: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
 
     fig2 = plot_response(model, "Test 2: Ramp Steering")
-    fig2.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test2_ramp_steer.png', dpi=150)
-    print("Saved to test2_ramp_steer.png")
+    # fig2.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test2_ramp_steer.png', dpi=150)
+    # print("Saved to test2_ramp_steer.png")
 
     # Test 3: Lane change
     print("\nTEST 3: Double Lane Change")
@@ -345,8 +387,8 @@ if __name__ == "__main__":
     print(f"  Max G-force: {v_x * np.max(np.abs(states_sim[:, 1])) / 9.81:.3f}g")
 
     fig3 = plot_response(model, "Test 3: Double Lane Change")
-    fig3.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test3_double_lanechange.png', dpi=150)
-    print("Saved to test3_double_lanechange.png")
+    # fig3.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test3_double_lanechange.png', dpi=150)
+    # print("Saved to test3_double_lanechange.png")
 
     print("\n--- Done! ---")
 

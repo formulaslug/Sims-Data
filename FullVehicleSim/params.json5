@@ -57,6 +57,9 @@
 
         "GasConstant": 8.31446261815324,
         "FaradaysConstant": 96485.33212,
+
+        "InitVelY": 0,
+        "InitYawRate": 0
     },
     "Magic": {
 
