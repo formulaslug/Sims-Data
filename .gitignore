@@ -208,5 +208,7 @@ __marimo__/
 /Archive/OldAccelerationEventModels/SimV2/obj
 
 /Docs/todo.md
+Projects/.DS_Store
+.DS_Store
 .fake
 *.joblib
