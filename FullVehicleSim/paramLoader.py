@@ -67,7 +67,7 @@ varRearSlipAngle = 40
 varMaxMotorTorque = 41
 varAcceleration = 42
 varWheelRPM = 43
-varLatVel = 44
+varLateralVelocty = 44
 
 # Automatically generate schema from defined variables
 def generate_variable_schema() -> Dict[int, str]:
