@@ -1,0 +1,148 @@
+# Static Corner Weight
+The car is still, all the tires are the same, and the center of gravity is perfectly centered.
+
+**Formula:**
+w = (m * g) / 4
+
+- m — total vehicle mass in kg  
+- g — gravitational acceleration: 9.81 m/s²  
+- 4 — number of tires (equal weight distribution assumption)
+
+This is only true when:
+- frontAxleFraction = 0.5  
+- remainingFraction = 0.5  
+
+---
+
+# Longitudinal Load Transfer
+When the car accelerates or brakes, weight shifts between the front and rear.
+
+**Formula:**
+F_long = (m * a_x * h) / L
+
+- m — vehicle mass (kg)  
+- a_x — longitudinal acceleration (m/s²)  
+  - Positive = accelerating  
+  - Negative = braking  
+- h — center of gravity height (m)  
+- L — wheelbase (m)
+
+**Key Concept:**
+- h / L = pitch transfer coefficient
+
+Per-corner distribution:
+F_long / 2
+
+---
+
+# Lateral Load Transfer
+Cornering creates weight transfer between left and right tires.
+
+**Formula:**
+F_lat = (m * a_y * h) / T
+
+- m — vehicle mass (kg)  
+- a_y — lateral acceleration (m/s²)  
+  - Positive = left turn  
+  - Negative = right turn  
+- h — center of gravity height (m)  
+- T — track width (m)
+
+**Key Concept:**
+- h / T = roll transfer coefficient
+
+Per-corner distribution:
+F_lat / 2
+
+---
+
+# Static Axle and Corner Loads
+
+F_FL,static = r * f * m * g  
+F_FR,static = (1 - r) * f * m * g  
+F_RL,static = r * (1 - f) * m * g  
+F_RR,static = (1 - r) * (1 - f) * m * g  
+
+- f — front axle fraction  
+- r — left-side fraction  
+
+Constraints:
+- f + (1 - f) = 1  
+- r + (1 - r) = 1  
+
+---
+
+# Dynamic Vertical Tire Loads
+
+F_z,FL = F_FL,static - F_long/2 - F_lat/2  
+F_z,FR = F_FR,static - F_long/2 + F_lat/2  
+F_z,RL = F_RL,static + F_long/2 - F_lat/2  
+F_z,RR = F_RR,static + F_long/2 + F_lat/2  
+
+- F_static — baseline corner load  
+- F_long / 2 — front/rear transfer split  
+- F_lat / 2 — left/right transfer split  
+
+Total load always equals:
+m * g
+
+---
+
+# Assumption: Quasi-Static Conditions
+- The car has already settled after acceleration  
+- Best for steady-state cornering and gradual inputs  
+- Less accurate for bumps or sudden steering  
+
+---
+
+# Suspension Travel
+
+x = (F_z - F_preload) / k
+
+- F_z — dynamic tire load (N)  
+- F_preload — preload force (N)  
+- k — spring constant (N/m)  
+
+- x is in meters  
+- Positive = compression  
+
+Note:
+Damping is NOT included in static models  
+
+---
+
+# Full Dynamic Suspension Equation
+
+F_z = k * x + c_v
+
+- c_v — damping coefficient  
+
+---
+
+# Test Methods
+
+## Lateral Acceleration
+
+### Method 1: Constant Radius Test
+- Drive in a circle with known radius  
+- Increase speed until failure  
+
+a = v² / r
+
+### Method 2: Steering Variation
+- Maintain constant speed  
+- Vary steering angle  
+
+---
+
+## Longitudinal Acceleration
+
+### Method:
+- Accelerate from 0 to max speed in a straight line  
+
+---
+
+# Validation
+By measuring longitudinal and lateral acceleration, you can validate:
+- longitudinal load transfer  
+- lateral load transfer equations  
