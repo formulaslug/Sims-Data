@@ -1,13 +1,13 @@
-"""import matplotlib
+import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import polars as pl
 dfa = pl.read_parquet("fs-data/FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
 dfb = pl.read_parquet("fs-data/FS-3/08172025/08172025_28autox3&4_45C_40C_~29Cambient_0fans.parquet")
 dfc = pl.read_parquet("08172025_20_Endurance1P1.parquet")
-print(dfc.columns)"""
-"""print(dfb.columns)
-print(dfa.columns)"""
+print(dfc.columns)
+print(dfb.columns)
+print(dfa.columns)
 
 import polars as pl
 import matplotlib.pyplot as plt

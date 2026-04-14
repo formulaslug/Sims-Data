@@ -2,6 +2,10 @@ import polars as pl
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+import sys
+sys.path.append(".")
+sys.path.append("..")
+sys.path.append("./Data")
 from Data.FSLib.IntegralsAndDerivatives import *
 # from Data.integralsAndDerivatives import in_place_derive
 

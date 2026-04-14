@@ -19,7 +19,7 @@ def load_avg_temp_from_parquet(path: str) -> NDArray[np.float64]:
     
     Returns
     -------
-    NDArray[np.float64]
+    NDArray[np.float64] 
         Array of average temperatures across all cells.
     """
     columns_list = [
@@ -44,7 +44,7 @@ def run_thermal_model_from_parquet(
     path: str,
     current_column: str = "SME_TEMP_BusCurrent",
     t_span: Tuple[float, float] = (0, 10),
-    initial_temp: float = 30,
+    initial_temp: float = 33.5,
     t_eval: NDArray[np.float64] | None = None,
 ):
     """
@@ -72,7 +72,7 @@ def run_thermal_model_from_parquet(
     current_draw = df[current_column].to_numpy()
     
     if t_eval is None:
-        t_eval = np.linspace(t_span[0], t_span[1], 100, dtype=np.float64)
+        t_eval = np.linspace(t_span[0], t_span[1], 1000, dtype=np.float64)
     
     return thermal_ode_solve_ivp(current_draw, t_span, initial_temp, t_eval)
 
@@ -152,3 +152,5 @@ def main() -> None:
 # run the main function: python Simultaneous_Plot_Viewer.py "/Users/gautham/Documents/fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet"
 if __name__ == "__main__":
     main()
+
+#python Data/BatteryThermalModel/Simultaneous_Plot_Viewer.py fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet
