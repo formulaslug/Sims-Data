@@ -28,7 +28,7 @@ F_long = (m * a_x * h) / L
 - L — wheelbase (m)
 
 **Key Concept:**
-- h / L = pitch transfer coefficient
+- h / L = pitch transfer coefficient(how much the load shifts between the front and rear wheels when accelerating or braking)
 
 Per-corner distribution:
 F_long / 2
@@ -88,7 +88,7 @@ m * g
 
 ---
 
-# Assumption: Quasi-Static Conditions
+# Assumption: Quasi Steady State Conditions
 - The car has already settled after acceleration  
 - Best for steady-state cornering and gradual inputs  
 - Less accurate for bumps or sudden steering  
