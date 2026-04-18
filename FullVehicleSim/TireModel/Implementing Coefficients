@@ -101,21 +101,27 @@ x = (F_z - F_preload) / k
 
 - F_z — dynamic tire load (N)  
 - F_preload — preload force (N)  
-- k — spring constant (N/m)  
+- K_w — effective wheel rate (N/m)
 
 - x is in meters  
 - Positive = compression  
 
 Note:
 Damping is NOT included in static models  
+K_w accounts for the suspension motion ratio (MR): K_w = K_s * (MR)^2, where K_s is the raw spring constant.
+MR is the motion ratio: describes how much shock absorber compresses for every unit of distance the wheel moves upward. 
 
 ---
 
-# Full Dynamic Suspension Equation
+# Linear Spring-Damper Force (1D Quarter-Car)
 
-F_z = k * x + c_v
+F_z = K_w * x + c * v_susp
 
-- c_v — damping coefficient  
+- F_z - total vertical force from the spring-damper unit (N)
+- K_w - effective wheel rate (N/m)
+- x - suspension displacement (m)
+- c - damping coefficient (Ns/m)
+- v_susp - suspension velocity(m/s)  
 
 ---
 
