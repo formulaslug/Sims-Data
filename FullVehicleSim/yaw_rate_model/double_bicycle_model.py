@@ -78,12 +78,17 @@ class VehicleParameters:
 
 class TireModel:
 
-    def __init__(self, normalForce, slipRatio, velocityX, pressure, temperature, camber, mechanicalParams, magicParams, slipAngle=0.3):
+    def __init__(self, params: VehicleParameters, slipRatio, temperature, camber, pressure, mechanicalParams, magicParams, axle, slipAngle=0.3):
+        
         self.magic = magicParams
         self.mechanical = mechanicalParams
+        self.params = params
 
-        self.normalForce = normalForce
-        self.velocityX = velocityX
+        if axle == "front":
+            self.normalForce = self.params.mass * 9.81 * self.params.Lr / self.params.wheelbase / 2.0
+        elif axle == "rear":
+            self.normalForce = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
+
         self.slipRatioInit = slipRatio
         self.slipRatio = self.slipRatioInit
         self.slipAngle = slipAngle
@@ -120,7 +125,10 @@ class TireModel:
     ##### ********************************
 
 
-    def getLateralForce(self):
+    def getLateralForce(self, worldArray:np.ndarray, step:int):
+
+        self.velocityX = worldArray[step-1, varVelX]
+
         Alphas = self.magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX)
         Byk = self.magic["r_by1"]# + self.magic["r_by4"] * math.sin(self.camber) ** 2) * math.cos(math.atan(self.magic["r_by2"] * (Alphas - self.magic["r_by3"]))) * self.magic["lambda_yk"]
         Cyk = self.magic["r_cy1"]
@@ -159,8 +167,10 @@ class TireModel:
         Kyalpha = self.magic["p_ky1"] * self.normDeltaLoadLat * (1 + self.magic["p_py1"] * self.normDeltaPressureLat) * (1 - self.magic["p_ky3"] * abs(math.sin(self.camber))) * math.sin(self.magic["p_ky4"] * math.atan(1/(self.magic["lambda_nominalload"] * (self.magic["p_ky2"] + self.magic["p_ky5"] * math.sin(self.camber)**2) * (1+ self.magic["p_py2"] * self.normDeltaPressureLat) ) )) * self.magic["zeta3"] * self.magic["lambda_kyalpha"]
         By = Kyalpha / (self.Cy * self.Dy + self.magic["epsilon_y"])
         return By
+    
     def getLateralCoefficientOfFriction(self):
         return (self.magic["p_dy1"] + self.magic["p_dy2"] * self.normDeltaLoadLat) * (1 + self.magic["p_py3"] * self.normDeltaPressureLat + self.magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - self.magic["p_dy3"] * math.sin(self.camber) ** 2) * self.magic["lambda_coeffscalary"]
+    
     def getLateralE(self, Alphas):
         term1 = (self.magic["p_ey1"] + self.magic["p_ey2"] * self.normDeltaLoadLat)
         term2 = (1 + self.magic["p_ey5"] * math.sin(self.camber) ** 2 - (self.magic["p_ey3"] + self.magic["p_ey4"] * math.sin(self.camber)) * Alphas)
@@ -265,6 +275,7 @@ class TireModel:
         #print("---------")
         term2 = (1 - self.magic["p_ex4"] * math.copysign(1,self.slipRatio + self.getHorizontalShift()))
         return term1 * term2 * self.magic["curvature-scaling-factor"]
+    
     def specialDegressiveFrictionFactor(self):
         # A_μ is 10 by what the book suggests so that's what 10 is
         return 10 * self.calculateLongCompositeLongFrictionScalingFactor() / (1 + (9) * self.calculateLongCompositeLongFrictionScalingFactor())
@@ -304,7 +315,7 @@ class TireModel:
         return (self.tirePressure - self.magic["lambda_pressurescalarlat"] * self.tirePressure) / (self.magic["lambda_pressurescalarlat"] * self.tirePressure)
 
     def updateParams(self, normalForce=-1, slipRatio=-1, velocityX=-1):
-        if self.normalForce != -1:
+        if normalForce != -1:
             self.normalForce = normalForce
         if slipRatio != -1:
             self.slipRatio = slipRatio
@@ -315,9 +326,8 @@ class DoubleBicycleModel:
     """2DOF bicycle model: v_y (lateral velocity) and r (yaw rate)"""
 
     def __init__(self, params: VehicleParameters, tire_model: str = "linear"):
+        
         self.params = params
-        self.tire_front = TireModel(params.C_alpha_front, saturation_method=tire_model, friction_coeff=params.mu)
-        self.tire_rear = TireModel(params.C_alpha_rear, saturation_method=tire_model, friction_coeff=params.mu)
 
         self.state = np.array([0.0, 0.0])
         self.time_history = []
@@ -336,20 +346,36 @@ class DoubleBicycleModel:
         return alpha_f, alpha_r
     
     def dynamics(self, state: np.ndarray, v_x: float, delta: float,
-                 ax: float = 0.0) -> np.ndarray:
+                 ax: float = 0.0, worldArray:np.ndarray, step:int) -> np.ndarray:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
         alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta)
 
-        # Static weight distribution (no load transfer)
-        # Front axle load: weight farther back (at distance Lr from front)
-        # Rear axle load: weight farther forward (at distance Lf from rear)
-        Fz_f = self.params.mass * 9.81 * self.params.Lr / self.params.wheelbase / 2.0
-        Fz_r = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
+        self.tire_front = TireModel(
+            slipRatio, 
+            temperature=Parameters['ambientTemperature'], 
+            camber=0, 
+            mechanicalParams=Parameters, 
+            magicParams=Magic, 
+            slipAngle=alpha_f,
+            axle="front",
+            params=params
+        )
 
-        Fy_f = self.tire_front.lateral_force(alpha_f, Fz_f)
-        Fy_r = self.tire_rear.lateral_force(alpha_r, Fz_r)
+        self.tire_front = TireModel(
+            slipRatio, 
+            temperature=Parameters['ambientTemperature'], 
+            camber=0, 
+            mechanicalParams=Parameters, 
+            magicParams=Magic, 
+            slipAngle=alpha_r,
+            axle="rear",
+            params=params
+        )
+
+        Fy_f = self.tire_front.lateral_force(worldArray, step)
+        Fy_r = self.tire_rear.lateral_force(worldArray, step)
 
         # Account for both tires per axle
         Fy_f_total = 2.0 * Fy_f
@@ -468,7 +494,6 @@ def validate_against_telemetry(csv_path: str, model: DoubleBicycleModel,
 
     return results
 
-
 def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
 
     if not model.time_history:
@@ -508,6 +533,7 @@ params = VehicleParameters()
 model = DoubleBicycleModel(params, tire_model="linear")
 
 def calcYawRate(worldArray:np.ndarray, step: int, v_x) -> float:
+    
     """
     Calculate the Yaw Rate
 
@@ -537,7 +563,11 @@ def calcYawRate(worldArray:np.ndarray, step: int, v_x) -> float:
     return lateral_velocity, yaw_rate
 
 if __name__ == "__main__":
+
     print("\n--- FORMULA SLUG - DOUBLE BICYCLE YAW RATE MODEL ---\n")
+
+    print(params)
+    sys.exit(1)
 
     params = VehicleParameters()
     print("Vehicle Parameters:")
