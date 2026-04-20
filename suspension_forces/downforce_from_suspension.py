@@ -166,7 +166,7 @@ def save_summary(df: pl.DataFrame):
 def make_plots(df: pl.DataFrame):
     time_s = df["Time_ms"].to_numpy() / 1000.0
 
-    # 1. Raw/smoothed travel
+    # 1. Raw travel
     plt.figure(figsize=(12, 6))
     plt.plot(time_s, df[TRAVEL_COLS["FL"]].to_numpy(), label="FL")
     plt.plot(time_s, df[TRAVEL_COLS["FR"]].to_numpy(), label="FR")
