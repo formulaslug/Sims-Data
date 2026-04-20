@@ -76,10 +76,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varCharge] = worldArray[step-1, varCharge] - worldArray[step, varCurrent] * delta / 3600.0
     arr[varPosX:varPosZ+1] = worldArray[step-1, varPosX:varPosZ+1] + worldArray[step-1, varVelX:varVelZ+1] * delta
     arr[varSpeed] = max(0, worldArray[step-1, varSpeed] + arr[varAcceleration] * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
-    arr[varLateralVelocty], arr[varYawRate] = calcYawRate(worldArray, step, worldArray[step-1, varSpeed])
-    # arr[varYawRate] = worldArray[step-1, varYawRate]
-    # if worldArray[step, varSteerAngle] == 0:
-    #     arr[varYawRate] = 0
+    arr[varLateralVelocty], arr[varYawRate] = calcYawRate(worldArray, step)
     arr[varVelX:varVelZ+1] = arr[varSpeed] * worldArray[step-1, varHeadingX:varHeadingZ+1]
     arr[varHeadingX:varHeadingZ+1] = calculateHeading(worldArray, step)
 

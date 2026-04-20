@@ -55,30 +55,9 @@ class VehicleParameters:
         assert self.yaw_inertia > 0, "Yaw inertia has to be positive"
         assert self.C_alpha > 0, "Tire stiffness has to be positive"
 
-
-# @dataclass
-# class TireModel:
-#     stiffness: float
-#     max_slip_angle: float = 0.3
-#     saturation_method: str = "linear"
-#     friction_coeff: float = 1.733  # Peak friction coefficient
-
-#     def lateral_force(self, slip_angle: float, vertical_load: float) -> float:
-#         if self.saturation_method == "linear":
-#             return self.stiffness * slip_angle
-
-#         elif self.saturation_method == "nonlinear":
-#             # tanh saturation at high slip angles
-#             # Saturates at F_max = mu * Fz (friction limit)
-#             F_linear = self.stiffness * slip_angle
-#             F_max = self.friction_coeff * vertical_load
-#             return F_max * np.tanh(F_linear / F_max)
-
-#         return 0.0
-
 class TireModel:
 
-    def __init__(self, params: VehicleParameters, slipRatio, temperature, camber, pressure, mechanicalParams, magicParams, axle, slipAngle=0.3):
+    def __init__(self, params: VehicleParameters, temperature, mechanicalParams, magicParams, axle, slipAngle, pressure=12, camber=0):
         
         self.magic = magicParams
         self.mechanical = mechanicalParams
@@ -89,8 +68,6 @@ class TireModel:
         elif axle == "rear":
             self.normalForce = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
 
-        self.slipRatioInit = slipRatio
-        self.slipRatio = self.slipRatioInit
         self.slipAngle = slipAngle
         self.tirePressure = pressure
         self.tireTemperature = temperature
@@ -124,17 +101,23 @@ class TireModel:
     ##### LATERAL SLIP FUNCTION
     ##### ********************************
 
-
     def getLateralForce(self, worldArray:np.ndarray, step:int):
 
-        self.velocityX = worldArray[step-1, varVelX]
+        self.velocityX = worldArray[step, varVelX]
 
         Alphas = self.magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX)
         Byk = self.magic["r_by1"]# + self.magic["r_by4"] * math.sin(self.camber) ** 2) * math.cos(math.atan(self.magic["r_by2"] * (Alphas - self.magic["r_by3"]))) * self.magic["lambda_yk"]
         Cyk = self.magic["r_cy1"]
         Eyk = self.magic["r_ey1"] + self.magic["r_ey2"] * self.normDeltaLoadLat
         Shyk = self.magic["r_hy1"] + self.magic["r_hy2"] * self.normDeltaLoadLat
+        
+        # Use Slip Ratio = (Wheel RPM - GPS Speed) / GPS Speed
+        rpm = worldArray[step, varWheelRPM]
+        angular_speed = (2 * math.pi * Parameters['wheelRadius'] * rpm) / 60
+        longitudinal_speed = worldArray[step, varSpeed]
 
+        if longitudinal_speed == 0: self.slipRatio = 0
+        else: self.slipRatio = (angular_speed - longitudinal_speed) / longitudinal_speed
 
         Ks = self.slipRatio + Shyk
         BykKs = Byk * Ks
@@ -161,12 +144,12 @@ class TireModel:
         self.Ey = self.getLateralE(Alphas)
 
         Svy = self.magic["Svy"]
-        return self.stdCurveSine(self.By, self.Cy, self.Dy, self.Ey, self.slipAngle) + Svy
+        return self.stdCurveSine(self.By, self.Cy, self.Dy, self.Ey, self.slipRatio) + Svy
 
-    def getLateralB(self):
-        Kyalpha = self.magic["p_ky1"] * self.normDeltaLoadLat * (1 + self.magic["p_py1"] * self.normDeltaPressureLat) * (1 - self.magic["p_ky3"] * abs(math.sin(self.camber))) * math.sin(self.magic["p_ky4"] * math.atan(1/(self.magic["lambda_nominalload"] * (self.magic["p_ky2"] + self.magic["p_ky5"] * math.sin(self.camber)**2) * (1+ self.magic["p_py2"] * self.normDeltaPressureLat) ) )) * self.magic["zeta3"] * self.magic["lambda_kyalpha"]
-        By = Kyalpha / (self.Cy * self.Dy + self.magic["epsilon_y"])
-        return By
+    # def getLateralB(self):
+    #     Kyalpha = self.magic["p_ky1"] * self.normDeltaLoadLat * (1 + self.magic["p_py1"] * self.normDeltaPressureLat) * (1 - self.magic["p_ky3"] * abs(math.sin(self.camber))) * math.sin(self.magic["p_ky4"] * math.atan(1/(self.magic["lambda_nominalload"] * (self.magic["p_ky2"] + self.magic["p_ky5"] * math.sin(self.camber)**2) * (1+ self.magic["p_py2"] * self.normDeltaPressureLat) ) )) * self.magic["zeta3"] * self.magic["lambda_kyalpha"]
+    #     By = Kyalpha / (self.Cy * self.Dy + self.magic["epsilon_y"])
+    #     return By
     
     def getLateralCoefficientOfFriction(self):
         return (self.magic["p_dy1"] + self.magic["p_dy2"] * self.normDeltaLoadLat) * (1 + self.magic["p_py3"] * self.normDeltaPressureLat + self.magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - self.magic["p_dy3"] * math.sin(self.camber) ** 2) * self.magic["lambda_coeffscalary"]
@@ -175,117 +158,6 @@ class TireModel:
         term1 = (self.magic["p_ey1"] + self.magic["p_ey2"] * self.normDeltaLoadLat)
         term2 = (1 + self.magic["p_ey5"] * math.sin(self.camber) ** 2 - (self.magic["p_ey3"] + self.magic["p_ey4"] * math.sin(self.camber)) * Alphas)
         return term1 * term2 * self.magic["lambda_ey"]
-
-    ##### ********************************
-    ##### LONGITUDINAL COMBINED SLIP FUNCTIONS
-    ##### ********************************
-
-    def getLongForce(self):
-        tempScalar = self.magic["tempXA"] * self.tireTemperature ** 2 + self.magic["tempXB"] * self.tireTemperature + self.magic["tempXC"]
-
-        #if self.slipAngle < 0.1 and self.slipAngle > -0.1:
-        #    return self.getLongForcePureSlip()
-
-        #if (self.getLongForceCombinedSlip() * tempScalar)/self.normalForce > 5:
-        #    return 5 * self.normalForce
-        #elif (self.getLongForceCombinedSlip() * tempScalar)/self.normalForce < -5:
-        #    return -5 * self.normalForce
-        return self.getLongForceCombinedSlip() * tempScalar
-
-
-    def getLongForceCombinedSlip(self):
-        fCoefficient = self.getGxalpha()
-        #if fCoefficient > 1:
-        #    fCoefficient = 1
-        force = self.getLongForcePureSlip()
-        #print(force * fCoefficient)
-        #print(fCoefficient)
-        return force * (fCoefficient + self.magic["combined_long_offset"])
-
-
-    def getGxalpha(self):
-        Cxalpha = self.magic["r_cx1"]
-        Bxalpha = (self.magic["r_bx1"] + self.magic["r_bx3"] * math.sin(self.camber) ** 2) * math.cos(math.atan(self.magic["r_bx2"] * self.slipRatio))  * self.magic["lambda_xalpha"]
-        Exalpha = self.magic["r_ex1"] + self.magic["r_ex2"] * self.normDeltaLoadLong
-        Shxalpha = self.magic["r_hx1"]
-        #print("LAMBDA ALPHA STAR", self.magic["lambda_alphastar"], "SA", self.slipAngle)
-        Alphas = self.magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX) + Shxalpha
-
-        Gxalpha_init = math.cos(Cxalpha * math.atan( Bxalpha * Alphas - Exalpha * ( Bxalpha * Alphas - math.atan(Bxalpha * Alphas) ) ) )
-        Gxalphanaught = math.cos(Cxalpha * math.atan( Bxalpha * Shxalpha - Exalpha * ( Bxalpha * Shxalpha - math.atan(Bxalpha * Shxalpha) ) ) )
-
-        #print(Bxalpha, Cxalpha, Exalpha, Shxalpha)
-
-        return Gxalpha_init / Gxalphanaught * self.magic["lambda_combinedslipcoeff"]
-    ##### ********************************
-    ##### Lateral PURE SLIP FUNCTIONS
-    ##### ********************************
-
-    def getLatForcePureSlip(self):
-        return self.mechanical["friction-coeff-lat"] * self.normalForce
-
-    ##### ********************************
-    ##### LONGITUDINAL PURE SLIP FUNCTIONS
-    ##### ********************************
-
-
-    def getLongForcePureSlip(self):
-
-        #return self.slipRatio * 100
-
-        tempScalarPure = self.magic["tempXAPure"] * self.tireTemperature ** 2 + self.magic["tempXBPure"] * self.tireTemperature + self.magic["tempXCPure"]
-
-        self.Cx = self.magic["shape-factor"] # Shape Factor (this thing is entirely magic. I think.) P_cx1
-        self.Dx = self.getMaxLongFriction() * tempScalarPure # Peak Factor
-        self.Ex = self.getCurvatureFactor() # Curvature Factor
-        self.Bx = self.getStiffnessFactorLong() # Stifness Factor
-
-        Svx = self.getVerticalShift()
-
-        longForce = self.stdCurveSine(self.Bx, self.Cx, self.Dx, self.Ex, self.slipRatio) + Svx
-
-        #print(self.Bx, self.Cx, self.Dx, self.Ex, Svx)
-        # Safety
-        #longForce = max(longForce, self.mechanical["friction-coeff-long"] * self.normalForce)
-        self.longforce = longForce
-
-        return self.longforce
-    def getMaxLongFriction(self):
-        # Here there needs to be the mystery camber parameter zeta sub 1.
-        return self.getLongFrictionCoefficient() * self.normalForce * self.magic["zeta_1"]
-
-    def getStiffnessFactorLong(self):
-        self.Kx = self.normalForce * (self.magic["p_kx1"] + self.magic["p_kx2"] * self.normDeltaLoadLong) * (2.71828182845905 ** (self.magic["p_kx3"] * self.normDeltaLoadLong)) * (1 + self.magic["p_px1"] * self.normDeltaPressureLong + self.magic["p_px2"] * self.normDeltaPressureLong ** 2)
-        return self.Kx / (self.Cx  * self.Dx)
-
-    def getLongFrictionCoefficient(self):
-        term1 = (self.magic["p_dx1"] + self.magic["p_dx2"] * self.normDeltaLoadLong)
-        term2 = (1 + self.magic["p_px3"] * self.normDeltaPressureLong + self.magic["p_px4"] * self.normDeltaPressureLong ** 2)
-        term3 = (1 - self.magic["p_dx3"] * self.camber ** self.calculateLongCompositeLongFrictionScalingFactor())
-        return term1 * term2 * term3
-
-    def calculateLongCompositeLongFrictionScalingFactor(self):
-        return self.mechanical["friction-coeff-long"] / (1 + self.mechanical["friction-coeff-long"] * ((self.velocityX ) / math.sqrt(9.81 * self.mechanical["unloaded-radius"])))
-
-    def getCurvatureFactor(self):
-        term1 = (self.magic["p_ex1"] + self.magic["p_ex2"] * self.normDeltaLoadLong + self.magic["p_ex3"] * self.normDeltaLoadLong ** 2)
-        #print("---------")
-        #print(self.slipRatio)
-        #print(self.getHorizontalShift())
-        #print("---------")
-        term2 = (1 - self.magic["p_ex4"] * math.copysign(1,self.slipRatio + self.getHorizontalShift()))
-        return term1 * term2 * self.magic["curvature-scaling-factor"]
-    
-    def specialDegressiveFrictionFactor(self):
-        # A_μ is 10 by what the book suggests so that's what 10 is
-        return 10 * self.calculateLongCompositeLongFrictionScalingFactor() / (1 + (9) * self.calculateLongCompositeLongFrictionScalingFactor())
-
-    def getHorizontalShift(self):
-        return (self.magic["p_hx1"] + self.magic["p_hx2"] * self.normDeltaLoadLong) * self.magic["horizontal-shift-factor"]
-
-    def getVerticalShift(self):
-        return self.normalForce * (self.magic["p_vx1"] + self.magic["p_vx2"] * self.normDeltaLoadLong) * self.magic["vertical-shift-factor"] * self.specialDegressiveFrictionFactor() * self.magic["zeta_1"]
-
 
 
     ##### ********************************
@@ -325,7 +197,7 @@ class TireModel:
 class DoubleBicycleModel:
     """2DOF bicycle model: v_y (lateral velocity) and r (yaw rate)"""
 
-    def __init__(self, params: VehicleParameters, tire_model: str = "linear"):
+    def __init__(self, params: VehicleParameters):
         
         self.params = params
 
@@ -346,16 +218,14 @@ class DoubleBicycleModel:
         return alpha_f, alpha_r
     
     def dynamics(self, state: np.ndarray, v_x: float, delta: float,
-                 ax: float = 0.0, worldArray:np.ndarray, step:int) -> np.ndarray:
+                 worldArray: np.ndarray, step:int, ax: float = 0.0) -> np.ndarray:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
         alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta)
 
         self.tire_front = TireModel(
-            slipRatio, 
             temperature=Parameters['ambientTemperature'], 
-            camber=0, 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
             slipAngle=alpha_f,
@@ -363,10 +233,8 @@ class DoubleBicycleModel:
             params=params
         )
 
-        self.tire_front = TireModel(
-            slipRatio, 
+        self.tire_rear = TireModel( 
             temperature=Parameters['ambientTemperature'], 
-            camber=0, 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
             slipAngle=alpha_r,
@@ -374,8 +242,8 @@ class DoubleBicycleModel:
             params=params
         )
 
-        Fy_f = self.tire_front.lateral_force(worldArray, step)
-        Fy_r = self.tire_rear.lateral_force(worldArray, step)
+        Fy_f = -self.tire_front.getLateralForce(worldArray, step)
+        Fy_r = -self.tire_rear.getLateralForce(worldArray, step)
 
         # Account for both tires per axle
         Fy_f_total = 2.0 * Fy_f
@@ -390,23 +258,23 @@ class DoubleBicycleModel:
 
         return np.array([dv_y, dr])
     
-    def integrate_step(self, v_x: float, delta: float, dt: float,
+    def integrate_step(self, v_x: float, delta: float, dt: float, worldArray: np.ndarray, step:int,
                       ax: float = 0.0, method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
-            k1 = self.dynamics(self.state, v_x, delta, ax)
+            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
             self.state = self.state + dt * k1
 
         elif method == "rk2":
-            k1 = self.dynamics(self.state, v_x, delta, ax)
-            k2 = self.dynamics(self.state + 0.5*dt*k1, v_x, delta, ax)
+            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k2 = self.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
             self.state = self.state + dt * k2
 
         elif method == "rk4":
-            k1 = self.dynamics(self.state, v_x, delta, ax)
-            k2 = self.dynamics(self.state + 0.5*dt*k1, v_x, delta, ax)
-            k3 = self.dynamics(self.state + 0.5*dt*k2, v_x, delta, ax)
-            k4 = self.dynamics(self.state + dt*k3, v_x, delta, ax)
+            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k2 = self.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k3 = self.dynamics(state=self.state + 0.5*dt*k2, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k4 = self.dynamics(state=self.state + dt*k3, v_x=v_x, delta=delta, ax=ax,worldArray=worldArray, step=step)
             self.state = self.state + (dt/6.0) * (k1 + 2*k2 + 2*k3 + k4)
 
         else:
@@ -418,7 +286,8 @@ class DoubleBicycleModel:
     steering_inputs = time series of steering angles 
     
     """
-    def simulate(self, v_x: float, steering_inputs: List[float],
+    
+    def simulate(self, v_x: float, steering_inputs: List[float], worldArray: np.ndarray, step: int,
                 dt: float = 0.01, method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
         """Run simulation with given steering input sequence"""
         self.state = np.array([0.0, 0.0])
@@ -428,7 +297,7 @@ class DoubleBicycleModel:
 
         for i, delta in enumerate(steering_inputs):
             t = (i + 1) * dt
-            self.integrate_step(v_x, delta, dt, ax=0.0, method=method)
+            self.integrate_step(v_x, delta, dt, ax=0.0, method=method, worldArray=worldArray, step=step)
 
             self.time_history.append(t)
             self.state_history.append(self.state.copy())
@@ -530,9 +399,9 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
 
 # globally create these so calcYawRate() can use it.
 params = VehicleParameters()
-model = DoubleBicycleModel(params, tire_model="linear")
+model = DoubleBicycleModel(params=params)
 
-def calcYawRate(worldArray:np.ndarray, step: int, v_x) -> float:
+def calcYawRate(worldArray:np.ndarray, step: int) -> float:
     
     """
     Calculate the Yaw Rate
@@ -554,7 +423,8 @@ def calcYawRate(worldArray:np.ndarray, step: int, v_x) -> float:
     delta = worldArray[step, varSteerAngle]
 
     # create a new state with new v_x and dt
-    model.integrate_step(v_x, delta, dt)
+    v_x = worldArray[step, varSpeed]
+    model.integrate_step(v_x=v_x, delta=delta, dt=dt, worldArray=worldArray, step=step)
 
     # extract yaw rate and lateral velocity
     lateral_velocity = model.state[0]
@@ -566,9 +436,6 @@ if __name__ == "__main__":
 
     print("\n--- FORMULA SLUG - DOUBLE BICYCLE YAW RATE MODEL ---\n")
 
-    print(params)
-    sys.exit(1)
-
     params = VehicleParameters()
     print("Vehicle Parameters:")
     print(f"  Wheelbase: {params.wheelbase:.3f} m (Lf={params.Lf:.3f}, Lr={params.Lr:.3f})")
@@ -577,7 +444,7 @@ if __name__ == "__main__":
     print(f"  Yaw inertia: {params.yaw_inertia:.1f} kg·m²")
     print(f"  Tire stiffness: {params.C_alpha:.0f} N/rad")
 
-    model = DoubleBicycleModel(params, tire_model="linear")
+    model = DoubleBicycleModel(params=params)
 
     # Test 1: Step steer
     print("\nTEST 1: Step Steer")
@@ -592,7 +459,7 @@ if __name__ == "__main__":
     ])
     steering_step = steering_step[:num_steps]
 
-    time_sim, states_sim = model.simulate(v_x, steering_step, dt=dt, method="rk4")
+    time_sim, states_sim = model.simulate(v_x, steering_step, dt=dt, method="rk4", )
 
     print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
     print(f"Duration: {duration:.2f} s")
