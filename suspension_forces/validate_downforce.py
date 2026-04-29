@@ -6,9 +6,9 @@ PATH = "/workspaces/Sims-Data/fs-data/FS-3/01112026/011026-1.parquet"
 OUT = Path("data/01112026")
 OUT.mkdir(parents=True, exist_ok=True)
 
-WINDOW   = (40_000, 95_000)
-BASELINE = (40_000, 45_000)
-SPRING_RATE = 200.0
+window   = (40_000, 95_000)
+baseline = (40_000, 45_000)
+spring_rate = 200.0
 
 cols = [
     "Time_ms",
@@ -20,21 +20,19 @@ cols = [
 ]
 
 df = pl.read_parquet(PATH).select(cols).filter(
-    (pl.col("Time_ms") >= WINDOW[0]) & (pl.col("Time_ms") <= WINDOW[1])
+    (pl.col("Time_ms") >= window[0]) & (pl.col("Time_ms") <= window[1])
 )
 df = df.with_columns([pl.col(c).forward_fill() for c in cols if c != "Time_ms"]).drop_nulls()
 
-# downforce calc (FR + BR, doubled for axle totals)
-base = df.filter((pl.col("Time_ms") >= BASELINE[0]) & (pl.col("Time_ms") <= BASELINE[1]))
+base = df.filter((pl.col("Time_ms") >= baseline[0]) & (pl.col("Time_ms") <= baseline[1]))
 fr_base = float(base["TPERIPH_FR_DATA_SUSTRAVEL"].median())
 br_base = float(base["TPERIPH_BR_DATA_SUSTRAVEL"].median())
 df = df.with_columns([
-    ((pl.col("TPERIPH_FR_DATA_SUSTRAVEL") - fr_base) / 25.4 * SPRING_RATE * 2).alias("FRONT_LB"),
-    ((pl.col("TPERIPH_BR_DATA_SUSTRAVEL") - br_base) / 25.4 * SPRING_RATE * 2).alias("REAR_LB"),
+    ((pl.col("TPERIPH_FR_DATA_SUSTRAVEL") - fr_base) / 25.4 * spring_rate * 2).alias("FRONT_LB"),
+    ((pl.col("TPERIPH_BR_DATA_SUSTRAVEL") - br_base) / 25.4 * spring_rate * 2).alias("REAR_LB"),
 ])
 df = df.with_columns((pl.col("FRONT_LB") + pl.col("REAR_LB")).alias("TOTAL_LB"))
 
-# plot: load, longitudinal g, brake, throttle
 t = df["Time_ms"].to_numpy() / 1000
 fig, axes = plt.subplots(4, 1, figsize=(14, 9), sharex=True)
 
