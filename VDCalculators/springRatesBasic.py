@@ -20,20 +20,20 @@ motionRatioF = 1.006
 motionRatioR = 1.004
 multiplier = 0.00571015 #n/m -> lbf/in
 masterAy= 1.7
-masterV = 30
+masterV = 40
 TRG = 0.01524409115   # target roll gradient in rad/g
 print("TRG = ", TRG)
 
-# CFD data at 20 m/s converted to F = c * v^2 coefficients.
-REF_V_MPS = 20.0
+# No-aero baseline: zero aero downforce and drag across all components.
+REF_V_MPS = 40.0
 REF_V2 = REF_V_MPS**2
-DF_FRONT_WING_C = 445.0 / REF_V2
-DF_REAR_WING_C = 327.0 / REF_V2
-DF_FLOOR_BODY_C = 150.0 / REF_V2
+DF_FRONT_WING_C = 0.0
+DF_REAR_WING_C = 0.0
+DF_FLOOR_BODY_C = 0.0
 
-DRAG_FRONT_WING_C = 100.0 / REF_V2
-DRAG_REAR_WING_C = 126.0 / REF_V2
-DRAG_FLOOR_BODY_C = 130.0 / REF_V2
+DRAG_FRONT_WING_C = 0.0
+DRAG_REAR_WING_C = 0.0
+DRAG_FLOOR_BODY_C = 0.0
 
 ROLL_CENTER_IN = np.array([0.0, -21.685, 2.879])
 PITCH_CENTER_IN = np.array([0.0, 13.913, 5.970])
@@ -51,6 +51,7 @@ BODY_POINTS_IN = {
 
 SWEEP_AY_G = np.linspace(-2.5, 2.5, 81)
 SWEEP_AX_G = np.linspace(-2.0, 2.0, 81)
+TRAVEL_SWEEP_AY_G = np.linspace(0.0, 2.5, 81)
 ###     Aero Loads (N)  ###
 
 
@@ -170,7 +171,10 @@ def roll_and_pitch_gradients(v, ay, ax, frontKS, rearKS):
     theta = M_pitch / Ktheta
     pitch_gradient = np.degrees(theta / ax)
 
-    return roll_gradient, pitch_gradient
+    spring_travel_front = (frontAW / 2.0) / frontKW / motionRatioF
+    spring_travel_rear = (rearAW / 2.0) / rearKW / motionRatioR
+
+    return roll_gradient, pitch_gradient, spring_travel_front, spring_travel_rear
 
 def aero_load_model(v, truncate_to_CG=True):
     """
@@ -296,7 +300,7 @@ def transform_point(point, roll_rad, pitch_rad, order):
         return rotate_about_x(after_pitch, ROLL_CENTER_IN, roll_rad)
     raise ValueError(f"Unknown rotation order: {order}")
 
-def sweep_cornering_ground_clearance(roll_gradient_deg_per_g, pitch_gradient_deg_per_g):
+def sweep_cornering_ground_clearance(roll_gradient_deg_per_g, pitch_gradient_deg_per_g, spring_travel_front, spring_travel_rear):
     points = make_sweep_points(include_mirror=True)
     rows = []
 
@@ -391,6 +395,76 @@ def spring_displacement_model(v, ay, ax, frontKS, rearKS, truncate_to_CG=True):
     rear_spring_disp  = rear_wheel_disp  / motionRatioR
 
     return front_spring_disp, rear_spring_disp
+
+
+def sweep_cornering_spring_travel(roll_gradient_deg_per_g, front_static_travel_m, rear_static_travel_m):
+    rows = []
+
+    for ay_g in TRAVEL_SWEEP_AY_G:
+        roll_deg = roll_gradient_deg_per_g * ay_g
+        roll_rad = np.deg2rad(roll_deg)
+
+        front_delta_m = abs(roll_rad) * (trackWidth / 2.0) / motionRatioF
+        rear_delta_m = abs(roll_rad) * (trackWidth / 2.0) / motionRatioR
+
+        front_outside_m = front_static_travel_m + front_delta_m
+        front_inside_m = max(0.0, front_static_travel_m - front_delta_m)
+        rear_outside_m = rear_static_travel_m + rear_delta_m
+        rear_inside_m = max(0.0, rear_static_travel_m - rear_delta_m)
+
+        rows.append({
+            "ay_g": float(ay_g),
+            "roll_deg": float(roll_deg),
+            "front_static_mm": float(front_static_travel_m * 1000.0),
+            "rear_static_mm": float(rear_static_travel_m * 1000.0),
+            "front_outside_mm": float(front_outside_m * 1000.0),
+            "front_inside_mm": float(front_inside_m * 1000.0),
+            "rear_outside_mm": float(rear_outside_m * 1000.0),
+            "rear_inside_mm": float(rear_inside_m * 1000.0),
+            "front_delta_mm": float(front_delta_m * 1000.0),
+            "rear_delta_mm": float(rear_delta_m * 1000.0),
+        })
+
+    return rows
+
+
+def plot_spring_travel_sweep(rows):
+    ay_g = [row["ay_g"] for row in rows]
+    front_outside = [row["front_outside_mm"] for row in rows]
+    rear_outside = [row["rear_outside_mm"] for row in rows]
+    front_inside = [row["front_inside_mm"] for row in rows]
+    rear_inside = [row["rear_inside_mm"] for row in rows]
+
+    plt.figure()
+    plt.plot(ay_g, front_outside, label="Front outside")
+    plt.plot(ay_g, rear_outside, label="Rear outside")
+    plt.plot(ay_g, front_inside, linestyle="--", label="Front inside")
+    plt.plot(ay_g, rear_inside, linestyle="--", label="Rear inside")
+    plt.xlabel("Lateral Acceleration (g)")
+    plt.ylabel("Spring Travel (mm)")
+    plt.title("Spring Travel vs Lateral Acceleration")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_scrape_map(rows, output_path="cornering_scrape_map.png"):
+    ax_vals = np.array([row["ax_g"] for row in rows], dtype=float)
+    ay_vals = np.array([row["ay_g"] for row in rows], dtype=float)
+    scrape = np.array([bool(row["touches_ground"]) for row in rows], dtype=bool)
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(ax_vals[~scrape], ay_vals[~scrape], s=22, c="blue", alpha=0.8, label="No scrape")
+    plt.scatter(ax_vals[scrape], ay_vals[scrape], s=22, c="red", alpha=0.85, label="Scrapes")
+    plt.xlabel("Longitudinal Acceleration (g)")
+    plt.ylabel("Lateral Acceleration (g)")
+    plt.title("Ground Scrape Map")
+    plt.grid(True, alpha=0.35)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=220)
+    plt.show()
 
 
 
@@ -520,22 +594,35 @@ print("Rear Spring Rate (N/m):", rearKS)
 print("Front Spring Rate (lbf/in):", frontKS * multiplier)
 print("Rear Spring Rate (lbf/in):", rearKS * multiplier)
 print()
-roll_gradient = roll_and_pitch_gradients(30, 1, 1, frontKS, rearKS)[0]
-pitch_gradient = roll_and_pitch_gradients(30, 1, 1, frontKS, rearKS)[1]
+roll_gradient, pitch_gradient, spring_travel_front, spring_travel_rear = roll_and_pitch_gradients(30, 1, 1, frontKS, rearKS)
 print("roll gradient:", roll_gradient*0.0174533, "rads/g")
 print(roll_gradient)
 print("pitch gradient:", pitch_gradient*0.0174533, "rads/g")
 print(pitch_gradient)
 
-corner_sweep = sweep_cornering_ground_clearance(roll_gradient, pitch_gradient)
+corner_sweep = sweep_cornering_ground_clearance(roll_gradient, pitch_gradient, spring_travel_front, spring_travel_rear)
 out_csv = "cornering_ground_clearance_sweep.csv"
 with open(out_csv, "w", newline="") as f:
     writer = csv.DictWriter(f, fieldnames=list(corner_sweep[0].keys()))
     writer.writeheader()
     writer.writerows(corner_sweep)
 
+scrape_map_png = "cornering_scrape_map.png"
+plot_scrape_map(corner_sweep, scrape_map_png)
+
+travel_sweep = sweep_cornering_spring_travel(roll_gradient, spring_travel_front, spring_travel_rear)
+travel_csv = "cornering_spring_travel_sweep.csv"
+with open(travel_csv, "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=list(travel_sweep[0].keys()))
+    writer.writeheader()
+    writer.writerows(travel_sweep)
+
+plot_spring_travel_sweep(travel_sweep)
+
 worst_case = min(corner_sweep, key=lambda row: row["worst_clearance_in"])
 touching_cases = [row for row in corner_sweep if row["touches_ground"]]
+max_front_travel = max(travel_sweep, key=lambda row: row["front_outside_mm"])
+max_rear_travel = max(travel_sweep, key=lambda row: row["rear_outside_mm"])
 
 print()
 print("Cornering sweep summary")
@@ -547,6 +634,14 @@ print("Worst-case load case:", f"ay={worst_case['ay_g']:.3f} g", f"ax={worst_cas
 print("Worst-case point:", worst_case["worst_point"], "under", worst_case["worst_order"])
 print("Touches ground:", "yes" if touching_cases else "no")
 print("Saved sweep results to", os.path.abspath(out_csv))
+print("Saved scrape map to", os.path.abspath(scrape_map_png))
+print()
+print("Spring travel sweep summary")
+print("Saved spring travel results to", os.path.abspath(travel_csv))
+print("Front static spring travel:", f"{spring_travel_front * 1000.0:.2f} mm")
+print("Rear static spring travel:", f"{spring_travel_rear * 1000.0:.2f} mm")
+print("Max front outside travel:", f"{max_front_travel['front_outside_mm']:.2f} mm", f"@ {max_front_travel['ay_g']:.2f} g")
+print("Max rear outside travel:", f"{max_rear_travel['rear_outside_mm']:.2f} mm", f"@ {max_rear_travel['ay_g']:.2f} g")
 
 output = {
     "frontKS": frontKS,
