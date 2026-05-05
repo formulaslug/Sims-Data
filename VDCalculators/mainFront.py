@@ -15,40 +15,40 @@ def main():
     # Wheel_Center
     # Y point of wc should be track width / 2
     # Wheel_Center
-    wc = Point([959.168,	607.085, 154.086])
+    wc = Point([-563.56, 640.07, 147.8])
     # Lower Wishbone
-    lfi = Point([813.904,	    241.972,	97.37]) # Lower_Fore_Inner
-    lai = Point([909.274,	    225.761,	101.434]) # Lower_Aft_Inner
-    lo  = Point([973.138,	    609.294,	69.693]) # Lower_Upright_Point
+    lfi = Point([-681.97, 194.05, 67.13]) # Lower_Fore_Inner
+    lai = Point([-422.52, 209.35, 77.12]) # Lower_Aft_Inner
+    lo  = Point([-571.56, 613.24, 56.36]) # Lower_Upright_Point
     # Upper Wishbone
-    ufi = Point([793.236,	    265.679,	220.497]) # Upper_Fore_Inner
-    uai = Point([909.615,	248.855,	238.879]) # Upper_Aft_Inner
-    uo  = Point([973.138,	    604.875,	238.479]) # Upper_Upright_Point
+    ufi = Point([-669.66, 260.29, 242.13]) # Upper_Fore_Inner
+    uai = Point([-410.04, 260.57, 219.32]) # Upper_Aft_Inner
+    uo  = Point([-555.34, 610.41, 241.78]) # Upper_Upright_Point
     # Tie Rod or Steering Rod
-    tri = Point([795.613, 248.764, 106.0]) # Tie_Rod_Inner
-    tro = Point([909.638, 608.962, 82.388]) # Tie_Rod_Outer
+    tri = Point([-633.98, 208.04, 110.55]) # Tie_Rod_Inner
+    tro = Point([-625.56, 643.14, 116.5]) # Tie_Rod_Outer
     
     unit = "mm"  # used in graph axis labels, not used in code (yet...)
 
     # Pushrod or Pullrod Points
     # The P-rod inner point is the outboard (usually) point of the rocker/bellcrank
-    pri = Point([ 949.673, 540.450  ,  237.037 ]) #we might need to swrap pri/pro (outer and inner confusion)
-    pro = Point([ 860.930, 224.522,  60.001])
+    pri = Point([-570.43, 574.94, 75.73]) #we might need to swrap pri/pro (outer and inner confusion)
+    pro = Point([-511.46, 348.48, 314.31])
     
     # Rocker Center of Rotation
-    rkr = Point([ 857.363  , 211.029     ,  70.890])
+    rkr = Point([-539.85, 260.43, 230.73])
     
     # Shock Pickup Points (upper, lower)
     # The shock upper point is the inner (usually) point of the rocker/bellcrank
-    sku = Point([ 869.757     , 255.461     ,  88.567])
-    skl = Point([ 868.629     , 243.776     ,  260.166])
+    sku = Point([-501.79, 351.57, 402.55])
+    skl = Point([-472.9, 208.8, 493.31])
 
     """ Suspension Setup """
     # Full jounce and rebound mark the bounds for the solver
     # if they are too large, and cannot be achieved with your linkage system
     # the code will not throw an error but will either not finish solving or give erroneous results
-    full_jounce = 25
-    full_rebound = -25
+    full_jounce = 40
+    full_rebound = -17
     
     # toe, camber and caster are used for static offsets on the graphs
     # these will not affect the solver
@@ -76,7 +76,7 @@ def main():
     # number of steps in each direction, so a value of 10 will yield 20 datapoints
     # algorithm runs fast enough that its fine to use 1000+, but 100 is just as accurate
     # and it will result in a comprehensible amount of data
-    num_steps = 100
+    num_steps = 10
     
     kin.solve(
         steps=num_steps,
@@ -97,7 +97,7 @@ def main():
     kin.plot(
         suspension=True,  # Visualize the corner
         
-        bump_steer=True,  # Bump Steer vs vertical travel
+        bump_steer=False,  # Bump Steer vs vertical travel
         bump_steer_in_deg=False,  # Sets y-axis of bump steer plot to roll angle in deg
 
         camber_gain=False,  # Camber Gain vs vertical travel
@@ -109,7 +109,7 @@ def main():
         scrub_gain = False, # Scrub change plot
         scrub_gain_in_deg = False,    # Sets y-axis of scrub gain plot to roll angle in deg
 
-        roll_center_in_roll=False,  # Path of roll center as the car rolls
+        roll_center_in_roll=True,  # Path of roll center as the car rolls
         
         motion_ratio=False, # Motion Ratio vs vertical travel
         motion_ratio_in_deg=False # Sets y-axis of motion ratio plot to roll angle in deg
