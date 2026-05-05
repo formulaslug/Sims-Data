@@ -215,6 +215,9 @@ print(f"\nSampled to {len(sampled):,} rows (max {MAX_ROWS})")
 print(f"  Positive: {int((sampled['Label']==1).sum()):,}  |  Negative: {int((sampled['Label']==0).sum()):,}")
 
 # ─── Build feature matrix ─────────────────────────────────────────────────────
+# IMPORTANT: Label is in META_COLS and is dropped here (it's metadata, not a feature).
+# The model sees only actual signals (Speed, Throttle, Current, Voltage, etc.).
+# Label is extracted separately as the target (y) below, never as a feature.
 all_drops = set(META_COLS + DROP_COLS)
 feature_df = sampled.drop(*[c for c in all_drops if c in sampled.columns])
 feature_df = (
@@ -224,8 +227,8 @@ feature_df = (
 )
 
 # Align columns to what the model was trained on
-X = feature_df.to_pandas()
-y = sampled["Label"].to_pandas()
+X = feature_df.to_pandas()  # Features only (no Label)
+y = sampled["Label"].to_pandas()  # Target (what we're predicting)
 
 # Add any missing columns the model expects (filled with 0)
 for col in feature_cols:
@@ -295,14 +298,87 @@ print(f"Saved: explainer_{ACTIVE_SCENARIO}.joblib")
 
 print(f"\nLaunching dashboard at http://127.0.0.1:8050")
 print(f"Scenario: '{ACTIVE_SCENARIO}'  |  {len(X)} rows  |  {int((y==1).sum())} fault / {int((y==0).sum())} baseline")
-print("─" * 65)
-print("TIPS:")
-print("  Feature Importance tab  — which signals matter most overall")
-print("  SHAP Summary tab        — direction: red=high value, blue=low")
-print("  SHAP Dependence tab     — pick 'voltage_drop_connection' to find threshold")
-print("  Individual Predictions  — pick a row at time_to_fault ≈ -10s to see buildup")
-print("  What-If tab             — manually adjust signal values, watch prediction change")
-print("─" * 65)
+print("─" * 100)
+print("HOW TO USE THE EXPLAINER DASHBOARD:")
+print("─" * 100)
+print("""
+1. FEATURE IMPORTANCE TAB (Top bar chart)
+   What: Ranks all 241 signals by how much they help predict faults
+   Look for: Motor speed, throttle, torque demand at the top
+   Action: Hover over a bar to see the exact importance score
+   Key insight: If speed is #1 in all scenarios, it's definitely the cause
+
+2. SHAP SUMMARY TAB (Colorful beeswarm plot)
+   What: Shows each signal's impact on predictions (red=fault, blue=normal)
+   X-axis: How much impact (left=pushes toward normal, right=pushes toward fault)
+   Y-axis: All 241 signals (top = most important)
+   Color: Red dot = high value, Blue dot = low value
+   Action: Look at motor speed row — you should see red dots clustered far right
+   Key insight: Motor speed = 1800 RPM (red, far right) → pushes toward "fault"
+                Motor speed = 100 RPM (blue, far left) → pushes toward "normal"
+
+3. SHAP DEPENDENCE TAB (Scatter plot)
+   What: Pick ONE signal, see how it relates to fault predictions
+   X-axis: Signal value (e.g., 0-2000 RPM for motor speed)
+   Y-axis: Impact on prediction (how much it pushes toward fault)
+   Color: Red = actual fault events, Blue = baseline events
+   Best signals to check:
+     - SME_TRQSPD_Speed (should show red dots at high values)
+     - ETC_STATUS_HE2 (throttle, should show red dots at high values)
+     - voltage_drop_connection (should show red dots at LOW values, proving it's not the cause)
+     - est_resistance_mohm (should show red dots at LOW values)
+   Action: If all red dots are on the right side → that signal predicts faults
+           If red and blue dots are mixed → that signal doesn't predict faults
+
+4. INDIVIDUAL PREDICTIONS TAB (Data table)
+   What: Shows actual data rows with predictions and explanations
+   Columns: All 241 signals + prediction ("Fault" or "Normal") + confidence
+   Action: Click on a row where Label=1 (imminent fault) and time_to_fault ≈ -3 to -5 seconds
+           Then click "Force Plot" button to see which signals pushed the prediction
+   Example: A row with Speed=1800, Throttle=900, Current=5.5, VDrop=0
+            Should be predicted as "Fault" with high confidence
+
+5. FORCE PLOT (Inside Individual Predictions)
+   What: Shows a waterfall chart of why one specific prediction was made
+   Red bars: Signals that pushed toward "fault"
+   Blue bars: Signals that pushed toward "normal"
+   Baseline: The starting prediction (50/50) before considering any signals
+   Action: Click a fault row, see motor speed dominate the red (fault) side
+   Key insight: Visual proof that speed is the main decision factor
+
+6. WHAT-IF TAB (Interactive simulator)
+   What: Pick a row, then manually change signal values and watch prediction change
+   Action: Pick a fault row, then:
+           - Change motor speed from 1800 to 500 → prediction should shift toward "normal"
+           - Change voltage drop from 0 to 20 → prediction might not change much (proves it's not the cause)
+           - Change throttle from 900 to 200 → prediction should shift toward "normal"
+   Key insight: This proves which signals actually matter for the prediction
+
+7. CONFUSION MATRIX TAB
+   What: Shows how many faults the model correctly predicted vs. missed
+   Look for: High diagonal values (correct predictions)
+   Action: Confirms the model is good at identifying faults
+
+8. SHAP INTERACTION TAB (Advanced)
+   What: Shows when two signals together predict faults better than alone
+   Example: Speed=1800 AND Throttle=900 might be the real trigger
+            But Speed=1800 with Throttle=100 might not cause a fault
+   Action: Useful if you suspect the fault requires multiple conditions
+""")
+print("─" * 100)
+print("RECOMMENDED WORKFLOW:")
+print("─" * 100)
+print("""
+STEP 1: Check Feature Importance (verify speed is #1)
+STEP 2: Check SHAP Summary for motor speed (red dots should be far right)
+STEP 3: Check SHAP Dependence for voltage_drop_connection (red dots should be on LEFT, not right)
+STEP 4: Click an actual fault row (Label=1) in Individual Predictions
+STEP 5: View the Force Plot (see speed dominating the decision)
+STEP 6: Use What-If tab (manually drop motor speed, see prediction change to "normal")
+
+This workflow proves: "Speed causes the fault, not connection resistance"
+""")
+print("─" * 100)
 
 db = ExplainerDashboard(explainer)
 db.run(host="127.0.0.1", port=8050, use_waitress=True)
