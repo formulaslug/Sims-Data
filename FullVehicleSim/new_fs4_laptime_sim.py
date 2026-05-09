@@ -5,9 +5,9 @@ import math
 import copy
 import numpy as np
 
-from sim.state import VehicleState
-from sim.engine import stepState
-from sim.ramen import Parameters, Magic
+from state import VehicleState
+from engine import stepState
+from ramen import Parameters, Magic
 
 
 def cloneVehicle(vehicle):
