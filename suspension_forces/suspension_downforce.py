@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import os
 
 damper_params = {
-    "FL": (5,    3,    2,    1.5),
-    "FR": (5,    3.33, 1,    3.33),
-    "BL": (7,    3,    3,    3),
-    "BR": (7,    2.66, 3.33, 3),
+    "FL": (5, 3, 2,1.5),
+    "FR": (5,3.33, 1,3.33),
+    "BL": (7,3,3,3),
+    "BR": (7,2.66, 3.33, 3),
 }
 
 
@@ -20,7 +20,7 @@ preload_lb = {
     "BR": 0.0,
 }
 
-spring_rate = 200  # lbs per in
+## spring_rate = 200  # lbs per in
 
 ##luca's code basically imported
 highspeed_curves = pl.read_csv('12-12-highspeed.csv')
