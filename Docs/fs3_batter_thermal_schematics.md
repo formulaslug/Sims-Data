@@ -38,12 +38,31 @@ Arrows indicate **modeled heat flow directions** in the thermal circuit—not ne
 3. **Battery_case → AIR (single-headed arrows from case to the side AIR blocks)**  
    Large arrows from the **vertical sides** of the **Battery_case** to **AIR** represent **heat rejection** from the pack shell to the ambient at the sides—typically **convection** (and any explicit **radiation** if folded into the same coefficient). This is where pack heat leaves to the environment in this topology.
 
+### Airflow and airflow modeling
+
+The schematic does **not** draw velocity fields, ducts, or fan blades. **Airflow** here means how moving air changes **heat transfer**—not a separate fluid simulation inside this lumped network.
+
+In practice there are two related roles for air:
+
+1. **External (case → AIR)** — Air on the **left and right** of the enclosure carries heat away from the case surface. With little or no vehicle speed, this is mostly **natural convection**; at speed, **ram air** can increase the effective heat transfer to the side **AIR** nodes (sometimes folded into the same \(h\) or an added term).
+
+2. **Internal (fans)** — Accumulator fans push air through the cell stack (segment-to-segment along the air path). That is **forced convection** over cell and segment surfaces. In a lumped model this usually appears as **stronger coupling** between cells and/or a **higher effective \(h\)** on cooling paths—not as a mesh of air temperatures.
+
+**How airflow is modeled** in this style of thermal network:
+
+- Convection is written as **Newton cooling**: heat flow scales with surface area, temperature difference, and a coefficient \(h\) (see [BatteryThermal.md](../Data/BatteryThermalModel/BatteryThermal.md) for enclosure-to-air and fan-related forms).
+- **Fan command** (e.g. `Fans:Value` / fan %) enters as a **parameter on \(h\)** (or on an equivalent thermal conductance): \(h = h_0 + f(\text{fan\%})\), fit from logs such as 0% vs 100% fan runs at known ambient temperature.
+- **No CFD in the schematic**: mass flow, pressure drop, and duct geometry are not solved node-by-node; they are **collapsed** into \(h\), conductances, and optionally separate internal vs external resistances if the full sim needs them.
+
+If the detailed model adds **intra-cell convection** (fan cooling between cells), that may show up as extra links or as a fan-dependent term on cell temperatures even when the figure only highlights **case → AIR** to the sides. The arrows in the diagram remain the **thermal circuit**; airflow modeling chooses the **numbers** on those convection links.
+
 ### Summary
 
 | Path | Typical meaning |
 |------|------------------|
 | Cell ↔ cell | Conduction / in-pack coupling between neighboring cells |
 | Cell → case | Conduction from cell stack to inner surface of the housing |
-| Case → air | Convection (± radiation) from outer case to ambient |
+| Case → air | Convection (± radiation) from outer case to ambient; \(h\) may depend on fan % and ram air |
+| (implicit) Fan-driven cooling | Forced convection inside the stack; often modeled via \(h(\text{fan\%})\) or extra cell coupling, not drawn as AIR nodes |
 
 Together, these paths define how heat generated in each cell propagates **laterally and vertically through the stack**, then **out through the case** to **air** on the sides—matching the structure shown in the schematic.
