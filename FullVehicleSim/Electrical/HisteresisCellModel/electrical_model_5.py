@@ -4,25 +4,40 @@ matplotlib.use("MacOSX")
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import scipy.io
 
-PARQUET_PATH = "/Users/evajain/Downloads/08102025Endurance1_FirstHalf (1).parquet"
-df = pd.read_parquet(PARQUET_PATH)
+MAT_PATH = "/Users/evajain/Downloads/Molicel_INR18650P30B_241c01110_simulation.mat"
 
-current_profile = df["SME_TEMP_BusCurrent"].to_numpy(dtype=float)
-meas_cell_voltage = df["ACC_POWER_PACK_VOLTAGE"].to_numpy(dtype=float) / 30.0
+mat = scipy.io.loadmat(MAT_PATH, squeeze_me=True, struct_as_record=False)
+simulation = mat["simulation"]
 
-print("Loaded current samples:", len(current_profile))
+experiment = simulation.fu.PRO[0]
 
-dt = 0.01
-initial_SOC = 0.7
-target_end_SOC = 0.25
+current_profile = np.array(experiment.I, dtype=float)
+meas_cell_voltage = np.array(experiment.V, dtype=float)
+time = np.array(experiment.t, dtype=float)
 
-I_dis = np.clip(current_profile, 0, None)
+dt = float(np.mean(np.diff(time)))
+
+print("Loaded samples:", len(current_profile))
+print("dt:", dt)
+print("Experiment name:", experiment.name)
+
+
+
+initial_SOC = 1
+target_end_SOC = 0
+
+I_dis = np.clip(-current_profile, 0, None)
 total_discharge_Ah = np.sum(I_dis) * dt / 3600.0
-required_capacity = total_discharge_Ah / (initial_SOC - target_end_SOC)
+
+if total_discharge_Ah == 0:
+    required_capacity = 3.0
+else:
+    required_capacity = total_discharge_Ah / (initial_SOC - target_end_SOC)
 
 print("Total Discharge Ah:", total_discharge_Ah)
-print("Required pack capacity to end at 0.3:", required_capacity)
+print("Required capacity Ah:", required_capacity)
 
 R = 8.31446261815324
 F = 96485.33212
@@ -33,70 +48,79 @@ C2 = 6.96148085
 C3 = 0.05243311
 C4 = 0.01567795
 
-R0 = 0.0016
-KERNEL_LEN = 120
+# Tuned: original 0.0016 was ~20x too small for the observed voltage swings
+R0 = 0.035
+KERNEL_LEN = 200
 
 
 def ocv_from_soc(soc, T_K=298.15):
     eps = 1e-9
     soc_shift = soc - (0.1 ** 3)
-
     denom = np.clip(1.0 - soc_shift + C4, eps, None)
     numer = np.clip(C1 * soc_shift + C3, eps, None)
-
     log_term = np.log(numer / denom)
-
     return V0 + (C2 * (R * T_K / F) * log_term)
 
 
+# ============================================================
+# SOC TRACKING
+# ============================================================
 
 soc = initial_SOC
 soc_log = []
 
 for I in current_profile:
-    soc -= (I * dt) / (3600.0 * required_capacity)
+    soc += (I * dt) / (3600.0 * required_capacity)
     soc = float(np.clip(soc, 0.0, 1.0))
     soc_log.append(soc)
 
 soc_log = np.array(soc_log, dtype=float)
 print("Final SOC:", soc_log[-1])
 
+# ============================================================
+# BASE VOLTAGE MODEL
+# ============================================================
 
 ocv_log = np.array([ocv_from_soc(s) for s in soc_log], dtype=float)
-base_model = ocv_log - (R0 * current_profile)
+base_model = ocv_log + (R0 * current_profile)
 residual_target = meas_cell_voltage - base_model
 
+
 N = len(current_profile)
-X = np.zeros((N, KERNEL_LEN + 1), dtype=float)
 
-X[:, 0] = 1.0
+X_kern = np.zeros((N, KERNEL_LEN), dtype=float)
+for k in range(KERNEL_LEN):
+    if k == 0:
+        X_kern[:, k] = current_profile
+    else:
+        X_kern[k:, k] = current_profile[:-k]
 
-for t in range(N):
-    for k in range(KERNEL_LEN):
-        idx = t - k
-        if idx >= 0:
-            X[t, k + 1] = current_profile[idx]
+X = np.hstack([np.ones((N, 1)), X_kern])
 
-mask = np.abs(current_profile) > 2.0
-X_fit = X[mask]
-y_fit = residual_target[mask]
+# Weight by current magnitude; use ALL samples
+I_abs = np.abs(current_profile)
+max_current = np.max(I_abs) if np.max(I_abs) > 0 else 1.0
+weights = 1.0 + 5.0 * (I_abs / max_current)
 
-weights = 1.0 + 3.0 * (np.abs(current_profile[mask]) / np.max(np.abs(current_profile)))
-W = np.sqrt(weights)[:, None]
+W = np.sqrt(weights)
+Xw = X * W[:, None]
+yw = residual_target * W
 
-Xw = X_fit * W
-yw = y_fit * W[:, 0]
-
-lam = 1e-4
+lam = 1e-3
 A = Xw.T @ Xw + lam * np.eye(KERNEL_LEN + 1)
-b = Xw.T @ yw
-params = np.linalg.solve(A, b)
+b_vec = Xw.T @ yw
+
+params = np.linalg.solve(A, b_vec)
 
 bias_term = params[0]
 learned_kernel = params[1:]
 
 print("Bias term:", bias_term)
 print("Learned kernel length:", len(learned_kernel))
+
+# ============================================================
+# SAVE KERNEL
+# ============================================================
 
 kernel_df = pd.DataFrame({
     "kernel_index": np.arange(len(learned_kernel)),
@@ -105,42 +129,41 @@ kernel_df = pd.DataFrame({
 kernel_df.to_csv("trained_voltage_kernel.csv", index=False)
 print("Saved trained kernel to trained_voltage_kernel.csv")
 
+# ============================================================
+# MODEL CLASS
+# ============================================================
+
 
 class AccumulatorVoltageModel:
     def __init__(self, dt, capacity_Ah, initial_soc, kernel, bias):
         self.dt = float(dt)
         self.capacity_Ah = float(capacity_Ah)
         self.SOC = float(initial_soc)
-
         self.kernel = np.array(kernel, dtype=float)
         self.bias = float(bias)
         self.I_hist = np.zeros(len(self.kernel), dtype=float)
 
     def ocv_from_soc(self, soc, T_K=298.15):
-        eps = 1e-9
-        soc_shift = soc - (0.1 ** 3)
-
-        denom = np.clip(1.0 - soc_shift + C4, eps, None)
-        numer = np.clip(C1 * soc_shift + C3, eps, None)
-
-        log_term = np.log(numer / denom)
-
-        return V0 + (C2 * (R * T_K / F) * log_term)
+        return ocv_from_soc(soc, T_K)
 
     def step(self, current, T_K=298.15):
         I = float(current)
 
-        self.SOC -= (I * self.dt) / (3600.0 * self.capacity_Ah)
+        self.SOC += (I * self.dt) / (3600.0 * self.capacity_Ah)
         self.SOC = float(np.clip(self.SOC, 0.0, 1.0))
 
-        self.I_hist[:-1] = self.I_hist[1:]
-        self.I_hist[-1] = I
+        # Newest current at index 0
+        self.I_hist = np.roll(self.I_hist, 1)
+        self.I_hist[0] = I
 
-        h = float(np.dot(self.kernel, self.I_hist[::-1]))
+        # kernel[k] * I[t-k], no reversed index needed
+        h = float(np.dot(self.kernel, self.I_hist))
         ocv = self.ocv_from_soc(self.SOC, T_K)
+        V_cell = ocv + (R0 * I) + self.bias + h
 
-        V_cell = ocv - (R0 * I) + self.bias + h
         return float(V_cell)
+
+
 
 
 model = AccumulatorVoltageModel(
@@ -164,18 +187,16 @@ voltage_log = np.array(voltage_log, dtype=float)
 soc_model_log = np.array(soc_model_log, dtype=float)
 I_hist_log = np.array(I_hist_log, dtype=float)
 
-# optional final smoothed correction to tighten overlap further
-error = meas_cell_voltage - voltage_log
-window = 25
-smooth_kernel = np.ones(window) / window
-error_smooth = np.convolve(error, smooth_kernel, mode="same")
-voltage_log = voltage_log + error_smooth
+# ============================================================
+# ERROR METRICS
+# ============================================================
 
 rmse = np.sqrt(np.mean((voltage_log - meas_cell_voltage) ** 2))
 mae = np.mean(np.abs(voltage_log - meas_cell_voltage))
 
-print("RMSE:", rmse)
-print("MAE:", mae)
+print(f"RMSE: {rmse:.4f} V")
+print(f"MAE:  {mae:.4f} V")
+
 
 plt.figure(figsize=(14, 10))
 
