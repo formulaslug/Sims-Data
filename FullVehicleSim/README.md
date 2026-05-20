@@ -23,7 +23,7 @@ If you want more information on the basis of some of these simulation parts, you
 
 <h3 id="pars"> Simulation Parameters </h3>
 
-This is a json input file with a bunch of inputs for the simulation. Unfortunately JSON doesn't support comments so the unit explanations have to go here. The file is [params.json](params.json). Tweak this for all the indepth constants and higher level stuff like step size and simulation duration.
+This is a json input file with a bunch of inputs for the simulation. json5 supports comments so stuff like units and other notes like options for certain fields live inside it! The file is [params.json5](params.json5). Tweak this for all the indepth constants and higher level stuff like step size and simulation duration.
 
 <h3 id="ctrls"> Simulation Controls </h3>
 
