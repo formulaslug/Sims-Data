@@ -89,7 +89,7 @@ def suspensionForce(position, velocity, params, preload):
     return force_lb
 
 ##changed ver of my code
-files = ["/workspaces/Sims-Data/fs-data/FS-3/03162026/2_steeper_regen_curve.parquet"]
+files = ["../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet"]
 window = (10_000, 35_000)
 out_root = "data"
 

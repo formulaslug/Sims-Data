@@ -2,7 +2,7 @@ import polars as pl
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-PATH = "/workspaces/Sims-Data/fs-data/FS-3/01112026/011026-1.parquet"
+PATH = "../fs-data/FS-3/01112026/011026-1.parquet"
 OUT = Path("data/01112026")
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -25,8 +25,8 @@ df = pl.read_parquet(PATH).select(cols).filter(
 df = df.with_columns([pl.col(c).forward_fill() for c in cols if c != "Time_ms"]).drop_nulls()
 
 base = df.filter((pl.col("Time_ms") >= baseline[0]) & (pl.col("Time_ms") <= baseline[1]))
-fr_base = float(base["TPERIPH_FR_DATA_SUSTRAVEL"].median())
-br_base = float(base["TPERIPH_BR_DATA_SUSTRAVEL"].median())
+fr_base = float(base["TPERIPH_FR_DATA_SUSTRAVEL"].median()) #type: ignore 
+br_base = float(base["TPERIPH_BR_DATA_SUSTRAVEL"].median()) #type: ignore
 df = df.with_columns([
     ((pl.col("TPERIPH_FR_DATA_SUSTRAVEL") - fr_base) / 25.4 * spring_rate * 2).alias("FRONT_LB"),
     ((pl.col("TPERIPH_BR_DATA_SUSTRAVEL") - br_base) / 25.4 * spring_rate * 2).alias("REAR_LB"),

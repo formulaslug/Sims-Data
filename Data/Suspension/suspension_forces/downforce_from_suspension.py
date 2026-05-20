@@ -6,7 +6,7 @@ from pathlib import Path
 # need to fill in real values before running
 
 DATA_DIR = Path("data")
-PARQUET_FILE = Path("/fs-data/FS-3/01112026/011026-1.parquet")
+PARQUET_FILE = Path("../fs-data/FS-3/01112026/011026-1.parquet")
 
 # Time window to analyze (milliseconds)
 TIME_MIN_MS = 40_000
@@ -103,7 +103,7 @@ def compute_baseline(df: pl.DataFrame) -> dict:
             "Check BASELINE_START_MS / BASELINE_END_MS."
         )
     return {
-        corner: float(baseline_df[TRAVEL_COLS[corner]].median())
+        corner: float(baseline_df[TRAVEL_COLS[corner]].median()) #type: ignore
         for corner in ["FL", "FR", "BL", "BR"]
     }
 
@@ -183,6 +183,17 @@ def add_corner_loads(df: pl.DataFrame) -> pl.DataFrame:
 # OUTPUT
 
 def save_summary(df: pl.DataFrame):
+    vals = [df["TOTAL_APPARENT_DOWNFORCE_LB"].mean(), df["TOTAL_APPARENT_DOWNFORCE_LB"].max(), df["TOTAL_APPARENT_DOWNFORCE_LB"].min(), df["TOTAL_APPARENT_DOWNFORCE_N"].mean(), df["FRONT_APPARENT_LOAD_LB"].mean(), df["REAR_APPARENT_LOAD_LB"].mean()]
+    valsNew = []
+    for i, val in enumerate(vals):
+        if val is None:
+            print(f"Warning: Value is None for index {i}. Setting to 0.0")
+            valsNew.append(0.0)
+        try: 
+            valsNew.append(float(val)) #type: ignore
+        except (ValueError):
+            print(f"Warning: Could not convert value to float: {val}. Setting to 0.0")
+            valsNew.append(0.0)
     summary = pl.DataFrame({
         "metric": [
             "mean_total_apparent_downforce_lb",
@@ -193,12 +204,12 @@ def save_summary(df: pl.DataFrame):
             "mean_rear_apparent_load_lb",
         ],
         "value": [
-            float(df["TOTAL_APPARENT_DOWNFORCE_LB"].mean()),
-            float(df["TOTAL_APPARENT_DOWNFORCE_LB"].max()),
-            float(df["TOTAL_APPARENT_DOWNFORCE_LB"].min()),
-            float(df["TOTAL_APPARENT_DOWNFORCE_N"].mean()),
-            float(df["FRONT_APPARENT_LOAD_LB"].mean()),
-            float(df["REAR_APPARENT_LOAD_LB"].mean()),
+            float(valsNew[0]),
+            float(valsNew[1]),
+            float(valsNew[2]),
+            float(valsNew[3]),
+            float(valsNew[4]),
+            float(valsNew[5]),
         ],
     })
     summary.write_csv(DATA_DIR / "downforce_summary.csv")
