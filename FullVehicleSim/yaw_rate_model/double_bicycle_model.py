@@ -274,7 +274,7 @@ class DoubleBicycleModel:
         )
 
         Fy_fl = -self.tire_fl.getLateralForce(worldArray, step)
-        Fy_fr = -self.tire_fl.getLateralForce(worldArray, step)
+        Fy_fr = -self.tire_fr.getLateralForce(worldArray, step)
         Fy_r = -self.tire_rear.getLateralForce(worldArray, step)
 
         # Account for both tires per axle
