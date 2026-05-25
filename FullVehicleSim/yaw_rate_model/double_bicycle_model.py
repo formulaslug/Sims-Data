@@ -14,7 +14,6 @@ import sys
 from paramLoader import *
 import math
 
-
 @dataclass
 class VehicleParameters:
     """Vehicle parameters from 2025 FSAE Design Spec Sheet (Car #216)"""
@@ -24,7 +23,7 @@ class VehicleParameters:
     Lf: float = 0.8535  # Calculated from 46.32% front weight distribution
     Lr: float = 0.7365  # Calculated from weight distribution
     track_width_front: float = 1.234008  # 1234.008 mm
-    track_width_rear: float = 1.186  # 1186 mm
+    track_width_rear: float = 1.186  # 1186 m
     track_width: float = 1.234008  # Using front track for compatibility
 
     # Mass properties (with driver)
@@ -145,11 +144,6 @@ class TireModel:
 
         Svy = self.magic["Svy"]
         return self.stdCurveSine(self.By, self.Cy, self.Dy, self.Ey, self.slipRatio) + Svy
-
-    # def getLateralB(self):
-    #     Kyalpha = self.magic["p_ky1"] * self.normDeltaLoadLat * (1 + self.magic["p_py1"] * self.normDeltaPressureLat) * (1 - self.magic["p_ky3"] * abs(math.sin(self.camber))) * math.sin(self.magic["p_ky4"] * math.atan(1/(self.magic["lambda_nominalload"] * (self.magic["p_ky2"] + self.magic["p_ky5"] * math.sin(self.camber)**2) * (1+ self.magic["p_py2"] * self.normDeltaPressureLat) ) )) * self.magic["zeta3"] * self.magic["lambda_kyalpha"]
-    #     By = Kyalpha / (self.Cy * self.Dy + self.magic["epsilon_y"])
-    #     return By
     
     def getLateralCoefficientOfFriction(self):
         return (self.magic["p_dy1"] + self.magic["p_dy2"] * self.normDeltaLoadLat) * (1 + self.magic["p_py3"] * self.normDeltaPressureLat + self.magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - self.magic["p_dy3"] * math.sin(self.camber) ** 2) * self.magic["lambda_coeffscalary"]
@@ -167,10 +161,6 @@ class TireModel:
     def stdCurveSine(self, Bx, Cx, Dx, Ex, slip):
         BxSlip = Bx * slip
         return Dx * math.sin( Cx * math.atan( BxSlip - Ex * (BxSlip - math.atan(BxSlip) ) ) )
-
-    #def trainStdCurveSine(self, Bx, Cx, Dx, Ex, slip):
-    #    BxSlip = Bx * slip
-    #    return Dx * torch.sin( Cx * torch.atan( BxSlip - Ex * (BxSlip - torch.atan(BxSlip) ) ) )
 
     def normalizeLoadLong(self):
         return (self.normalForce - self.magic["lambda_loadscalarlong"] * self.normalForce) / (self.magic["lambda_loadscalarlong"] * self.normalForce)
@@ -217,18 +207,59 @@ class DoubleBicycleModel:
 
         return alpha_f, alpha_r
     
+    def rackMovement(self, wheelInput: float): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
+
+        rackShift: float = Parameters['rackRatio']*wheelInput # wheelInput
+        return rackShift
+
+    def calculateAckermann(self, wheelInput: float): #calculates the steer angles of both wheels
+
+        l1Left = (0.5*(Parameters["tw"]-Parameters["l_rack"])) - self.rackMovement(wheelInput) #l1 is the instantaneous parallel distance from the rack knuckle to steering axis (KPA). 
+        l1Right = (0.5*(Parameters["tw"]-Parameters["l_rack"])) + self.rackMovement(wheelInput)
+        l_nought = (0.5*(Parameters["tw"]-Parameters["l_rack"]))
+        beta_nought = self.betaTrigSolver(l_nought) #used to find the initial "beta" geometry to determine the real steer angle at the wheels
+
+        beta_L = self.betaTrigSolver(l1Left) - beta_nought #additionally, because there is a static "beta" (simply just arm geometry), we must find the difference to find the actual wheel angles
+        beta_R = self.betaTrigSolver(l1Right) - beta_nought
+        
+        return beta_L, beta_R
+        #return beta_nought, betaTrigSolver(l1Left), betaTrigSolver(l1Right)
+        
+    def betaTrigSolver(self, l1): #a separate function to solve the big bad trig equation
+        l2 = np.sqrt((l1**2) + (Parameters["d"]**2)) #l2 is the instantaneous direct distance from rack knuckle to steering axis (KPA)
+        atan = np.arctan(Parameters["d"]/l1) #first term of the "beta" equation
+
+        num = (Parameters["l_arm"]**2) + (l2**2) - (Parameters["l_rod"]**2) #just simplifying the calculation of the second term 
+        denom = 2*Parameters["l_arm"]*l2
+        frac = num/denom
+        acos = np.arccos(frac)
+        beta = (np.pi/2) - atan - acos
+        return beta
+        #return frac
+
     def dynamics(self, state: np.ndarray, v_x: float, delta: float,
                  worldArray: np.ndarray, step:int, ax: float = 0.0) -> np.ndarray:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
-        alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta)
+        alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta) # old way of getting slip angles
 
-        self.tire_front = TireModel(
+        delta_fl, delta_fr = self.calculateAckermann(wheelInput=delta)
+
+        self.tire_fl = TireModel(
             temperature=Parameters['ambientTemperature'], 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
-            slipAngle=alpha_f,
+            slipAngle=delta_fl,
+            axle="front",
+            params=params
+        )
+
+        self.tire_fr = TireModel( 
+            temperature=Parameters['ambientTemperature'], 
+            mechanicalParams=Parameters, 
+            magicParams=Magic, 
+            slipAngle=delta_fr,
             axle="front",
             params=params
         )
@@ -242,18 +273,19 @@ class DoubleBicycleModel:
             params=params
         )
 
-        Fy_f = -self.tire_front.getLateralForce(worldArray, step)
+        Fy_fl = -self.tire_fl.getLateralForce(worldArray, step)
+        Fy_fr = -self.tire_fl.getLateralForce(worldArray, step)
         Fy_r = -self.tire_rear.getLateralForce(worldArray, step)
 
         # Account for both tires per axle
-        Fy_f_total = 2.0 * Fy_f
+        Fy_f_total = Fy_fl + Fy_fr
         Fy_r_total = 2.0 * Fy_r
 
         # Lateral and yaw accelerations
         a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / self.params.mass + v_x * r
         dv_y = a_y
 
-        M_yaw = self.params.Lf * Fy_f_total * np.cos(delta) - self.params.Lr * Fy_r_total
+        M_yaw = self.params.Lf * Fy_f_total - self.params.Lr * Fy_r_total
         dr = M_yaw / self.params.yaw_inertia
 
         return np.array([dv_y, dr])

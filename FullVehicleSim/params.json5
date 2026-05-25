@@ -59,7 +59,14 @@
         "FaradaysConstant": 96485.33212,
 
         "InitLateralVelocity": 0,
-        "InitYawRate": 0
+        "InitYawRate": 0,
+        "tw": 1083.3862, // mm (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
+        "rackRatio": 0.332862903226, // 82.55/248 [4] mm rack displacement/deg pinion rotation
+        "rackShift": 0.0, //  mm of movement of the rack from left to right (left is - right is +)
+        "l_rack": 292.1, // [4] mm (width of steering rack casing)
+        "l_rod": 378.9426, // [3] mm (length of tie rod as left in FS-3 master CAD)
+        "d": 109.7788, // [3] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
+        "l_arm": 71.628 // [3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
     },
     "Magic": {
 
