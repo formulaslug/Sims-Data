@@ -1,7 +1,8 @@
 import numpy as np
+from numpy import ndarray
 from paramLoader import *
 
-def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
+def calcMaxMotorTorque(worldArray:ndarray[np.float64], step:int, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
         '''
         Motor Torque at the wheel
         
@@ -35,7 +36,7 @@ def calcMaxPower(voltage:float) -> float:
         return Parameters["tractiveIMax"] * voltage
 
 
-def calcVoltage(worldArray:np.ndarray, step:int) -> float:
+def calcVoltage(worldArray:ndarray[np.float64], step:int) -> float:
 
     F = Parameters["FaradaysConstant"]
     R = Parameters["GasConstant"]

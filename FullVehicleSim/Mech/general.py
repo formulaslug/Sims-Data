@@ -5,15 +5,16 @@ from Mech.aero import calcDrag
 from Mech.steering import calcSlipAngle, calcYawRate
 from Mech.tireLoad import calcLoadTransfer
 import numpy as np
+from numpy import ndarray
 
-def calcResistiveForces(worldArray:np.ndarray, step:int):
+def calcResistiveForces(worldArray:ndarray[np.float64], step:int):
         if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error
             return 0
         else:
             frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
             return -1 * (calcDrag(worldArray, step) + frontBrakeForce + rearBrakeForce)
         
-def calculateYawRate(worldArray:np.ndarray, step:int, initAcceleration:float, initYawRate:float, timeSinceLastSteer:float):
+def calculateYawRate(worldArray:ndarray[np.float64], step:int, initAcceleration:float, initYawRate:float, timeSinceLastSteer:float):
         """Calculate the yaw rate of the vehicle at the current state.
         This function computes the yaw rate by calculating tire loads, slip angles,
         cornering stiffness, and then applying the vehicle dynamics equations.

@@ -6,6 +6,7 @@ Based on Rajamani's bicycle model.
 """
 
 import numpy as np
+from numpy import ndarray
 import pandas as pd
 from dataclasses import dataclass
 from typing import Tuple, List
@@ -100,7 +101,7 @@ class TireModel:
     ##### LATERAL SLIP FUNCTION
     ##### ********************************
 
-    def getLateralForce(self, worldArray:np.ndarray, step:int):
+    def getLateralForce(self, worldArray:ndarray[np.float64], step:int):
 
         self.velocityX = worldArray[step, varVelX]
 
@@ -433,7 +434,7 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
 params = VehicleParameters()
 model = DoubleBicycleModel(params=params)
 
-def calcYawRate(worldArray:np.ndarray, step: int) -> float:
+def calcYawRate(worldArray:ndarray[np.float64], step: int) -> float:
     
     """
     Calculate the Yaw Rate

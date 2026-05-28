@@ -1,6 +1,7 @@
 from Mech import brakepadFrictionModel
 from paramLoader import *
 import numpy as np
+from numpy import ndarray
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
@@ -8,7 +9,7 @@ import numpy as np
 def brakePSI_toNewtons(psi:float) -> float:
     return psi * Parameters["brakeCaliperArea"] * 4.448222 # lb force to Newtons
 
-def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
+def calcBrakeForce(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
     """
     Calculate the brake force.
 
@@ -28,7 +29,7 @@ def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     return frontBrakeForce, rearBrakeForce
 
-def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:
+def calcBrakeCooling(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
     """
     Calculate the cooled brake temperature.
     
@@ -42,7 +43,7 @@ def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
     #return initTemperature - change
 
-def calcBrakeHeating(worldArray:np.ndarray, step:int) -> tuple[float,float]:
+def calcBrakeHeating(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
     # Calculate Brake Force
     frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
     # Guess energy increase based on kinetic energy decrease of the vehicle.

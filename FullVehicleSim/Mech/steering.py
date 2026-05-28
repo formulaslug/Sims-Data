@@ -1,8 +1,9 @@
 # Steering model
 import numpy as np
+from numpy import ndarray
 from paramLoader import *
 
-def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
+def calcSlipAngle(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
     """
     Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
     
