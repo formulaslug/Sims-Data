@@ -11,9 +11,9 @@ def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, m
         if worldArray[step-1, varMotorRPM] > 7490:
             return -1 * resistiveForces * Parameters["wheelRadius"]
         if worldArray[step-1, varMotorRotationsHZ] != 0: ## If rolling, torque may be power limited. 
-            maxPowerTorque = maxPower / worldArray[step-1, varMotorRotationsHZ] * Parameters["gearRatio"]
+            maxPowerTorque = maxPower / worldArray[step-1, varMotorRotationsHZ]
         else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
-            maxPowerTorque = 180.0 # Nm at 0 rpm
+            maxPowerTorque = Parameters["maxTorque"] # Nm at 0 rpm
         torque = min(Parameters["maxTorque"], maxPowerTorque, 2*maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
 
