@@ -68,7 +68,7 @@ def calcBrakeHeating(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     # Guess energy increase based on kinetic energy decrease of the vehicle.
     # Assumption is 100% of kinetic energy lost goes into brake heating.
     speedChange = (frontBrakeForce + rearBrakeForce) / Parameters["Mass"] / Parameters["stepsPerSecond"] # momentum impulse
-    energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed] - (worldArray[step-1, varSpeed] - speedChange))
+    energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed]**2 - ((worldArray[step-1, varSpeed] - speedChange)**2))
     tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
 
     # While this doesn't seem physically intuitive, it is based on the idea that the front and rear brakes share heat based on their contribution to total braking force.
