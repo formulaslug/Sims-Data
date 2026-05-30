@@ -88,7 +88,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varWheelRotationsHZ] = arr[varSpeed] / Parameters["wheelRadius"]
     arr[varMotorRotationsHZ] = arr[varWheelRotationsHZ] * Parameters["gearRatio"]
     arr[varWheelRPM] = arr[varWheelRotationsHZ] * 60.0
-    arr[varMotorRPM] = arr[varWheelRPM] / Parameters["gearRatio"]
+    arr[varMotorRPM] = arr[varWheelRPM] * Parameters["gearRatio"]
     return arr
 
 def dynamicStepState(step:np.ndarray) -> np.ndarray:
