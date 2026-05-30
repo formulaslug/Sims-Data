@@ -1,9 +1,21 @@
 from Mech import brakepadFrictionModel
 from paramLoader import *
 import numpy as np
+import polars as pl
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
+
+try:
+    brakeConvectionData = pl.read_csv("Mech/brakeThermalTransfer.csv")
+except Exception as e:
+    print("Error loading brake thermal transfer data from Mech/brakeThermalTransfer.csv:", e)
+    raise e
+brakeAirSpeedData, brakeCoeffData = brakeConvectionData["airSpeed"].to_numpy(), brakeConvectionData["coeff"].to_numpy()
+
+def brakeTransferCoeff(speed:float) -> float:
+    # Interpolate the heat transfer coefficient based on air speed
+    return np.interp(speed, brakeAirSpeedData, brakeCoeffData)[0]
 
 def brakePSI_toNewtons(psi:float) -> float:
     return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons
@@ -35,8 +47,16 @@ def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     :param prevWorld: World State
     :return: Change in Temperature
     """
-    frontBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
-    rearBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
+    speed = worldArray[step-1, varSpeed]
+    heatTransferCoeff = brakeTransferCoeff(speed)
+    brakeThermalMass = Parameters["4130SpecificHeatCapacity"] * Parameters["brakeRotorMass"]
+    brakeCoolingArea = Parameters["brakeRotorArea"]
+    frontBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"])
+    frontBrakeCooling = frontBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+    
+    rearBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"])
+    rearBrakeCooling = rearBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+
     return frontBrakeCooling, rearBrakeCooling
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
