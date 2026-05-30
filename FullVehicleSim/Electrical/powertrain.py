@@ -14,7 +14,7 @@ def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, m
             maxPowerTorque = maxPower / worldArray[step-1, varMotorRotationsHZ] * Parameters["gearRatio"]
         else: ## Avoid divide by 0 error but it's just the same as the max torque that the motor can deliver (180 Nm)
             maxPowerTorque = 180.0 # Nm at 0 rpm
-        torque = min(Parameters["maxTorque"], maxPowerTorque, maxTractionTorqueAtWheel/Parameters["gearRatio"])
+        torque = min(Parameters["maxTorque"], maxPowerTorque, 2*maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
 
 def calcCurrent(power:float, voltage:float) -> float:
@@ -24,12 +24,12 @@ def calcCurrent(power:float, voltage:float) -> float:
 
 def calcMaxWheelTorque(maxMotorTorque):
         '''
-        maxMotorTorque * gear rato
+        maxMotorTorque * gear ratio
         '''
         return maxMotorTorque * Parameters["gearRatio"]
 
-def calcMotorForce(maxWheelTorque:float) -> float:
-        return (maxWheelTorque / Parameters["wheelRadius"])
+def calcMotorForce(motorTorque:float) -> float:
+        return (motorTorque * Parameters["gearRatio"] / Parameters["wheelRadius"])
 
 def calcMaxPower(voltage:float) -> float:
         return Parameters["tractiveIMax"] * voltage
