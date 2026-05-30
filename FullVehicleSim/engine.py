@@ -85,8 +85,8 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     
     arr[varFrontSlipAngle], arr[varRearSlipAngle] = calcSlipAngle(worldArray, step)
     arr[varMaxWheelTorque] = calcMaxWheelTorque(arr[varMaxMotorTorque])
-    arr[varWheelRotationsHZ] = arr[varSpeed] / Parameters["wheelCircumferance"] * 2.0 * np.pi
-    arr[varMotorRotationsHZ] = arr[varWheelRotationsHZ] / Parameters["gearRatio"]
+    arr[varWheelRotationsHZ] = arr[varSpeed] / Parameters["wheelRadius"]
+    arr[varMotorRotationsHZ] = arr[varWheelRotationsHZ] * Parameters["gearRatio"]
     arr[varWheelRPM] = arr[varWheelRotationsHZ] * 60.0
     arr[varMotorRPM] = arr[varWheelRPM] / Parameters["gearRatio"]
     return arr
