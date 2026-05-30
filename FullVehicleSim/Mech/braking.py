@@ -6,7 +6,7 @@ import numpy as np
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
 
 def brakePSI_toNewtons(psi:float) -> float:
-    return psi * Parameters["brakeCaliperArea"] * 4.448222 # lb force to Newtons
+    return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons
 
 def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
