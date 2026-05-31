@@ -24,11 +24,13 @@
         "brakeRotorArea": 77, // in^2, not simply calculated because the brake disc has holes in it
         "brakeRotorMass": 0.4908, // kg
         "4130SpecificHeatCapacity": 540, // J/(kg*k)
+
+        "regenMaxTorque": 180, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
         
         "wheelCircumferance": 1.35716802635079,
-        "wheelRadius": 0.216,
-        "gearRatio": 3.41667,
-        "maxTorque": 180,
+        "wheelRadius": 0.216, // m
+        "gearRatio": 3.41667, // 41/12
+        "maxTorque": 180, // Nm, max torque at the motor.
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
         "unloaded-radius": 1.7333,
@@ -56,7 +58,8 @@
         "maxBrakeForce": 1500,
 
         "seriesCells": 30,
-        "cellCapacity_Ah": 2.6,
+        "parallelCells": 20,
+        "cellCapacity_Ah": 2.6, // Amp hours
         "histeresisKernelLength": 10.0, // seconds
 
         "GasConstant": 8.31446261815324,

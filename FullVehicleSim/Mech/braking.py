@@ -15,10 +15,10 @@ brakeAirSpeedData, brakeCoeffData = brakeConvectionData["airSpeed"].to_numpy(), 
 
 def brakeTransferCoeff(speed:float) -> float:
     # Interpolate the heat transfer coefficient based on air speed
-    return np.interp(speed, brakeAirSpeedData, brakeCoeffData)[0]
+    return np.interp(speed, brakeAirSpeedData, brakeCoeffData) #type: ignore Function says it returns an array but it just returns a scalar
 
 def brakePSI_toNewtons(psi:float) -> float:
-    return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons
+    return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons, 2 for 2 sides of a caliper per disc
 
 def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
@@ -36,6 +36,7 @@ def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     rearBrakeForce = brakePSI_toNewtons(rearBrakePSI)
 
     # Calculate Brake Force
+    # Factor of 2 for 2 brakes on front and 2 on rear
     frontBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varFrontBrakeTemperature]) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     return frontBrakeForce, rearBrakeForce

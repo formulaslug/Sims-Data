@@ -62,7 +62,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varRearBrakeTemperature] = worldArray[step-1, varRearBrakeTemperature] + arr[varRearBrakeHeating] - arr[varRearBrakeCooling]
     
     arr[varMaxMotorTorque] = calcMaxMotorTorque(worldArray, step, arr[varResistiveForces], arr[varMaxPower], arr[varMaxTraction]) # Nm
-    arr[varMotorTorque] = min(Parameters["maxTorque"]*arr[varThrottle], arr[varMaxMotorTorque]) # Nm
+    arr[varMotorTorque] = min(Parameters["maxTorque"]*(arr[varThrottle]-arr[varBrakePedalTravel]), arr[varMaxMotorTorque]) # Nm
     
     arr[varPower] = arr[varMotorTorque] * worldArray[step-1, varMotorRotationsHZ] # Watts
     arr[varMotorForce] = calcMotorForce(arr[varMotorTorque]) # Newtons, Longitudinal force at the wheel from the motor
