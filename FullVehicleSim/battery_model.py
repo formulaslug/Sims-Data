@@ -1,5 +1,6 @@
 import numpy as np
 from paramLoader import *
+import matplotlib.pyplot as plt
 
 np.random.seed(42)
 
@@ -45,13 +46,21 @@ class Parallel_Groups:
         self.cells = cells
 
     def solve_currents(self, pack_current):
-        #solving for currents for each cell w arrays
-        R = np.array([cell.resistance for cell in self.cells])
-        rhs = np.array([cell.ocv() - cell.hysteresis for cell in self.cells])
-        #shared terminal voltage
-        V_group = (np.sum(rhs / R) - pack_current) / np.sum(1.0 / R)
-        #pull them out from group
-        currents = (rhs - V_group) / R
+        sum_rhs_over_R = 0  ##rhs is ocv - hysteris (right hand side of equation)
+        sum_1_over_R = 0
+
+        for cell in self.cells:
+            rhs = cell.ocv() - cell.hysteresis
+            sum_rhs_over_R += rhs/cell.resistance
+            sum_1_over_R += 1/cell.resistance
+
+        V_group = (sum_rhs_over_R - pack_current)/sum_1_over_R
+        currents = []
+        for cell in self.cells:
+            rhs = cell.ocv() - cell.hysteresis
+            current = (rhs - V_group)/cell.resistance
+            currents.append(float(current))
+        
         return currents, V_group
 
     def step(self, pack_current, dt, capacity_Ah):
@@ -74,7 +83,7 @@ class Module:
             all_currents.append(currents)
         return all_currents, total_voltage
 
-def build_modules(width = 3, height = 3, resistances = None):
+def build_modules(width = 4, height = 2, resistances = None):
     #if no given csv
     if resistances is None:
         resistances = np.random.normal(0.008, 0.0005, (height, width))
@@ -92,23 +101,20 @@ def build_modules(width = 3, height = 3, resistances = None):
         groups.append(Parallel_Groups(cells))
     return Module(groups)    
 
-module = build_modules(width=3, height=3)
+module = build_modules(width=4, height=2)   
 ##sim
 
 pack_current = 100.0
 dt = 1.0
 capacity_Ah = 5.0
 
-num_steps = 5
+num_steps = 10
 
 for step in range(num_steps):
     all_currents, module_voltage = module.step(pack_current, dt, capacity_Ah)
-    print(f"\n Step {step}")
-    print(f"Module Voltage: "f"{module_voltage:.2f} V")
-
-    first_group_currents = all_currents[0]
-
-    print("First Group Currents:")
-    print(first_group_currents)
-
-    print(f"Current Sum: "f"{np.sum(first_group_currents):.2f} A")
+    print(f"\nStep {step}")
+    print(f"Module Voltage: {module_voltage:.2f} V")
+    
+    for g, group_currents in enumerate(all_currents):
+        print(f"  Group {g}: {group_currents}")
+        print(f"  Group {g} Sum: {np.sum(group_currents):.2f} A")
