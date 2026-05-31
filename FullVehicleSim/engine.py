@@ -70,9 +70,9 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     
     arr[varAcceleration] = arr[varNetForce] / Parameters["Mass"] # m/s^2
     
-    arr[varCurrent] = arr[varPower] / arr[varVoltage] # Amps
+    arr[varCurrent] = calcCurrent(arr[varPower], arr[varVoltage]) # Amps. clamps for current limit. pack current.
 
-    arr[varCharge] = worldArray[step-1, varCharge] - worldArray[step, varCurrent] * delta / 3600.0
+    arr[varCharge] = worldArray[step-1, varCharge] - worldArray[step, varCurrent] * delta / 3600.0 / Parameters["parallelCells"] / Parameters["cellCapacity_Ah"]
     arr[varPosX:varPosZ+1] = worldArray[step-1, varPosX:varPosZ+1] + worldArray[step-1, varVelX:varVelZ+1] * delta
     arr[varSpeed] = max(0, worldArray[step-1, varSpeed] + arr[varAcceleration] * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
     arr[varYawRate] = worldArray[step-1, varYawRate]
@@ -87,7 +87,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varMaxWheelTorque] = calcMaxWheelTorque(arr[varMaxMotorTorque])
     arr[varWheelRotationsHZ] = arr[varSpeed] / Parameters["wheelRadius"]
     arr[varMotorRotationsHZ] = arr[varWheelRotationsHZ] * Parameters["gearRatio"]
-    arr[varWheelRPM] = arr[varWheelRotationsHZ] * 60.0
+    arr[varWheelRPM] = arr[varWheelRotationsHZ] * 60.0 / (2 * np.pi)
     arr[varMotorRPM] = arr[varWheelRPM] * Parameters["gearRatio"]
     return arr
 
