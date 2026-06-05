@@ -1,9 +1,8 @@
 # Steering model
 import numpy as np
-from state import VehicleState
-from paramLoader import Parameters, Magic
+from paramLoader import *
 
-def calcSlipAngle(prevWorld:VehicleState, inputs) -> tuple[float,float]:
+def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
     Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
     
@@ -15,15 +14,16 @@ def calcSlipAngle(prevWorld:VehicleState, inputs) -> tuple[float,float]:
     :param steerAngle: Description
     :return: (frontSlipAngle, rearSlipAngle)
     """
-    steerAngle = inputs[3]
-    speed = np.sqrt(prevWorld.velocity[0] ** 2 + prevWorld.velocity[1] ** 2 + prevWorld.velocity[2]**2)
-    if prevWorld.yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
+    steerAngle = worldArray[step, varSteerAngle]
+    speed = worldArray[step-1, varSpeed]
+    yawRate = worldArray[step-1, varYawRate]
+    if yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
         return (0, 0)
     else:
-        bodySlip = np.arctan(prevWorld.velocity[1]/prevWorld.velocity[0])
+        bodySlip = np.arctan(worldArray[step-1, varVelY]/worldArray[step-1, varVelX])
 
-    frontSlipAngle = calcVirtualSlipAngle() + bodySlip + (Parameters["wheelBase"]*Parameters["frontWeightDist"]/100 * prevWorld.yawRate)/speed - steerAngle
-    rearSlipAngle = bodySlip - (Parameters["wheelBase"]*(100-Parameters["frontWeightDist"])/100 * prevWorld.yawRate)/speed
+    frontSlipAngle = calcVirtualSlipAngle() + bodySlip + (Parameters["wheelBase"]*Parameters["frontWeightDist"]/100 * yawRate)/speed - steerAngle
+    rearSlipAngle = bodySlip - (Parameters["wheelBase"]*(100-Parameters["frontWeightDist"])/100 * yawRate)/speed
 
     return (frontSlipAngle, rearSlipAngle)
 

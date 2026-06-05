@@ -1,5 +1,6 @@
 from nptdms import TdmsFile
 import polars as pl
+import numpy as np
 import matplotlib.pyplot as plt
 from Data.FSLib.IntegralsAndDerivatives import *
 from Data.FSLib.AnalysisFunctions import *
@@ -9,10 +10,10 @@ autoxDaniel11File = "FS-3/compEmeterData/autoxDaniel11.tdms"
 autoxDaniel12File = "FS-3/compEmeterData/autoxDaniel12.tdms"
 accel1 = "FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250620-203307_ ACCEL-EV.tdms"
 accel2 = "FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250620-205609_ ACCEL-EV.tdms"
-endur1 = "FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250621-154731_ ENDUR-EV.tdms"
-endur2 = "FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250621-160530_ ENDUR-EV.tdms"
+endur1 = "../fs-data/FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250621-154731_ ENDUR-EV.tdms"
+endur2 = "../fs-data/FS-3/compEmeterData/216_univ-of-calif---santa-cruz-_250621-160530_ ENDUR-EV.tdms"
 
-dfLaptimes = pl.read_csv("FS-3/compLapTimes.csv")
+dfLaptimes = pl.read_csv("../fs-data/FS-3/compLapTimes.csv")
 firstHalf = dfLaptimes.filter(pl.col("Lap") < 12)["Time"].sum()
 secondHalf = dfLaptimes.filter(pl.col("Lap") > 11)["Time"].sum()
 
@@ -93,7 +94,37 @@ dfendur1 = dfendur1.with_columns(
     pl.Series(arr).cast(pl.Int64).alias("Lap")
 )
 
+l = []
 
+for i in np.unique(dfendur1["Lap"]):
+    # plt.plot(dfendur1.filter(pl.col("Lap") == i)[I])
+    l.append(dfendur1.filter(pl.col("Lap") == i)[I])
+plt.show()
+
+shortest = min([len(x) for x in l])
+l2 = [x[:shortest].alias(f"Current_Lap_{i}") for i, x in enumerate(l)]
+df2 = pl.DataFrame(l2)
+plt.plot(df2.mean_horizontal())
+plt.show()
+
+from scipy.fft import fft, ifft
+
+f = fft(df2.mean_horizontal().to_numpy())
+# freq = np.fft.fftfreq(len(df2.mean_horizontal()), d=0.01)
+
+plt.plot(np.append(np.log(f[-len(f)//2:]), np.log(f[:len(f)//2])))
+plt.show()
+
+fFiltered = np.where(np.log(f) > 10, f, 0)
+invF = ifft(fFiltered)
+plt.plot(invF)
+plt.plot(df2.mean_horizontal())
+plt.show()
+
+dfTableCurrOut = pl.DataFrame({"Current": df2.mean_horizontal().gather_every(100), "Time": np.arange(0, df2.height/100)})
+dfTableCurrOut.write_csv("endur1Curr.csv")
+
+df2.mean_horizontal()
 
 dfendur2 = fileTodf(endur2).filter(pl.col(t) > endur2_StartTime).filter(pl.col(t) < endur2_EndTime)
 

@@ -3,7 +3,6 @@ import pygame
 import numpy as np
 import asyncio
 import platform
-from state import VehicleState
 from engine import stepState
 
 #Simulated control inputs (since no file I/O in Pyodide)
