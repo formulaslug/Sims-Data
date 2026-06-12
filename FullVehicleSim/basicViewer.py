@@ -11,6 +11,9 @@ t = df["time"]
 
 df.columns
 
+plt.plot(t, df["posX"])
+plt.show()
+
 plt.plot(t, df["throttle"]*300, label="throttle")
 plt.plot(t, df["brakePressureFront"], label="brakesF")
 plt.plot(t, df["netForce"], label="netForce")
