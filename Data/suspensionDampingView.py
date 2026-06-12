@@ -5,7 +5,8 @@ import scipy.fft as fft
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 df = pl.read_parquet("../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet").fill_null(strategy="forward").fill_null(strategy="backward")
-
+plt.hist(df.filter(pl.col("ETC_STATUS_PEDAL_TRAVEL") > 0)["ETC_STATUS_PEDAL_TRAVEL"], bins=99)
+plt.show()
 
 [x for x in df.columns if "VDM" in x]
 
@@ -85,12 +86,31 @@ ax4.grid(True)
 plt.tight_layout()
 plt.show()
 
+yaw = df["VDM_Z_AXIS_YAW_RATE"].to_numpy()
+roll = df["VDM_X_AXIS_YAW_RATE"].to_numpy()
+yaw_fft = fft.fft(yaw)
+yaw_freq = fft.fftfreq(len(yaw_fft), d=0.01)
+yawBaseline = np.random.normal(df["VDM_Z_AXIS_YAW_RATE"].mean(), df["VDM_Z_AXIS_YAW_RATE"].std(), size=df.height)
+yawBaseline_fft = fft.fft(yawBaseline)
+yawBaseline_freq = fft.fftfreq(len(yawBaseline_fft), d=0.01)
+
+ifft = fft.ifft(yawBaseline)
+
+plt.hist(yawBaseline, bins=100)
+plt.hist(roll, bins=500)
+plt.yscale("log")
+plt.show()
+
+plt.scatter(yawBaseline_freq, np.abs(yawBaseline_fft), label="Shuffled Yaw Rate Baseline", s=0.5)
+plt.show()
+
 yawRate_fft = fft.fft(df["VDM_Z_AXIS_YAW_RATE"].to_numpy())
 yawRate_freq = fft.fftfreq(len(yawRate_fft), d=0.01)
 pitchRate_fft = fft.fft(df["VDM_Y_AXIS_YAW_RATE"].to_numpy())
 pitchRate_freq = fft.fftfreq(len(pitchRate_fft), d=0.01)
 rollRate_fft = fft.fft(df["VDM_X_AXIS_YAW_RATE"].to_numpy())
 rollRate_freq = fft.fftfreq(len(rollRate_fft), d=0.01)
+
 
 
 meanSegments = 101
