@@ -3,6 +3,13 @@ import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
+from cantools import database
+
+db = database.load_file("../fs-4-firmware/CANbus.dbc")
+# db.messages[6].signals[0].name
+
+
+
 
 def basicViewFS4 (df:pl.DataFrame, title:str="", scatterGPS=False, verbose=False):
     '''
@@ -142,25 +149,44 @@ def basicViewFS4 (df:pl.DataFrame, title:str="", scatterGPS=False, verbose=False
     plt.suptitle(title)
     plt.show()
 
-# df1 = read("FS-4/Jun102026/162207.parquet") # Car was wiggled a bit and wheels spun by hand on jacks
+df1 = read("FS-4/Jun102026/162207.parquet") # Car was wiggled a bit and wheels spun by hand on jacks
 df2 = read("FS-4/Jun102026/180316.parquet") # 400A/500A current limit. Only really 400A brief driving
-# df3 = read("FS-4/Jun102026/072050.parquet") # 5 hrs, basically nothing
-# df4 = read("FS-4/Jun102026/152519.parquet") # 45 min, basically nothing
+# df22 = read("FS-4/Jun102026/candump-2026-06-10_180316.parquet")
+df3 = read("FS-4/Jun102026/072050.parquet") # 5 hrs, basically nothing
+df4 = read("FS-4/Jun102026/152519.parquet") # 45 min, basically nothing
 df5 = read("FS-4/Jun102026/181830.parquet") # Tiny bits of driving. 0.7V voltage drop. 500/600/650 A limit.
 df6 = read("FS-4/Jun102026/171744.parquet") # 45 min. 200A. 0.2V voltage drop
-# df7 = read("FS-4/Jun102026/145454.parquet") # 35 min. Basically nothing
-# df8 = read("FS-4/Jun102026/070347.parquet") # 8 min. Basically nothing
+df7 = read("FS-4/Jun102026/145454.parquet") # 35 min. Basically nothing
+df8 = read("FS-4/Jun102026/070347.parquet") # 8 min. Basically nothing
 
-# dfs = [df1, df2, df3, df4, df5, df6, df7, df8]
+for message in db.messages:
+    for signal in message.signals:
+        if signal.name not in df22.columns:
+            print(signal.name)
+
+
+dfs = [df1, df2, df3, df4, df5, df6, df7, df8]
+len(df2.columns)
+len([x for x in df2.columns if "VCU" in x])
 
 t = "Time"
 
+plt.plot(df2[t], df2["SME_TRQSPD_Speed"])
+temps = [f"BATT_MOD{i}_TEMPS_CELL{j}" for i in range(5) for j in range(6)]
+for temp in temps:
+    plt.plot(df2[t], df2[temp], label=temp)
+plt.legend()
+plt.show()
+
 # for i, df in enumerate(dfs):
-    # plt.scatter(np.arange(df.height), df[t], label = ("df" + str(i)), s=0.5)
+#     plt.scatter(np.arange(df.height), df[t], label = ("df" + str(i)), s=0.5)
 # plt.xlabel("row")
 # plt.ylabel("time (s)")
 # plt.legend()
 # plt.show()
+
+
+ambient = 12 # C
 
 plt.plot(df6.filter(pl.col(t) < 260).filter(pl.col(t)>240)[t])
 plt.plot(np.arange(0, df6[t].max(), df6[t].max()/(df6.height + 1))[:df6.height]) #type:ignore
@@ -168,9 +194,6 @@ plt.show()
 
 df6.filter(pl.col(t) < 260).filter(pl.col(t)>240)
 
-import polars as pl
-import matplotlib.pyplot as plt
-import numpy as np
 import scipy.fft as fft
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
