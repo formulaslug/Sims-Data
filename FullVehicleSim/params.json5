@@ -1,12 +1,12 @@
 // Base SI Units unless otherwise specified
 {
     "Parameters": {
-        "stepsPerSecond": 500,
-        "simulationDuration": 10.0, // Seconds
+        "stepsPerSecond": 100,
+        "simulationDuration": 430.0, // Seconds
         "interpolationMethod": "linear", // "linear" or "cubic", this is for interpolating the simultion controls.
 
         "ambientTemperature": 20, // °C
-        "tractiveIMax": 650, // A
+        "tractiveIMax": 400, // A
         "initialBrakeTemperature": 20, // °C
         "initialBatteryTemperature": 20, // °C
         "vehicleSOC": 1, // Out of 1
