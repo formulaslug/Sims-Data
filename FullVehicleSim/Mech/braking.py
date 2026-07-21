@@ -1,15 +1,27 @@
 from Mech import brakepadFrictionModel
 from paramLoader import *
 import numpy as np
-from numpy import ndarray
+from numpy.typing import NDArray
+import polars as pl
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
 
-def brakePSI_toNewtons(psi:float) -> float:
-    return psi * Parameters["brakeCaliperArea"] * 4.448222 # lb force to Newtons
+try:
+    brakeConvectionData = pl.read_csv("Mech/brakeThermalTransfer.csv")
+except Exception as e:
+    print("Error loading brake thermal transfer data from Mech/brakeThermalTransfer.csv:", e)
+    raise e
+brakeAirSpeedData, brakeCoeffData = brakeConvectionData["airSpeed"].to_numpy(), brakeConvectionData["coeff"].to_numpy()
 
-def calcBrakeForce(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
+def brakeTransferCoeff(speed:float) -> float:
+    # Interpolate the heat transfer coefficient based on air speed
+    return np.interp(speed, brakeAirSpeedData, brakeCoeffData) #type: ignore Function says it returns an array but it just returns a scalar
+
+def brakePSI_toNewtons(psi:float) -> float:
+    return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons, 2 for 2 sides of a caliper per disc
+
+def calcBrakeForce(worldArray:NDArray[np.float64], step:int) -> tuple[float,float]:
     """
     Calculate the brake force.
 
@@ -25,31 +37,40 @@ def calcBrakeForce(worldArray:ndarray[np.float64], step:int) -> tuple[float,floa
     rearBrakeForce = brakePSI_toNewtons(rearBrakePSI)
 
     # Calculate Brake Force
+    # Factor of 2 for 2 brakes on front and 2 on rear
     frontBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varFrontBrakeTemperature]) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     return frontBrakeForce, rearBrakeForce
 
-def calcBrakeCooling(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
+def calcBrakeCooling(worldArray:NDArray[np.float64], step:int) -> tuple[float,float]:
     """
     Calculate the cooled brake temperature.
     
     :param prevWorld: World State
     :return: Change in Temperature
     """
-    frontBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
-    rearBrakeCooling = Parameters["ambientTemperature"] + (worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"]) * np.e ** (-1 / Parameters["stepsPerSecond"]/50.2)
+    speed = worldArray[step-1, varSpeed]
+    heatTransferCoeff = brakeTransferCoeff(speed)
+    brakeThermalMass = Parameters["4130SpecificHeatCapacity"] * Parameters["brakeRotorMass"]
+    brakeCoolingArea = Parameters["brakeRotorArea"]
+    frontBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"])
+    frontBrakeCooling = frontBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+    
+    rearBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"])
+    rearBrakeCooling = rearBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+
     return frontBrakeCooling, rearBrakeCooling
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
     #change = (q * parameters["brakepadThickness"])/(initTemperature * parameters["brakeThermalConductivity"] * parameters["brakeSurfaceArea"]
     #return initTemperature - change
 
-def calcBrakeHeating(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
+def calcBrakeHeating(worldArray:NDArray[np.float64], step:int) -> tuple[float,float]:
     # Calculate Brake Force
     frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
     # Guess energy increase based on kinetic energy decrease of the vehicle.
     # Assumption is 100% of kinetic energy lost goes into brake heating.
     speedChange = (frontBrakeForce + rearBrakeForce) / Parameters["Mass"] / Parameters["stepsPerSecond"] # momentum impulse
-    energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed] - (worldArray[step-1, varSpeed] - speedChange))
+    energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed]**2 - ((worldArray[step-1, varSpeed] - speedChange)**2))
     tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
 
     # While this doesn't seem physically intuitive, it is based on the idea that the front and rear brakes share heat based on their contribution to total braking force.
