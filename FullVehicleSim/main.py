@@ -38,7 +38,7 @@ if __name__ == "__main__":
     ## This is structured so the first row is the initial conditions (inputs don't matter and will just be left to 0), and the
     ## rest are generated as the simulation progresses. This means that a simulation array will always be 1 longer than just the time steps
     ## and duration would indicate. 
-    worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float32)
+    worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float64)
 
     # Set the inital time to 0 if not already 0. Eg. [1.79, 2.36, 3.13] becomes [0.0, 0.57, 1.34]
     timeSeries = df_controls['time'] - df_controls['time'][0] # Normalize to start at 0
