@@ -1,9 +1,10 @@
 import numpy as np
-from numpy import ndarray
+from numpy.typing import NDArray
 from paramLoader import *
 
-def calcDrag(worldArray:ndarray[np.float64], step:int) -> float:
+def calcDrag(worldArray:NDArray[np.float64], step:int) -> np.float64:
     return  0.5 * Parameters["airDensity"] * Parameters["dragCoeffAreaCombo"] * worldArray[step-1, varSpeed]**2
 
-def calcDownForce(worldArray:ndarray[np.float64], step:int) -> np.ndarray:
-    return np.asarray([0,0,0,0], dtype=float)
+#TODO: Implement downforce model. Could be lookup table based or physics based.
+def calcDownForce(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
+    return np.asarray([0,0,0,0], dtype=np.float64)

@@ -1,9 +1,9 @@
 # Steering model
 import numpy as np
-from numpy import ndarray
+from numpy.typing import NDArray
 from paramLoader import *
 
-def calcSlipAngle(worldArray:ndarray[np.float64], step:int) -> tuple[float,float]:
+def calcSlipAngle(worldArray:NDArray[np.float64], step:int) -> tuple[np.float64,np.float64]:
     """
     Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
     
@@ -19,7 +19,7 @@ def calcSlipAngle(worldArray:ndarray[np.float64], step:int) -> tuple[float,float
     speed = worldArray[step-1, varSpeed]
     yawRate = worldArray[step-1, varYawRate]
     if yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
-        return (0, 0)
+        return (np.float64(0), np.float64(0))
     else:
         bodySlip = np.arctan(worldArray[step-1, varVelY]/worldArray[step-1, varVelX])
 

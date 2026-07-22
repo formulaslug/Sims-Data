@@ -1,6 +1,6 @@
 from paramLoader import *
 import numpy as np
-from numpy import ndarray
+from numpy.typing import NDArray
 from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
 from Mech.aero import calcDrag, calcDownForce
 from Mech.steering import calcSlipAngle
@@ -11,7 +11,7 @@ from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
-def calculateHeading(worldArray:ndarray[np.float64], step:int) -> np.ndarray:
+def calculateHeading(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
     time_increment = 1/Parameters["stepsPerSecond"]
     initial_heading = worldArray[step-1, varHeadingX:varHeadingZ] # Yes this removes Z, we just want X and Y for this simplification
     rotation_angle = worldArray[step-1, varYawRate] * time_increment
@@ -28,7 +28,7 @@ def calculateHeading(worldArray:ndarray[np.float64], step:int) -> np.ndarray:
 
     return np.append(new_heading, 0)
 
-def stepState(worldArray:ndarray[np.float64], step:int) -> np.ndarray:
+def stepState(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
     """
     The order by which things get updated in this function is incredibly important. 
     If you calculate velocity before you calculate acceleration, 

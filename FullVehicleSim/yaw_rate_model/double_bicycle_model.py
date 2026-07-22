@@ -6,7 +6,7 @@ Based on Rajamani's bicycle model.
 """
 
 import numpy as np
-from numpy import ndarray
+from numpy.typing import NDArray
 import pandas as pd
 from dataclasses import dataclass
 from typing import Tuple, List
@@ -101,7 +101,7 @@ class TireModel:
     ##### LATERAL SLIP FUNCTION
     ##### ********************************
 
-    def getLateralForce(self, worldArray:ndarray[np.float64], step:int):
+    def getLateralForce(self, worldArray:NDArray[np.float64], step:int):
 
         self.velocityX = worldArray[step, varVelX]
 
@@ -238,8 +238,8 @@ class DoubleBicycleModel:
         return beta
         #return frac
 
-    def dynamics(self, state: np.ndarray, v_x: float, delta: float,
-                 worldArray: np.ndarray, step:int, ax: float = 0.0) -> np.ndarray:
+    def dynamics(self, state: NDArray[np.float64], v_x: float, delta: float,
+                 worldArray: NDArray[np.float64], step:int, ax: float = 0.0) -> NDArray[np.float64]:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
@@ -291,7 +291,7 @@ class DoubleBicycleModel:
 
         return np.array([dv_y, dr])
     
-    def integrate_step(self, v_x: float, delta: float, dt: float, worldArray: np.ndarray, step:int,
+    def integrate_step(self, v_x: float, delta: float, dt: float, worldArray: NDArray[np.float64], step:int,
                       ax: float = 0.0, method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
@@ -320,8 +320,8 @@ class DoubleBicycleModel:
     
     """
     
-    def simulate(self, v_x: float, steering_inputs: List[float], worldArray: np.ndarray, step: int,
-                dt: float = 0.01, method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
+    def simulate(self, v_x: float, steering_inputs: List[float], worldArray: NDArray[np.float64], step: int,
+                dt: float = 0.01, method: str = "rk4") -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Run simulation with given steering input sequence"""
         self.state = np.array([0.0, 0.0])
         self.time_history = [0.0]
@@ -336,7 +336,7 @@ class DoubleBicycleModel:
             self.state_history.append(self.state.copy())
             self.input_history.append((delta, v_x))
 
-        return np.array(self.time_history), np.array(self.state_history)
+        return np.array(self.time_history, dtype=np.float64), np.array(self.state_history, dtype=np.float64)
 
     def reset(self):
         self.state = np.array([0.0, 0.0])
@@ -434,14 +434,14 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
 params = VehicleParameters()
 model = DoubleBicycleModel(params=params)
 
-def calcYawRate(worldArray:ndarray[np.float64], step: int) -> float:
+def calcYawRate(worldArray:NDArray[np.float64], step: int) -> tuple[np.float64, np.float64]:
     
     """
     Calculate the Yaw Rate
 
     :param worldArray: World State Array
     :param step: Current step index
-    :return: Yaw Rate
+    :return: (Lateral Velocity, Yaw Rate)
     """
 
     dt = 1 / Parameters["stepsPerSecond"]

@@ -1,11 +1,11 @@
 
 #steering wheel angle --> steering rack psition --> wheel steer angle (how static ackermann affects wheel angle function)
 # equations taken from "rack and pinion" section of: https://www.mathworks.com/help/vdynblks/ref/kinematicsteering.html
-import scipy
-import numpy
-import matplotlib.pyplot as plt
-import ipywidgets as widgets
-from ipywidgets import interact, interactive
+# import scipy
+import numpy as np
+# import matplotlib.pyplot as plt
+# import ipywidgets as widgets
+# from ipywidgets import interact, interactive
 
 #global variables
 #-----------------------------
@@ -40,14 +40,14 @@ def calculateAckermann(wheelInput: float): #calculates the steer angles of both 
     #return beta_nought, betaTrigSolver(l1Left), betaTrigSolver(l1Right)
     
 def betaTrigSolver(l1): #a separate function to solve the big bad trig equation
-    l2 = numpy.sqrt((l1**2) + (d**2)) #l2 is the instantaneous direct distance from rack knuckle to steering axis (KPA)
-    atan = numpy.arctan(d/l1) #first term of the "beta" equation
+    l2 = np.sqrt((l1**2) + (d**2)) #l2 is the instantaneous direct distance from rack knuckle to steering axis (KPA)
+    atan = np.arctan(d/l1) #first term of the "beta" equation
 
     num = (l_arm**2) + (l2**2) - (l_rod**2) #just simplifying the calculation of the second term 
     denom = 2*l_arm*l2
     frac = num/denom
-    acos = numpy.arccos(frac)
-    beta = (numpy.pi/2) - atan - acos
+    acos = np.arccos(frac)
+    beta = (np.pi/2) - atan - acos
     return beta
     #return frac
 
@@ -62,8 +62,8 @@ def update(val): #update variables based off of interact()
     print(f"left wheel radians = {left_angle}")
     print(f"right wheel radians = {right_angle}")
     print("----------------------------")
-    print(f"left wheel degrees = {numpy.rad2deg(left_angle)}")
-    print(f"right wheel degrees = {numpy.rad2deg(right_angle)}")
+    print(f"left wheel degrees = {np.rad2deg(left_angle)}")
+    print(f"right wheel degrees = {np.rad2deg(right_angle)}")
     #print(f"Static value must be within [-1,1] = {stat}")
     #print(f"Left value must be within [-1,1] = {bL}")
     #print(f"Right value must be within [-1,1] = {bR}")

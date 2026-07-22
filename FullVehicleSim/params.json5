@@ -9,7 +9,7 @@
         "tractiveIMax": 400, // A
         "initialBrakeTemperature": 20, // °C
         "initialBatteryTemperature": 20, // °C
-        "vehicleSOC": 1, // Out of 1
+        "vehicleSOC": 1, // Out of 1, starting state of charge
         "initSpeed": 0.0, // m/s
         "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
         "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
@@ -73,7 +73,7 @@
         "l_rack": 292.1, // [4] mm (width of steering rack casing)
         "l_rod": 378.9426, // [3] mm (length of tie rod as left in FS-3 master CAD)
         "d": 109.7788, // [3] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
-        "l_arm": 71.628 // [3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+        "l_arm": 71.628, // [3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
     },
     "Magic": {
 
