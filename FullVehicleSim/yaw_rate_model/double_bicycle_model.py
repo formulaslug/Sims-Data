@@ -192,7 +192,8 @@ class DoubleBicycleModel:
         self.state_history = []
         self.input_history = []
     
-    def get_slip_angles(self, v_y: float, r: float, v_x: float, delta: float) \
+    @staticmethod
+    def get_slip_angles(v_y: float, r: float, v_x: float, delta: float) \
             -> Tuple[float, float]:
         """Calculate front and rear slip angles"""
         if abs(v_x) < 0.1:
@@ -203,20 +204,22 @@ class DoubleBicycleModel:
 
         return alpha_f, alpha_r
     
-    def rackMovement(self, wheelInput: float): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
+    @staticmethod
+    def rackMovement(wheelInput: float): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
 
         rackShift: float = Parameters['rackRatio']*wheelInput # wheelInput
         return rackShift
 
-    def calculateAckermann(self, wheelInput: float): #calculates the steer angles of both wheels
+    @staticmethod
+    def calculateAckermann(wheelInput: float): #calculates the steer angles of both wheels
 
-        l1Left = (0.5*(Parameters["tw"]-Parameters["l_rack"])) - self.rackMovement(wheelInput) #l1 is the instantaneous parallel distance from the rack knuckle to steering axis (KPA). 
-        l1Right = (0.5*(Parameters["tw"]-Parameters["l_rack"])) + self.rackMovement(wheelInput)
+        l1Left = (0.5*(Parameters["tw"]-Parameters["l_rack"])) - DoubleBicycleModel.rackMovement(wheelInput) #l1 is the instantaneous parallel distance from the rack knuckle to steering axis (KPA). 
+        l1Right = (0.5*(Parameters["tw"]-Parameters["l_rack"])) + DoubleBicycleModel.rackMovement(wheelInput)
         l_nought = (0.5*(Parameters["tw"]-Parameters["l_rack"]))
-        beta_nought = self.betaTrigSolver(l_nought) #used to find the initial "beta" geometry to determine the real steer angle at the wheels
+        beta_nought = DoubleBicycleModel.betaTrigSolver(l_nought) #used to find the initial "beta" geometry to determine the real steer angle at the wheels
 
-        beta_L = self.betaTrigSolver(l1Left) - beta_nought #additionally, because there is a static "beta" (simply just arm geometry), we must find the difference to find the actual wheel angles
-        beta_R = self.betaTrigSolver(l1Right) - beta_nought
+        beta_L = DoubleBicycleModel.betaTrigSolver(l1Left) - beta_nought #additionally, because there is a static "beta" (simply just arm geometry), we must find the difference to find the actual wheel angles
+        beta_R = DoubleBicycleModel.betaTrigSolver(l1Right) - beta_nought
         
         return beta_L, beta_R
         #return beta_nought, betaTrigSolver(l1Left), betaTrigSolver(l1Right)
@@ -233,16 +236,17 @@ class DoubleBicycleModel:
         return beta
         #return frac
 
-    def dynamics(self, state: NDArray[np.float64], v_x: float, delta: float,
+    @staticmethod
+    def dynamics(state: NDArray[np.float64], v_x: float, delta: float,
                  worldArray: NDArray[np.float64], step:int, ax: float = 0.0) -> NDArray[np.float64]:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
-        alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta) # old way of getting slip angles
+        alpha_f, alpha_r = DoubleBicycleModel.get_slip_angles(v_y, r, v_x, delta) # old way of getting slip angles
 
-        delta_fl, delta_fr = self.calculateAckermann(wheelInput=delta)
+        delta_fl, delta_fr = DoubleBicycleModel.calculateAckermann(wheelInput=delta)
 
-        self.tire_fl = TireModel(
+        tire_fl = TireModel(
             temperature=Parameters['ambientTemperature'], 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
@@ -251,7 +255,7 @@ class DoubleBicycleModel:
             params=params
         )
 
-        self.tire_fr = TireModel( 
+        tire_fr = TireModel( 
             temperature=Parameters['ambientTemperature'], 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
@@ -260,7 +264,7 @@ class DoubleBicycleModel:
             params=params
         )
 
-        self.tire_rear = TireModel( 
+        tire_rear = TireModel( 
             temperature=Parameters['ambientTemperature'], 
             mechanicalParams=Parameters, 
             magicParams=Magic, 
@@ -269,9 +273,9 @@ class DoubleBicycleModel:
             params=params
         )
 
-        Fy_fl = -self.tire_fl.getLateralForce(worldArray, step)
-        Fy_fr = -self.tire_fr.getLateralForce(worldArray, step)
-        Fy_r = -self.tire_rear.getLateralForce(worldArray, step)
+        Fy_fl = tire_fl.getLateralForce(worldArray, step)
+        Fy_fr = tire_fr.getLateralForce(worldArray, step)
+        Fy_r = tire_rear.getLateralForce(worldArray, step)
 
         # Account for both tires per axle
         Fy_f_total = Fy_fl + Fy_fr
@@ -290,23 +294,23 @@ class DoubleBicycleModel:
                       ax: float = 0.0, method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
-            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k1 = DoubleBicycleModel.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
             self.state = self.state + dt * k1
 
         elif method == "rk2":
-            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
-            k2 = self.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k1 = DoubleBicycleModel.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k2 = DoubleBicycleModel.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
             self.state = self.state + dt * k2
 
         elif method == "rk4":
-            k1 = self.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
-            k2 = self.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
-            k3 = self.dynamics(state=self.state + 0.5*dt*k2, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
-            k4 = self.dynamics(state=self.state + dt*k3, v_x=v_x, delta=delta, ax=ax,worldArray=worldArray, step=step)
+            k1 = DoubleBicycleModel.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k2 = DoubleBicycleModel.dynamics(state=self.state + 0.5*dt*k1, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k3 = DoubleBicycleModel.dynamics(state=self.state + 0.5*dt*k2, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
+            k4 = DoubleBicycleModel.dynamics(state=self.state + dt*k3, v_x=v_x, delta=delta, ax=ax,worldArray=worldArray, step=step)
             self.state = self.state + (dt/6.0) * (k1 + 2*k2 + 2*k3 + k4)
 
         else:
-            raise ValueError(f"Unknown integration method: {method}")
+            raise ValueError(f"Unknown integration method in DoubleBicycleModel.integrate_step(): {method}")
     
     """
     
@@ -427,7 +431,7 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
 
 # globally create these so calcYawRate() can use it.
 params = VehicleParameters()
-model = DoubleBicycleModel(params=params)
+model = DoubleBicycleModel()
 
 def calcYawRate(worldArray:NDArray[np.float64], step: int) -> tuple[np.float64, np.float64]:
     
