@@ -7,13 +7,12 @@ Based on Rajamani's bicycle model.
 
 import numpy as np
 from numpy.typing import NDArray
+from paramLoader import *
 import pandas as pd
 from dataclasses import dataclass
 from typing import Tuple, List
 import matplotlib.pyplot as plt
 import sys
-from paramLoader import *
-import math
 
 @dataclass
 class VehicleParameters:
@@ -57,16 +56,15 @@ class VehicleParameters:
 
 class TireModel:
 
-    def __init__(self, params: VehicleParameters, temperature, mechanicalParams, magicParams, axle, slipAngle, pressure=12, camber=0):
+    def __init__(self, temperature, mechanicalParams, magicParams, axle, slipAngle, pressure=12, camber=0):
         
         self.magic = magicParams
         self.mechanical = mechanicalParams
-        self.params = params
 
         if axle == "front":
-            self.normalForce = self.params.mass * 9.81 * self.params.Lr / self.params.wheelbase / 2.0
+            self.normalForce = VehicleParameters.mass * 9.81 * VehicleParameters.Lr / VehicleParameters.wheelbase / 2.0
         elif axle == "rear":
-            self.normalForce = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
+            self.normalForce = VehicleParameters.mass * 9.81 * VehicleParameters.Lf / VehicleParameters.wheelbase / 2.0
 
         self.slipAngle = slipAngle
         self.tirePressure = pressure
@@ -89,7 +87,7 @@ class TireModel:
     def getNormalLoad(self, inputNormalForce):
         # Neglecting last force
         # I intentionally neglect the last Fx and Fy because that would involve a large rewrite of this.
-        sqrt_term = math.sqrt(9.81 * self.mechanical["unloaded-radius"])
+        sqrt_term = np.sqrt(9.81 * self.mechanical["unloaded-radius"])
         term1 = (1 + self.magic["q_v2"] * abs(self.magic["Omega"]) * self.mechanical["unloaded-radius"]/sqrt_term - self.magic["q_Fcx"] - self.magic["q_Fcy"])
         # We assume the deflection is 1 because idk how to do that
         term2 = (self.magic["q_Fz1"] + self.magic["q_Fz2"] * self.camber**2) / self.mechanical["unloaded-radius"]
@@ -105,15 +103,15 @@ class TireModel:
 
         self.velocityX = worldArray[step, varVelX]
 
-        Alphas = self.magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX)
-        Byk = self.magic["r_by1"]# + self.magic["r_by4"] * math.sin(self.camber) ** 2) * math.cos(math.atan(self.magic["r_by2"] * (Alphas - self.magic["r_by3"]))) * self.magic["lambda_yk"]
+        Alphas = self.magic["lambda_alphastar"] * self.slipAngle * np.copysign(1, self.velocityX)
+        Byk = self.magic["r_by1"]# + self.magic["r_by4"] * np.sin(self.camber) ** 2) * np.cos(np.arctan(self.magic["r_by2"] * (Alphas - self.magic["r_by3"]))) * self.magic["lambda_yk"]
         Cyk = self.magic["r_cy1"]
         Eyk = self.magic["r_ey1"] + self.magic["r_ey2"] * self.normDeltaLoadLat
         Shyk = self.magic["r_hy1"] + self.magic["r_hy2"] * self.normDeltaLoadLat
         
         # Use Slip Ratio = (Wheel RPM - GPS Speed) / GPS Speed
         rpm = worldArray[step, varWheelRPM]
-        angular_speed = (2 * math.pi * Parameters['wheelRadius'] * rpm) / 60
+        angular_speed = (2 * np.pi * Parameters['wheelRadius'] * rpm) / 60
         longitudinal_speed = worldArray[step, varSpeed]
 
         if longitudinal_speed == 0: self.slipRatio = 0
@@ -122,19 +120,19 @@ class TireModel:
         Ks = self.slipRatio + Shyk
         BykKs = Byk * Ks
         BykShyk = Byk * Shyk
-        Gykappa = math.cos(Cyk * math.atan(BykKs - Eyk * (BykKs - math.atan(BykKs))))
-        Gykappazero =  math.cos(Cyk * math.atan(BykShyk - Eyk * (BykShyk - math.atan(BykShyk))))
+        Gykappa = np.cos(Cyk * np.arctan(BykKs - Eyk * (BykKs - np.arctan(BykKs))))
+        Gykappazero =  np.cos(Cyk * np.arctan(BykShyk - Eyk * (BykShyk - np.arctan(BykShyk))))
 
 
-        Dvyk = self.mechanical["friction-coeff-lat"] * self.normalForce * (self.magic["r_vy1"] + self.magic["r_vy2"] * self.normDeltaLoadLat + self.magic["r_vy3"] * math.sin(self.camber)) * math.cos(math.atan(self.magic["r_vy4"] * math.sin(Alphas)))  * self.magic["zeta_2"]
-        Svyk = Dvyk * math.sin(self.magic["r_vy5"] * math.atan(self.magic["r_vy6"] * self.slipRatio)) * self.magic["lambda_vyk"]
+        Dvyk = self.mechanical["friction-coeff-lat"] * self.normalForce * (self.magic["r_vy1"] + self.magic["r_vy2"] * self.normDeltaLoadLat + self.magic["r_vy3"] * np.sin(self.camber)) * np.cos(np.arctan(self.magic["r_vy4"] * np.sin(Alphas)))  * self.magic["zeta_2"]
+        Svyk = Dvyk * np.sin(self.magic["r_vy5"] * np.arctan(self.magic["r_vy6"] * self.slipRatio)) * self.magic["lambda_vyk"]
 
         #print(Byk, Cyk, Eyk, Shyk)
 
         return Gykappa/Gykappazero * self.getLateralForcePure() #+ Svyk # + self.magic["Svyk"]
 
     def getLateralForcePure(self):
-        Alphas = self.magic["lambda_alphastarypure"] * self.slipAngle * math.copysign(1,self.velocityX)
+        Alphas = self.magic["lambda_alphastarypure"] * self.slipAngle * np.copysign(1,self.velocityX)
 
         loadDependentPeak = self.magic["loadA"] * self.normalForce * self.normalForce + self.magic["loadB"] * self.normalForce + self.magic["loadC"]
 
@@ -147,11 +145,11 @@ class TireModel:
         return self.stdCurveSine(self.By, self.Cy, self.Dy, self.Ey, self.slipRatio) + Svy
     
     def getLateralCoefficientOfFriction(self):
-        return (self.magic["p_dy1"] + self.magic["p_dy2"] * self.normDeltaLoadLat) * (1 + self.magic["p_py3"] * self.normDeltaPressureLat + self.magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - self.magic["p_dy3"] * math.sin(self.camber) ** 2) * self.magic["lambda_coeffscalary"]
+        return (self.magic["p_dy1"] + self.magic["p_dy2"] * self.normDeltaLoadLat) * (1 + self.magic["p_py3"] * self.normDeltaPressureLat + self.magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - self.magic["p_dy3"] * np.sin(self.camber) ** 2) * self.magic["lambda_coeffscalary"]
     
     def getLateralE(self, Alphas):
         term1 = (self.magic["p_ey1"] + self.magic["p_ey2"] * self.normDeltaLoadLat)
-        term2 = (1 + self.magic["p_ey5"] * math.sin(self.camber) ** 2 - (self.magic["p_ey3"] + self.magic["p_ey4"] * math.sin(self.camber)) * Alphas)
+        term2 = (1 + self.magic["p_ey5"] * np.sin(self.camber) ** 2 - (self.magic["p_ey3"] + self.magic["p_ey4"] * np.sin(self.camber)) * Alphas)
         return term1 * term2 * self.magic["lambda_ey"]
 
 
@@ -161,7 +159,7 @@ class TireModel:
 
     def stdCurveSine(self, Bx, Cx, Dx, Ex, slip):
         BxSlip = Bx * slip
-        return Dx * math.sin( Cx * math.atan( BxSlip - Ex * (BxSlip - math.atan(BxSlip) ) ) )
+        return Dx * np.sin( Cx * np.arctan( BxSlip - Ex * (BxSlip - np.arctan(BxSlip) ) ) )
 
     def normalizeLoadLong(self):
         return (self.normalForce - self.magic["lambda_loadscalarlong"] * self.normalForce) / (self.magic["lambda_loadscalarlong"] * self.normalForce)
@@ -188,10 +186,7 @@ class TireModel:
 class DoubleBicycleModel:
     """2DOF bicycle model: v_y (lateral velocity) and r (yaw rate)"""
 
-    def __init__(self, params: VehicleParameters):
-        
-        self.params = params
-
+    def __init__(self):
         self.state = np.array([0.0, 0.0])
         self.time_history = []
         self.state_history = []
@@ -203,8 +198,8 @@ class DoubleBicycleModel:
         if abs(v_x) < 0.1:
             return delta, 0.0
 
-        alpha_f = delta - np.arctan2(v_y + self.params.Lf * r, v_x)
-        alpha_r = -np.arctan2(v_y - self.params.Lr * r, v_x)
+        alpha_f = delta - np.arctan2(v_y + VehicleParameters.Lf * r, v_x)
+        alpha_r = -np.arctan2(v_y - VehicleParameters.Lr * r, v_x)
 
         return alpha_f, alpha_r
     
@@ -225,8 +220,8 @@ class DoubleBicycleModel:
         
         return beta_L, beta_R
         #return beta_nought, betaTrigSolver(l1Left), betaTrigSolver(l1Right)
-        
-    def betaTrigSolver(self, l1): #a separate function to solve the big bad trig equation
+    @staticmethod 
+    def betaTrigSolver(l1): #a separate function to solve the big bad trig equation
         l2 = np.sqrt((l1**2) + (Parameters["d"]**2)) #l2 is the instantaneous direct distance from rack knuckle to steering axis (KPA)
         atan = np.arctan(Parameters["d"]/l1) #first term of the "beta" equation
 
@@ -283,11 +278,11 @@ class DoubleBicycleModel:
         Fy_r_total = 2.0 * Fy_r
 
         # Lateral and yaw accelerations
-        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / self.params.mass + v_x * r
+        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / VehicleParameters.mass + v_x * r
         dv_y = a_y
 
-        M_yaw = self.params.Lf * Fy_f_total - self.params.Lr * Fy_r_total
-        dr = M_yaw / self.params.yaw_inertia
+        M_yaw = VehicleParameters.Lf * Fy_f_total - VehicleParameters.Lr * Fy_r_total
+        dr = M_yaw / VehicleParameters.yaw_inertia
 
         return np.array([dv_y, dr])
     
