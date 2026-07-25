@@ -89,28 +89,20 @@ if __name__ == "__main__":
     worldArray[0, varYawRate] = Parameters["InitYawRate"]
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
-    start = time.time()
+    startTime = time.time()
+    lastTime = startTime
+    lastSteps = 0
+    updateTime = 2
     for i in range(1, totalSteps):
         worldArray[i, :] = stepState(worldArray, i) # Step forward!!
-        ## This was above the stepState but I moved it down to make it clearer to read.
-        # timeRunning += 1/stepsPerSecond
-        # timeSinceLastSteer += 1/stepsPerSecond
-        # for commamd in timeBasedInputs:
-        #     if currInput + 1 < len(timeBasedInputs) and timeBasedInputs[currInput+1][0] < timeRunning:
-        #         currInput += 1
-        #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
-        #             timeSinceLastSteer = 0
-        #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
+        if time.time() - lastTime > updateTime:
+            steps = i - lastSteps
+            timeToCompletion = (1 - i/totalSteps) * (totalSteps) / (steps/updateTime)
+            print(f"Step {i}/{totalSteps}, {round(i/totalSteps*100)}%, {steps/updateTime} steps/s, estimated time to completion = {round(timeToCompletion, 1)}s")
+            lastSteps = i
+            lastTime = time.time()
         
-    print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
-
-    # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
-    #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
-    #            'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
-    #            'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
-    #            'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
-    #            'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',
-    #            'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
+    print("*****SIMULATION EXECUTATION TIME*****", time.time() -startTime)
     # print(VARIABLE_NAMES)
 
     df = pl.DataFrame(worldArray, schema=VARIABLE_NAMES, orient="row")

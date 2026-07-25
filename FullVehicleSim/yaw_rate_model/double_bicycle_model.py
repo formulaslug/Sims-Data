@@ -123,20 +123,21 @@ class TireModel:
 
         #print(Byk, Cyk, Eyk, Shyk)
 
-        return Gykappa/Gykappazero * self.getLateralForcePure() #+ Svyk # + Magic["Svyk"]
+        return Gykappa/Gykappazero * self.getLateralForcePure(worldArray, step) #+ Svyk # + Magic["Svyk"]
 
-    def getLateralForcePure(self):
-        Alphas = Magic["lambda_alphastarypure"] * self.slipAngle * np.copysign(1,self.velocityX)
+    def getLateralForcePure(self, worldArray:NDArray[np.float64], step:int):
+        velocityX = worldArray[step-1, varVelX]
+        Alphas = Magic["lambda_alphastarypure"] * self.slipAngle * np.copysign(1,velocityX)
 
         loadDependentPeak = Magic["loadA"] * self.normalForce * self.normalForce + Magic["loadB"] * self.normalForce + Magic["loadC"]
 
-        self.Cy = Magic["p_cy1"]
-        self.Dy = loadDependentPeak * self.getLateralCoefficientOfFriction() * self.normalForce * (Magic["tempYAPure"] * self.tireTemperature ** 2 + Magic["tempYBPure"] * self.tireTemperature + Magic["tempYCPure"])
-        self.By = Magic["By_pure"]
-        self.Ey = self.getLateralE(Alphas)
+        Cy = Magic["p_cy1"]
+        Dy = loadDependentPeak * self.getLateralCoefficientOfFriction() * self.normalForce * (Magic["tempYAPure"] * self.tireTemperature ** 2 + Magic["tempYBPure"] * self.tireTemperature + Magic["tempYCPure"])
+        By = Magic["By_pure"]
+        Ey = self.getLateralE(Alphas)
 
         Svy = Magic["Svy"]
-        return self.stdCurveSine(self.By, self.Cy, self.Dy, self.Ey, self.slipRatio) + Svy
+        return self.stdCurveSine(By, Cy, Dy, Ey, self.slipRatio) + Svy
     
     def getLateralCoefficientOfFriction(self):
         return (Magic["p_dy1"] + Magic["p_dy2"] * self.normDeltaLoadLat) * (1 + Magic["p_py3"] * self.normDeltaPressureLat + Magic["p_py4"] * self.normDeltaPressureLat ** 2) * (1 - Magic["p_dy3"] * np.sin(self.camber) ** 2) * Magic["lambda_coeffscalary"]
@@ -168,14 +169,6 @@ class TireModel:
     def normalizePressureLat(self):
         # Only long because lat doesn't use it
         return (self.tirePressure - Magic["lambda_pressurescalarlat"] * self.tirePressure) / (Magic["lambda_pressurescalarlat"] * self.tirePressure)
-
-    def updateParams(self, normalForce=-1, slipRatio=-1, velocityX=-1):
-        if normalForce != -1:
-            self.normalForce = normalForce
-        if slipRatio != -1:
-            self.slipRatio = slipRatio
-        if velocityX != -1:
-            self.velocityX = velocityX
 
 class DoubleBicycleModel:
     """2DOF bicycle model: v_y (lateral velocity) and r (yaw rate)"""
