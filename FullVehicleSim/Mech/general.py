@@ -36,5 +36,5 @@ def calculateYawRate(worldArray:NDArray[np.float64], step:int, initAcceleration:
         slipAngle = calcSlipAngle(worldArray, step)
         slipRatio = 0.15
         corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, worldArray[step-1, varSpeed], 80, 40, Parameters, Magic) # Works but unused
-        res = calcYawRate(initYawRate, worldArray[step-1, varSpeed], worldArray[step, varSteerAngle], timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1])
+        res:np.float64 = calcYawRate(initYawRate, worldArray[step-1, varSpeed], worldArray[step, varSteerAngle], timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1])
         return res
