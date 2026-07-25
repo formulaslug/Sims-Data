@@ -72,7 +72,7 @@ def calcVirtualSlipAngle():
     #
     # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
 
-def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_):
+def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_) -> np.float64:
     # This model is based on Performance Vehicle Dynamics
     # It is a pretty meh model which uses euler's method to approximate transient behavior
     # Ideally we would use something a bit better like rk4 but i couldn't get that to work
@@ -85,7 +85,7 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
     rearCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
     #speed = 30 # Arbitrary because speed maybe doesn't work
     if speed == 0 or stepSteerInput == 0:
-        return 0
+        return np.float64(0)
 
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     CR = rearCorneringStiffnessDeg * 180 / np.pi
@@ -102,7 +102,7 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
     c = -(NR_v / speed + (I * Y_beta) / (m * speed))
     k = N_beta + (Y_beta * NR_v - N_beta * YR_v) / (m * speed**2)
     C2 = (Y_delta * N_beta - Y_beta * N_delta) / (m * speed)
-    r_inf = (C2 * stepSteerInput) / k
+    r_inf:np.float64 = (C2 * stepSteerInput) / k
     r_dot_0 = N_delta * stepSteerInput / I
     omega_n = np.sqrt(abs(k / I))
     Cc = 2 * I * omega_n
