@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import json
 import polars as pl
 import argparse
 import time
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     ## This is structured so the first row is the initial conditions (inputs don't matter and will just be left to 0), and the
     ## rest are generated as the simulation progresses. This means that a simulation array will always be 1 longer than just the time steps
     ## and duration would indicate. 
-    worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float64)
+    worldArray: NDArray[np.float64] = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float64)
 
     # Set the inital time to 0 if not already 0. Eg. [1.79, 2.36, 3.13] becomes [0.0, 0.57, 1.34]
     timeSeries = df_controls['time'] - df_controls['time'][0] # Normalize to start at 0
@@ -58,11 +57,11 @@ if __name__ == "__main__":
         
     # Interpolation to make the command inputs match the simulation time steps
     # Use cubic spline for driver's real inputs
-    if Parameters["interpolationMethod"] == "cubic":
+    if StringParameters["interpolationMethod"] == "cubic":
         from scipy.interpolate import CubicSpline
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
-    elif Parameters["interpolationMethod"] == "linear":
+    elif StringParameters["interpolationMethod"] == "linear":
         controlInputs = np.zeros((len(steps), 5))
         controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
         controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakePressureFront'])
@@ -72,7 +71,7 @@ if __name__ == "__main__":
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
-    ## Setup initial conditions. Leaves row 0 with no inputs (don't matter anyway since sim runs from 1 -> end)
+    ## Setup initial conditions. Leaves row 0 with no inputs (doesn't matter anyway since sim runs from 1 -> end)
     ## Some other initial conditions based on input parameters.
     worldArray[1:, varThrottle] = controlInputs[:,0]
     worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
@@ -82,9 +81,9 @@ if __name__ == "__main__":
     worldArray[0,varCharge] = Parameters["vehicleSOC"]
     worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
     worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
-    worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
-    worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
-    worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
+    worldArray[0, varHeadingX:varHeadingZ+1] = ArrayParameters["initHeading"]
+    worldArray[0, varPosX:varPosZ+1] = ArrayParameters["initPosition"]
+    worldArray[0, varVelX:varVelZ+1] = ArrayParameters["initVelocity"]
     worldArray[0, varLateralVelocty] = Parameters["InitLateralVelocity"] # velocity in y direction (needed for yaw rate)
     worldArray[0, varYawRate] = Parameters["InitYawRate"]
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])

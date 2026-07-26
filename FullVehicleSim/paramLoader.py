@@ -2,13 +2,18 @@ import json5
 from typing import Dict, List, Tuple
 import polars as pl
 import numpy as np
+from numpy.typing import NDArray
 
-Magic: dict
-Parameters: dict
+Magic: dict[str, np.float64]
+Parameters: dict[str, np.float64]
+ArrayParameters: dict[str, NDArray[np.float64]]
+StringParameters: dict[str, str]
 with open('params.json5', 'r') as file:
-    params = json5.load(file)
-    Magic = params["Magic"] #type: ignore
-    Parameters = params["Parameters"] #type: ignore
+    params: dict[str, dict] = json5.load(file)
+    Magic = params["Magic"]
+    Parameters = params["Parameters"]
+    ArrayParameters = params["ArrayParameters"]
+    StringParameters = params["StringParameters"]
     del params
 
 savedHisteresisKernel = pl.read_csv("Electrical/HisteresisCellModel/trained_voltage_kernel.csv").to_numpy()
