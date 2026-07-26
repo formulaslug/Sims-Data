@@ -92,7 +92,7 @@ if __name__ == "__main__":
     lastTime = startTime
     lastSteps = 0
     updateTime = 2
-    for i in range(1, totalSteps):
+    for i in range(1, totalSteps+1):
         worldArray[i, :] = stepState(worldArray, i) # Step forward!!
         if time.time() - lastTime > updateTime:
             steps = i - lastSteps
