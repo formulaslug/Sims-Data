@@ -18,7 +18,7 @@
         "initialBatteryTemperature": 20.0, // °C
         "vehicleSOC": 1.0, // Out of 1, starting state of charge
         "initSpeed": 0.0, // m/s
-        "airDensity": 1.230,
+        "airDensity": 1.230, /// kg / m^3
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
         "rollingResistanceCoeff": 0.020926359062619436,
 
@@ -30,7 +30,7 @@
 
         "regenMaxTorque": 180.0, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
         
-        "wheelCircumferance": 1.35716802635079,
+        "wheelCircumferance": 1.35716802635079, // m
         "wheelRadius": 0.216, // m
         "gearRatio": 3.41667, // 41/12
         "maxTorque": 180.0, // Nm, max torque at the motor.
@@ -41,9 +41,9 @@
         "load_0": 300.0,
 
         "Mass": 280.0, // kg
-        "wheelBase": 1.65471,
+        "wheelBase": 1.65471, // m
         "a": 0.853506,
-        "frontWeightDist": 46.46,
+        "frontWeightDist": 46.46, // %
         "CoG-height": 0.999628,
         "CoG-distanceToRollAxis": 0.999628,
         "polarMoment": 658.088580080000,
@@ -77,6 +77,12 @@
         "l_rod": 378.9426, // [3] mm (length of tie rod as left in FS-3 master CAD)
         "d": 109.7788, // [3] mm (plan view distance between front axis and rack. negative because we have a front steer setup)
         "l_arm": 71.628, // [3] mm (length of "steer arm", which is the distance from the center of the upright toe rod pickup to the KPA)
+    
+        "Lf": 0.8535, // m
+        "Lr": 0.7365, // m
+        track_width_front: 1.234008,  // 1234.008 mm
+        track_width_rear: 1.186,  // 1186 m
+        track_width: 1.234008,  // Using front track for compatibility
     },
     "Magic": {
 

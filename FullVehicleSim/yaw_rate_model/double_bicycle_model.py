@@ -9,59 +9,18 @@ import numpy as np
 from numpy.typing import NDArray
 from paramLoader import *
 import pandas as pd
-from dataclasses import dataclass
 from typing import Tuple, List
 import matplotlib.pyplot as plt
 import sys
-
-@dataclass
-class VehicleParameters:
-    """Vehicle parameters from 2025 FSAE Design Spec Sheet (Car #216)"""
-
-    # Geometry (meters) - from 2025 FSAE Design EV Spec Sheet
-    wheelbase: float = 1.589989  # 1589.989 mm
-    Lf: float = 0.8535  # Calculated from 46.32% front weight distribution
-    Lr: float = 0.7365  # Calculated from weight distribution
-    track_width_front: float = 1.234008  # 1234.008 mm
-    track_width_rear: float = 1.186  # 1186 m
-    track_width: float = 1.234008  # Using front track for compatibility
-
-    # Mass properties (with driver)
-    mass: float = 300.0  # Vehicle + driver (from Formula Slug FS-4 specs)
-    mass_without_driver: float = 232.0
-    cg_height: float = 0.3048  # 304.8 mm
-    yaw_inertia: float = 658.09  # Not in spec sheet, using previous value
-
-    # Tire model (stiffness values not in spec sheet, using estimates)
-    # Tires: Front - Hoosier 16.0x6.0-10 LC0, Rear - Hoosier 16.0x7.5-10 LC0
-    C_alpha: float = 180000.0  # Cornering stiffness estimate
-    C_alpha_front: float = 180000.0
-    C_alpha_rear: float = 180000.0
-    mu: float = 1.733
-    longitudinal_inertia: float = 0.0
-
-    # Additional spec sheet info (for reference)
-    # Wheel rates: Front 30.647 N/mm, Rear 35.025 N/mm
-    # Roll rates: Front 407.25 Nm/deg, Rear 429.93 Nm/deg
-    # Natural frequency: Front 3.55 Hz, Rear 3.53 Hz
-
-    def __post_init__(self):
-        tolerance = 0.0001
-        wheelbase_check = self.Lf + self.Lr
-        assert abs(wheelbase_check - self.wheelbase) < tolerance, \
-            f"Wheelbase math is wrong: {self.Lf} + {self.Lr} = {wheelbase_check} != {self.wheelbase}"
-        assert self.mass > 0, "Mass has to be positive"
-        assert self.yaw_inertia > 0, "Yaw inertia has to be positive"
-        assert self.C_alpha > 0, "Tire stiffness has to be positive"
 
 class TireModel:
 
     def __init__(self, temperature, axle, slipAngle, pressure=12, camber=0):
         
         if axle == "front":
-            self.normalForce = VehicleParameters.mass * 9.81 * VehicleParameters.Lr / VehicleParameters.wheelbase / 2.0
+            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lr"] / Parameters["wheelbase"] / 2.0
         elif axle == "rear":
-            self.normalForce = VehicleParameters.mass * 9.81 * VehicleParameters.Lf / VehicleParameters.wheelbase / 2.0
+            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lf"] / Parameters["wheelbase"] / 2.0
 
         self.slipAngle = slipAngle
         self.tirePressure = pressure
@@ -175,30 +134,37 @@ class DoubleBicycleModel:
 
     def __init__(self):
         self.state = np.array([0.0, 0.0])
-        self.time_history = []
-        self.state_history = []
-        self.input_history = []
+        self.time_history: list[np.float64] = []
+        self.state_history: list[NDArray[np.float64]] = []
+        self.input_history: list[tuple[np.float64, np.float64]] = []
     
     @staticmethod
-    def get_slip_angles(v_y: float, r: float, v_x: float, delta: float) \
-            -> Tuple[float, float]:
+    def get_slip_angles(v_y: np.float64, r: np.float64, v_x: np.float64, delta: np.float64) \
+            -> Tuple[np.float64, np.float64]:
         """Calculate front and rear slip angles"""
         if abs(v_x) < 0.1:
-            return delta, 0.0
+            return delta, np.float64(0)
 
-        alpha_f = delta - np.arctan2(v_y + VehicleParameters.Lf * r, v_x)
-        alpha_r = -np.arctan2(v_y - VehicleParameters.Lr * r, v_x)
+        alpha_f: np.float64 = delta - np.arctan2(v_y + Parameters["Lf"] * r, v_x)
+        alpha_r: np.float64 = -np.arctan2(v_y - Parameters["Lr"] * r, v_x)
 
         return alpha_f, alpha_r
     
     @staticmethod
-    def rackMovement(wheelInput: float): #returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
-
-        rackShift: float = Parameters['rackRatio']*wheelInput # wheelInput
+    def rackMovement(wheelInput: np.float64) \
+        -> np.float64:
+        """
+        returns the amount of L-R displacement (in mm) of the steering rack, with the right direction as "positive"
+        """
+        rackShift: np.float64 = Parameters['rackRatio'] * wheelInput # wheelInput
         return rackShift
 
     @staticmethod
-    def calculateAckermann(wheelInput: float): #calculates the steer angles of both wheels
+    def calculateAckermann(wheelInput: np.float64) \
+        -> tuple[np.float64, np.float64]: 
+        """
+        calculates the steer angles of both wheels
+        """
 
         l1Left = (0.5*(Parameters["tw"]-Parameters["l_rack"])) - DoubleBicycleModel.rackMovement(wheelInput) #l1 is the instantaneous parallel distance from the rack knuckle to steering axis (KPA). 
         l1Right = (0.5*(Parameters["tw"]-Parameters["l_rack"])) + DoubleBicycleModel.rackMovement(wheelInput)
@@ -224,8 +190,8 @@ class DoubleBicycleModel:
         #return frac
 
     @staticmethod
-    def dynamics(state: NDArray[np.float64], v_x: float, delta: float,
-                 worldArray: NDArray[np.float64], step:int, ax: float = 0.0) -> NDArray[np.float64]:
+    def dynamics(state: NDArray[np.float64], v_x: np.float64, delta: np.float64,
+                 worldArray: NDArray[np.float64], step:int, ax: np.float64 = np.float64(0)) -> NDArray[np.float64]:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
@@ -260,16 +226,16 @@ class DoubleBicycleModel:
         Fy_r_total = 2.0 * Fy_r
 
         # Lateral and yaw accelerations
-        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / VehicleParameters.mass + v_x * r
+        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / Parameters["mass"] + v_x * r
         dv_y = a_y
 
-        M_yaw = VehicleParameters.Lf * Fy_f_total - VehicleParameters.Lr * Fy_r_total
-        dr = M_yaw / VehicleParameters.yaw_inertia
+        M_yaw = Parameters["Lf"] * Fy_f_total - Parameters["Lr"] * Fy_r_total
+        dr = M_yaw / Parameters["yaw_inertia"]
 
         return np.array([dv_y, dr])
     
-    def integrate_step(self, v_x: float, delta: float, dt: float, worldArray: NDArray[np.float64], step:int,
-                      ax: float = 0.0, method: str = "rk4") -> None:
+    def integrate_step(self, v_x: np.float64, delta: np.float64, dt: np.float64, worldArray: NDArray[np.float64], step:int,
+                      ax: np.float64 = np.float64(0), method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
             k1 = DoubleBicycleModel.dynamics(state=self.state, v_x=v_x, delta=delta, ax=ax, worldArray=worldArray, step=step)
@@ -297,17 +263,17 @@ class DoubleBicycleModel:
     
     """
     
-    def simulate(self, v_x: float, steering_inputs: List[float], worldArray: NDArray[np.float64], step: int,
-                dt: float = 0.01, method: str = "rk4") -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def simulate(self, v_x: np.float64, steering_inputs: List[np.float64], worldArray: NDArray[np.float64], step: int,
+                dt: np.float64 = np.float64(0.01), method: str = "rk4") -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Run simulation with given steering input sequence"""
         self.state = np.array([0.0, 0.0])
-        self.time_history = [0.0]
+        self.time_history = [np.float64(0.0)]
         self.state_history = [self.state.copy()]
-        self.input_history = [(0.0, v_x)]
+        self.input_history = [(np.float64(0.0), v_x)]
 
         for i, delta in enumerate(steering_inputs):
             t = (i + 1) * dt
-            self.integrate_step(v_x, delta, dt, ax=0.0, method=method, worldArray=worldArray, step=step)
+            self.integrate_step(v_x, delta, dt, ax=np.float64(0), method=method, worldArray=worldArray, step=step)
 
             self.time_history.append(t)
             self.state_history.append(self.state.copy())
@@ -408,7 +374,7 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
     return fig
 
 # globally create these so calcYawRate() can use it.
-params = VehicleParameters()
+# params = VehicleParameters()
 model = DoubleBicycleModel()
 
 def calcYawRate(worldArray:NDArray[np.float64], step: int) \
@@ -447,13 +413,13 @@ if __name__ == "__main__":
 
     print("\n--- FORMULA SLUG - DOUBLE BICYCLE YAW RATE MODEL ---\n")
 
-    params = VehicleParameters()
+    # params = VehicleParameters()
     print("Vehicle Parameters:")
-    print(f"  Wheelbase: {params.wheelbase:.3f} m (Lf={params.Lf:.3f}, Lr={params.Lr:.3f})")
-    print(f"  Track width: {params.track_width:.3f} m")
-    print(f"  Mass: {params.mass:.1f} kg")
-    print(f"  Yaw inertia: {params.yaw_inertia:.1f} kg·m²")
-    print(f"  Tire stiffness: {params.C_alpha:.0f} N/rad")
+    print(f"  Wheelbase: {Parameters['wheelbase']:.3f} m (Lf={Parameters['Lf']:.3f}, Lr={Parameters['Lr']:.3f})")
+    print(f"  Track width: {Parameters['trackWidth']:.3f} m")
+    print(f"  Mass: {Parameters['mass']:.1f} kg")
+    print(f"  Yaw inertia: {Parameters['yaw_inertia']:.1f} kg·m²")
+    # print(f"  Tire stiffness: {params.C_alpha:.0f} N/rad")
 
     model = DoubleBicycleModel(params=params)
 
