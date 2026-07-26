@@ -11,7 +11,7 @@ from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
-def calculateHeading(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
+def calculateHeading(worldArray:NDArray[np.float64], step:int) -> tuple[np.float64, np.float64, np.float64]:
     time_increment = 1/Parameters["stepsPerSecond"]
     initial_heading = worldArray[step-1, varHeadingX:varHeadingZ] # Yes this removes Z, we just want X and Y for this simplification
     rotation_angle = worldArray[step-1, varYawRate] * time_increment
@@ -26,7 +26,7 @@ def calculateHeading(worldArray:NDArray[np.float64], step:int) -> NDArray[np.flo
     new_heading = rotation_matrix @ initial_heading
     new_heading = new_heading / np.linalg.norm(new_heading)
 
-    return np.append(new_heading, 0)
+    return (new_heading[0], new_heading[1], np.float64(0))
 
 def stepState(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
     """

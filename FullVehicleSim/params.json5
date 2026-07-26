@@ -1,43 +1,46 @@
 // Base SI Units unless otherwise specified
 {
-    "Parameters": {
-        "stepsPerSecond": 100,
-        "simulationDuration": 430.0, // Seconds
-        "interpolationMethod": "linear", // "linear" or "cubic", this is for interpolating the simultion controls.
-
-        "ambientTemperature": 20, // °C
-        "tractiveIMax": 400, // A
-        "initialBrakeTemperature": 20, // °C
-        "initialBatteryTemperature": 20, // °C
-        "vehicleSOC": 1, // Out of 1, starting state of charge
-        "initSpeed": 0.0, // m/s
+    "ArrayParameters":{
         "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
         "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
         "initVelocity": [0.0, 0.0, 0.0], // Initial velocity vector in the world frame
+    },
+    "StringParameters":{
+        "interpolationMethod": "linear", // "linear" or "cubic", this is for interpolating the simultion controls.
+    },
+    "Parameters": {
+        "stepsPerSecond": 100.0,
+        "simulationDuration": 430.0, // Seconds
 
+        "ambientTemperature": 20.0, // °C
+        "tractiveIMax": 400.0, // A
+        "initialBrakeTemperature": 20.0, // °C
+        "initialBatteryTemperature": 20.0, // °C
+        "vehicleSOC": 1.0, // Out of 1, starting state of charge
+        "initSpeed": 0.0, // m/s
         "airDensity": 1.230,
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
         "rollingResistanceCoeff": 0.020926359062619436,
 
         "brakeDiscRadius": 0.09525, // meters (3.75 inches) -- Brake pad is ~1 inch wide near the edge of an 8 inch diamater rotor
         "brakeCaliperArea": 1.23, // in^2
-        "brakeRotorArea": 77, // in^2, not simply calculated because the brake disc has holes in it
+        "brakeRotorArea": 77.0, // in^2, not simply calculated because the brake disc has holes in it
         "brakeRotorMass": 0.4908, // kg
-        "4130SpecificHeatCapacity": 540, // J/(kg*k)
+        "4130SpecificHeatCapacity": 540.0, // J/(kg*k)
 
-        "regenMaxTorque": 180, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
+        "regenMaxTorque": 180.0, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
         
         "wheelCircumferance": 1.35716802635079,
         "wheelRadius": 0.216, // m
         "gearRatio": 3.41667, // 41/12
-        "maxTorque": 180, // Nm, max torque at the motor.
+        "maxTorque": 180.0, // Nm, max torque at the motor.
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
         "unloaded-radius": 1.7333,
-        "p_0": 82000,
-        "load_0": 300,
+        "p_0": 82000.0,
+        "load_0": 300.0,
 
-        "Mass": 280, // kg
+        "Mass": 280.0, // kg
         "wheelBase": 1.65471,
         "a": 0.853506,
         "frontWeightDist": 46.46,
@@ -45,28 +48,28 @@
         "CoG-distanceToRollAxis": 0.999628,
         "polarMoment": 658.088580080000,
 
-        "rollSteerCoefficient": 0,
-        "rollCamberSteerCoefficient": 0,
-        "casterLength": 0,
-        "frontToe": 0,
+        "rollSteerCoefficient": 0.0,
+        "rollCamberSteerCoefficient": 0.0,
+        "casterLength": 0.0,
+        "frontToe": 0.0,
 
-        "brakeSpecificHeatCapacity": 450,
-        "brakeThermalConductivity": 50,
+        "brakeSpecificHeatCapacity": 450.0,
+        "brakeThermalConductivity": 50.0,
         "brakeSurfaceArea": 0.001180643,
         "brakepadThickness": 0.007874,
         "brakeMass": 0.408,
-        "maxBrakeForce": 1500,
+        "maxBrakeForce": 1500.0,
 
-        "seriesCells": 30,
-        "parallelCells": 20,
+        "seriesCells": 30.0,
+        "parallelCells": 20.0,
         "cellCapacity_Ah": 2.6, // Amp hours
         "histeresisKernelLength": 10.0, // seconds
 
         "GasConstant": 8.31446261815324,
         "FaradaysConstant": 96485.33212,
 
-        "InitLateralVelocity": 0,
-        "InitYawRate": 0,
+        "InitLateralVelocity": 0.0,
+        "InitYawRate": 0.0,
         "tw": 1083.3862, // mm (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
         "rackRatio": 0.332862903226, // 82.55/248 [4] mm rack displacement/deg pinion rotation
         "rackShift": 0.0, //  mm of movement of the rack from left to right (left is - right is +)
