@@ -44,8 +44,8 @@ def calcMaxPower(voltage:np.float64) \
 def calcVoltage(worldArray:NDArray[np.float64], step:int) \
     -> np.float64:
 
-    F = Parameters["FaradaysConstant"]
-    R = Parameters["GasConstant"]
+    F = Parameters["faradaysConstant"]
+    R = Parameters["gasConstant"]
     
     V0 = Magic["cellModel_V0"]
     C1 = Magic["cellModel_C1"]

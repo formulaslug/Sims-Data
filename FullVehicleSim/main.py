@@ -84,8 +84,8 @@ if __name__ == "__main__":
     worldArray[0, varHeadingX:varHeadingZ+1] = ArrayParameters["initHeading"]
     worldArray[0, varPosX:varPosZ+1] = ArrayParameters["initPosition"]
     worldArray[0, varVelX:varVelZ+1] = ArrayParameters["initVelocity"]
-    worldArray[0, varLateralVelocty] = Parameters["InitLateralVelocity"] # velocity in y direction (needed for yaw rate)
-    worldArray[0, varYawRate] = Parameters["InitYawRate"]
+    worldArray[0, varLateralVelocty] = Parameters["initLateralVelocity"] # velocity in y direction (needed for yaw rate)
+    worldArray[0, varYawRate] = Parameters["initYawRate"]
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     startTime = time.time()

@@ -18,9 +18,9 @@ class TireModel:
     def __init__(self, temperature, axle, slipAngle, pressure=12, camber=0):
         
         if axle == "front":
-            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lr"] / Parameters["wheelbase"] / 2.0
+            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lr"] / Parameters["wheelBase"] / 2.0
         elif axle == "rear":
-            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lf"] / Parameters["wheelbase"] / 2.0
+            self.normalForce = Parameters["mass"] * 9.81 * Parameters["Lf"] / Parameters["wheelBase"] / 2.0
 
         self.slipAngle = slipAngle
         self.tirePressure = pressure
@@ -230,7 +230,7 @@ class DoubleBicycleModel:
         dv_y = a_y
 
         M_yaw = Parameters["Lf"] * Fy_f_total - Parameters["Lr"] * Fy_r_total
-        dr = M_yaw / Parameters["yaw_inertia"]
+        dr = M_yaw / Parameters["yawInertia"]
 
         return np.array([dv_y, dr])
     
@@ -418,7 +418,7 @@ if __name__ == "__main__":
     print(f"  Wheelbase: {Parameters['wheelbase']:.3f} m (Lf={Parameters['Lf']:.3f}, Lr={Parameters['Lr']:.3f})")
     print(f"  Track width: {Parameters['trackWidth']:.3f} m")
     print(f"  Mass: {Parameters['mass']:.1f} kg")
-    print(f"  Yaw inertia: {Parameters['yaw_inertia']:.1f} kg·m²")
+    print(f"  Yaw inertia: {Parameters['yawInertia']:.1f} kg·m²")
     # print(f"  Tire stiffness: {params.C_alpha:.0f} N/rad")
 
     model = DoubleBicycleModel(params=params)

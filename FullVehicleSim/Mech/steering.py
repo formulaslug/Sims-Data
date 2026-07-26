@@ -42,7 +42,7 @@ def calcVirtualSlipAngle():
     Fy = 0
 
     # l = Parameters["wheelBase"]
-    # m = Parameters["Mass"]
+    # m = Parameters["mass"]
     # epsilon_i = Parameters["rollSteerCoefficient"]
     # tau_i = Parameters["rollCamberSteerCoefficient"]
     # hPrime = Parameters["CoG-distanceToRollAxis"]
@@ -91,7 +91,7 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
     CR = rearCorneringStiffnessDeg * 180 / np.pi
     a = Parameters['a']
     b = Parameters["wheelBase"] - a
-    m = Parameters["Mass"]
+    m = Parameters["mass"]
     I = Parameters["polarMoment"]
     Y_beta = CF + CR
     Y_delta = -CF

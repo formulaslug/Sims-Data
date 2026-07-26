@@ -40,7 +40,7 @@
         "p_0": 82000.0,
         "load_0": 300.0,
 
-        "Mass": 280.0, // kg
+        "mass": 280.0, // kg
         "wheelBase": 1.65471, // m
         "a": 0.853506,
         "frontWeightDist": 46.46, // %
@@ -65,11 +65,11 @@
         "cellCapacity_Ah": 2.6, // Amp hours
         "histeresisKernelLength": 10.0, // seconds
 
-        "GasConstant": 8.31446261815324,
-        "FaradaysConstant": 96485.33212,
+        "gasConstant": 8.31446261815324,
+        "faradaysConstant": 96485.33212,
 
-        "InitLateralVelocity": 0.0,
-        "InitYawRate": 0.0,
+        "initLateralVelocity": 0.0,
+        "initYawRate": 0.0,
         "tw": 1083.3862, // mm (simplified track width from steering axis to steering axis [steering axis is also simplified to be A-arm knuckle to A-arm knuckle])
         "rackRatio": 0.332862903226, // 82.55/248 [4] mm rack displacement/deg pinion rotation
         "rackShift": 0.0, //  mm of movement of the rack from left to right (left is - right is +)
@@ -80,9 +80,7 @@
     
         "Lf": 0.8535, // m
         "Lr": 0.7365, // m
-        track_width_front: 1.234008,  // 1234.008 mm
-        track_width_rear: 1.186,  // 1186 m
-        track_width: 1.234008,  // Using front track for compatibility
+        yawInertia: 658.09,  // Not in spec sheet, using previous value
     },
     "Magic": {
 

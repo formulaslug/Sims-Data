@@ -70,7 +70,7 @@ def stepState(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
     arr[varMotorForce] = calcMotorForce(arr[varMotorTorque]) # Newtons, Longitudinal force at the wheel from the motor
     arr[varNetForce] = arr[varMotorForce] + arr[varResistiveForces] # Newtons
     
-    arr[varAcceleration] = arr[varNetForce] / Parameters["Mass"] # m/s^2
+    arr[varAcceleration] = arr[varNetForce] / Parameters["mass"] # m/s^2
     
     arr[varCurrent] = calcCurrent(arr[varPower], arr[varVoltage]) # Amps. clamps for current limit. pack current.
 
