@@ -2,7 +2,7 @@
 Double Bicycle Yaw Rate Model for Formula Slug
 
 2DOF model (lateral velocity + yaw rate) for basic vehicle dynamics.
-Based on Rajamani's bicycle model.w
+Based on Rajamani's bicycle model.
 """
 
 import numpy as np
