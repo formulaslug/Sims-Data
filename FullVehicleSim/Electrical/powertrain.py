@@ -1,7 +1,9 @@
 import numpy as np
+from numpy.typing import NDArray
 from paramLoader import *
 
-def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
+def calcMaxMotorTorque(worldArray:NDArray[np.float64], step:int, resistiveForces:np.float64, maxPower:np.float64, maxTractionTorqueAtWheel:np.float64) \
+    -> np.float64:
         '''
         Motor Torque at the wheel
         
@@ -17,28 +19,33 @@ def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, m
         torque = min(Parameters["maxTorque"], maxPowerTorque, 2*maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
 
-def calcCurrent(power:float, voltage:float) -> float:
+def calcCurrent(power:np.float64, voltage:np.float64) \
+    -> np.float64:
         if (power / voltage) > Parameters["tractiveIMax"]:
             return Parameters["tractiveIMax"]
         return power / voltage
 
-def calcMaxWheelTorque(maxMotorTorque):
+def calcMaxWheelTorque(maxMotorTorque:np.float64) \
+    -> np.float64:
         '''
         maxMotorTorque * gear ratio
         '''
         return maxMotorTorque * Parameters["gearRatio"]
 
-def calcMotorForce(motorTorque:float) -> float:
+def calcMotorForce(motorTorque:np.float64) \
+    -> np.float64:
         return (motorTorque * Parameters["gearRatio"] / Parameters["wheelRadius"])
 
-def calcMaxPower(voltage:float) -> float:
+def calcMaxPower(voltage:np.float64) \
+    -> np.float64:
         return Parameters["tractiveIMax"] * voltage
 
 
-def calcVoltage(worldArray:np.ndarray, step:int) -> float:
+def calcVoltage(worldArray:NDArray[np.float64], step:int) \
+    -> np.float64:
 
-    F = Parameters["FaradaysConstant"]
-    R = Parameters["GasConstant"]
+    F = Parameters["faradaysConstant"]
+    R = Parameters["gasConstant"]
     
     V0 = Magic["cellModel_V0"]
     C1 = Magic["cellModel_C1"]

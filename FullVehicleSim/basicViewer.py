@@ -2,7 +2,8 @@ import polars as pl
 import matplotlib.pyplot as plt
 
 df = pl.read_parquet("FullVehicleSim/simulation_output.parquet")
-dfReal = pl.read_parquet("../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet").fill_null(strategy="forward").fill_null(strategy="backward")
+dfReal = pl.read_parquet("../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet").fill_null(
+    strategy="forward").fill_null(strategy="backward")
 t = df["time"]
 
 dfReal["Time_ms"][-1]
@@ -34,3 +35,8 @@ plt.xlabel("Time (s)")
 plt.ylabel("RPM")
 plt.show()
 df["speed"].max()
+
+plt.plot(dfReal["Time_ms"]/1000, dfReal["VDM_Y_AXIS_YAW_RATE"], label="yaw rate")
+plt.plot(t, df["yawRate"], label = "simulated yaw rate")
+plt.legend()
+plt.show()

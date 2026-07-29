@@ -213,3 +213,4 @@ Projects/.DS_Store
 .fake
 *.joblib
 FullVehicleSim/simulation_output.parquet
+.vscode/settings.json

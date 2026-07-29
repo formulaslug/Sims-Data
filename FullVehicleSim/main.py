@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import json
 import polars as pl
 import argparse
 import time
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     ## This is structured so the first row is the initial conditions (inputs don't matter and will just be left to 0), and the
     ## rest are generated as the simulation progresses. This means that a simulation array will always be 1 longer than just the time steps
     ## and duration would indicate. 
-    worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float32)
+    worldArray: NDArray[np.float64] = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float64)
 
     # Set the inital time to 0 if not already 0. Eg. [1.79, 2.36, 3.13] becomes [0.0, 0.57, 1.34]
     timeSeries = df_controls['time'] - df_controls['time'][0] # Normalize to start at 0
@@ -58,11 +57,11 @@ if __name__ == "__main__":
         
     # Interpolation to make the command inputs match the simulation time steps
     # Use cubic spline for driver's real inputs
-    if Parameters["interpolationMethod"] == "cubic":
+    if StringParameters["interpolationMethod"] == "cubic":
         from scipy.interpolate import CubicSpline
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
-    elif Parameters["interpolationMethod"] == "linear":
+    elif StringParameters["interpolationMethod"] == "linear":
         controlInputs = np.zeros((len(steps), 5))
         controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
         controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakePressureFront'])
@@ -72,7 +71,7 @@ if __name__ == "__main__":
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
-    ## Setup initial conditions. Leaves row 0 with no inputs (don't matter anyway since sim runs from 1 -> end)
+    ## Setup initial conditions. Leaves row 0 with no inputs (doesn't matter anyway since sim runs from 1 -> end)
     ## Some other initial conditions based on input parameters.
     worldArray[1:, varThrottle] = controlInputs[:,0]
     worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
@@ -82,33 +81,27 @@ if __name__ == "__main__":
     worldArray[0,varCharge] = Parameters["vehicleSOC"]
     worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
     worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
-    worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
-    worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
-    worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
+    worldArray[0, varHeadingX:varHeadingZ+1] = ArrayParameters["initHeading"]
+    worldArray[0, varPosX:varPosZ+1] = ArrayParameters["initPosition"]
+    worldArray[0, varVelX:varVelZ+1] = ArrayParameters["initVelocity"]
+    worldArray[0, varLateralVelocty] = Parameters["initLateralVelocity"] # velocity in y direction (needed for yaw rate)
+    worldArray[0, varYawRate] = Parameters["initYawRate"]
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
-    start = time.time()
-    for i in range(1, totalSteps):
+    startTime = time.time()
+    lastTime = startTime
+    lastSteps = 0
+    updateTime = 2
+    for i in range(1, totalSteps+1):
         worldArray[i, :] = stepState(worldArray, i) # Step forward!!
-        ## This was above the stepState but I moved it down to make it clearer to read.
-        # timeRunning += 1/stepsPerSecond
-        # timeSinceLastSteer += 1/stepsPerSecond
-        # for commamd in timeBasedInputs:
-        #     if currInput + 1 < len(timeBasedInputs) and timeBasedInputs[currInput+1][0] < timeRunning:
-        #         currInput += 1
-        #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
-        #             timeSinceLastSteer = 0
-        #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
+        if time.time() - lastTime > updateTime:
+            steps = i - lastSteps
+            timeToCompletion = (1 - i/totalSteps) * (totalSteps) / (steps/updateTime)
+            print(f"Step {i}/{totalSteps}, {round(i/totalSteps*100)}%, {steps/updateTime} steps/s, estimated time to completion = {round(timeToCompletion, 1)}s")
+            lastSteps = i
+            lastTime = time.time()
         
-    print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
-
-    # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
-    #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
-    #            'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
-    #            'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
-    #            'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
-    #            'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',
-    #            'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
+    print("*****SIMULATION EXECUTATION TIME*****", time.time() -startTime)
     # print(VARIABLE_NAMES)
 
     df = pl.DataFrame(worldArray, schema=VARIABLE_NAMES, orient="row")
@@ -125,13 +118,16 @@ if __name__ == "__main__":
     torque = df['motorTorque']
     yawRate = df['yawRate']
     frontBrakeTemperature = df['frontBrakeTemperature']
-    ax1 = plt.subplot(411)
+
+    fig = plt.figure()
+
+    ax1 = fig.add_subplot(411)
     ax11 = ax1.twinx()
-    ax2 = plt.subplot(412)
+    ax2 = fig.add_subplot(412)
     ax22 = ax2.twinx()
-    ax3 = plt.subplot(413)
+    ax3 = fig.add_subplot(413)
     ax33 = ax3.twinx()
-    ax4 = plt.subplot(414)
+    ax4 = fig.add_subplot(414)
     ax44 = ax4.twinx()
 
     ax1.set_title("I (Blue)/V (Orange) vs Time")
@@ -153,7 +149,9 @@ if __name__ == "__main__":
     ax3.plot(t, df["throttle"], label="Throttle")
     ax33.plot(t, df["brakePressureFront"], color='orange')
 
-    ax4.set_title("rvt")
+    ax4.set_xlabel("Time (s)")
+    ax4.set_ylabel("Yaw Rate (radians)")
+    ax4.set_title("yawRate")
     ax4.plot(t, yawRate)
 
     #ax4.set_ylim([0, 190])

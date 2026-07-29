@@ -7,6 +7,7 @@ from scipy.interpolate import CubicSpline
 from scipy.integrate import RK45
 # from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+from scipy.integrate import cumulative_trapezoid
 
 
 # lat = "VDM_GPS_Latitude"
@@ -67,20 +68,20 @@ def mag (a, b, c):
     # print(f"mag = {np.sqrt(a**2 + b**2 + c**2)}")
     return np.sqrt(a**2 + b**2 + c**2)
 
-def in_place_integrate (derivative, dt=0.01): #Rimann sum that returns an array of the intergral at that point. Assumes dt of 0.01
-    if len(derivative.shape) == 1:
-        width = 1
-    else:
-        width = derivative.shape[1]
-    container = derivative[0]
-    out = np.zeros((derivative.shape[0], width))
-    out[0] = container*dt
-    for i in range(1, derivative.shape[0]):
-        container += dt*derivative[i]
-        # print(f"added {0.01*derivative[i]} to {container}")
-        out[i] = container
-    # print(f"out of integral is {out}")
-    return out
+def in_place_integrate (derivative, t, initial=0): #Rimann sum that returns an array of the intergral at that point. Assumes dt of 0.01
+    # if len(derivative.shape) == 1:
+    #     width = 1
+    # else:
+    #     width = derivative.shape[1]
+    # container = derivative[0]
+    # out = np.zeros((derivative.shape[0], width))
+    # out[0] = container*dt
+    # for i in range(1, derivative.shape[0]):
+    #     container += dt*derivative[i]
+    #     # print(f"added {0.01*derivative[i]} to {container}")
+    #     out[i] = container
+    # # print(f"out of integral is {out}")
+    return cumulative_trapezoid(derivative, t, initial)
 
 def integrate_with_tCol (col, timeCol):
     if col.len() != timeCol.len():

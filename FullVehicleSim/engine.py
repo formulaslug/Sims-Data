@@ -1,15 +1,17 @@
 from paramLoader import *
 import numpy as np
+from numpy.typing import NDArray
 from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
 from Mech.aero import calcDrag, calcDownForce
 from Mech.steering import calcSlipAngle
 from Mech.general import calcResistiveForces
 from Electrical.powertrain import calcCurrent, calcMaxMotorTorque, calcMaxWheelTorque, calcMotorForce, calcMaxPower, calcVoltage
+from yaw_rate_model.double_bicycle_model import calcYawRate
 from scipy.integrate import RK45
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
-def calculateHeading(worldArray:np.ndarray, step:int) -> np.ndarray:
+def calculateHeading(worldArray:NDArray[np.float64], step:int) -> tuple[np.float64, np.float64, np.float64]:
     time_increment = 1/Parameters["stepsPerSecond"]
     initial_heading = worldArray[step-1, varHeadingX:varHeadingZ] # Yes this removes Z, we just want X and Y for this simplification
     rotation_angle = worldArray[step-1, varYawRate] * time_increment
@@ -24,9 +26,9 @@ def calculateHeading(worldArray:np.ndarray, step:int) -> np.ndarray:
     new_heading = rotation_matrix @ initial_heading
     new_heading = new_heading / np.linalg.norm(new_heading)
 
-    return np.append(new_heading, 0)
+    return (new_heading[0], new_heading[1], np.float64(0))
 
-def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
+def stepState(worldArray:NDArray[np.float64], step:int) -> NDArray[np.float64]:
     """
     The order by which things get updated in this function is incredibly important. 
     If you calculate velocity before you calculate acceleration, 
@@ -68,16 +70,14 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varMotorForce] = calcMotorForce(arr[varMotorTorque]) # Newtons, Longitudinal force at the wheel from the motor
     arr[varNetForce] = arr[varMotorForce] + arr[varResistiveForces] # Newtons
     
-    arr[varAcceleration] = arr[varNetForce] / Parameters["Mass"] # m/s^2
+    arr[varAcceleration] = arr[varNetForce] / Parameters["mass"] # m/s^2
     
     arr[varCurrent] = calcCurrent(arr[varPower], arr[varVoltage]) # Amps. clamps for current limit. pack current.
 
     arr[varCharge] = worldArray[step-1, varCharge] - worldArray[step, varCurrent] * delta / 3600.0 / Parameters["parallelCells"] / Parameters["cellCapacity_Ah"]
     arr[varPosX:varPosZ+1] = worldArray[step-1, varPosX:varPosZ+1] + worldArray[step-1, varVelX:varVelZ+1] * delta
     arr[varSpeed] = max(0, worldArray[step-1, varSpeed] + arr[varAcceleration] * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
-    arr[varYawRate] = worldArray[step-1, varYawRate]
-    if worldArray[step, varSteerAngle] == 0:
-        arr[varYawRate] = 0
+    arr[varLateralVelocty], arr[varYawRate] = calcYawRate(worldArray, step)
     arr[varVelX:varVelZ+1] = arr[varSpeed] * worldArray[step-1, varHeadingX:varHeadingZ+1]
     arr[varHeadingX:varHeadingZ+1] = calculateHeading(worldArray, step)
 

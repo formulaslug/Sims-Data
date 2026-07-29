@@ -1,19 +1,20 @@
-from Mech.traction import calcCorneringStiffness
+import numpy as np
 from paramLoader import *
+from numpy.typing import NDArray
+from Mech.traction import calcCorneringStiffness
 from Mech.braking import calcBrakeForce
 from Mech.aero import calcDrag
 from Mech.steering import calcSlipAngle, calcYawRate
 from Mech.tireLoad import calcLoadTransfer
-import numpy as np
 
-def calcResistiveForces(worldArray:np.ndarray, step:int):
+def calcResistiveForces(worldArray:NDArray[np.float64], step:int) -> np.float64:
         if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error
-            return 0
+            return np.float64(0)
         else:
             frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
             return -1 * (calcDrag(worldArray, step) + frontBrakeForce + rearBrakeForce)
         
-def calculateYawRate(worldArray:np.ndarray, step:int, initAcceleration:float, initYawRate:float, timeSinceLastSteer:float):
+def calculateYawRate(worldArray:NDArray[np.float64], step:int, initAcceleration:np.float64, initYawRate:np.float64, timeSinceLastSteer:np.float64) -> np.float64:
         """Calculate the yaw rate of the vehicle at the current state.
         This function computes the yaw rate by calculating tire loads, slip angles,
         cornering stiffness, and then applying the vehicle dynamics equations.
@@ -35,5 +36,5 @@ def calculateYawRate(worldArray:np.ndarray, step:int, initAcceleration:float, in
         slipAngle = calcSlipAngle(worldArray, step)
         slipRatio = 0.15
         corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, worldArray[step-1, varSpeed], 80, 40, Parameters, Magic) # Works but unused
-        res = calcYawRate(initYawRate, worldArray[step-1, varSpeed], worldArray[step, varSteerAngle], timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1])
+        res:np.float64 = calcYawRate(initYawRate, worldArray[step-1, varSpeed], worldArray[step, varSteerAngle], timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1])
         return res

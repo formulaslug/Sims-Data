@@ -1,8 +1,9 @@
 # Steering model
 import numpy as np
+from numpy.typing import NDArray
 from paramLoader import *
 
-def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
+def calcSlipAngle(worldArray:NDArray[np.float64], step:int) -> tuple[np.float64,np.float64]:
     """
     Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
     
@@ -18,7 +19,7 @@ def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     speed = worldArray[step-1, varSpeed]
     yawRate = worldArray[step-1, varYawRate]
     if yawRate == 0 or speed == 0: # WRONG. RELAXATION LENGTH. PROJECT
-        return (0, 0)
+        return (np.float64(0), np.float64(0))
     else:
         bodySlip = np.arctan(worldArray[step-1, varVelY]/worldArray[step-1, varVelX])
 
@@ -41,7 +42,7 @@ def calcVirtualSlipAngle():
     Fy = 0
 
     # l = Parameters["wheelBase"]
-    # m = Parameters["Mass"]
+    # m = Parameters["mass"]
     # epsilon_i = Parameters["rollSteerCoefficient"]
     # tau_i = Parameters["rollCamberSteerCoefficient"]
     # hPrime = Parameters["CoG-distanceToRollAxis"]
@@ -71,7 +72,7 @@ def calcVirtualSlipAngle():
     #
     # return (Fy / CF) * (1 + term1Num/Term1Denom + term2Num/term2Denom + term3)
 
-def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_):
+def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCorneringStiffnessDeg_, rearCorneringStiffnessDeg_) -> np.float64:
     # This model is based on Performance Vehicle Dynamics
     # It is a pretty meh model which uses euler's method to approximate transient behavior
     # Ideally we would use something a bit better like rk4 but i couldn't get that to work
@@ -84,13 +85,13 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
     rearCorneringStiffnessDeg = -140 # Guess because this system isn't valid at high slip angle and when corrnering stiffness is dynamic
     #speed = 30 # Arbitrary because speed maybe doesn't work
     if speed == 0 or stepSteerInput == 0:
-        return 0
+        return np.float64(0)
 
     CF = frontCorneringStiffnessDeg * 180 / np.pi
     CR = rearCorneringStiffnessDeg * 180 / np.pi
     a = Parameters['a']
     b = Parameters["wheelBase"] - a
-    m = Parameters["Mass"]
+    m = Parameters["mass"]
     I = Parameters["polarMoment"]
     Y_beta = CF + CR
     Y_delta = -CF
@@ -101,7 +102,7 @@ def calcYawRate(currYawRate, speed, stepSteerInput, timeSinceLastSteer, frontCor
     c = -(NR_v / speed + (I * Y_beta) / (m * speed))
     k = N_beta + (Y_beta * NR_v - N_beta * YR_v) / (m * speed**2)
     C2 = (Y_delta * N_beta - Y_beta * N_delta) / (m * speed)
-    r_inf = (C2 * stepSteerInput) / k
+    r_inf:np.float64 = (C2 * stepSteerInput) / k
     r_dot_0 = N_delta * stepSteerInput / I
     omega_n = np.sqrt(abs(k / I))
     Cc = 2 * I * omega_n
