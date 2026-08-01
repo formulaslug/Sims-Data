@@ -5,6 +5,7 @@ from typing import Tuple
 
 
 THERMAL_COEFFICIENT: float = 12.6316 / (49.9 * 1000.0)
+ambient_temp: float = 32.0
 """
 Effective thermal coefficient relating I² to temperature rate of change.
 
@@ -50,10 +51,14 @@ def thermal_ode(
         Instantaneous temperature time derivative ``dT/dt`` in
         degrees Celsius per second.
     """
+    mc = 967.6 # J/K
+    Area = 0.71 # m^2
     idx = int(t * len(current_draw) / total_time)
     idx = min(max(idx, 0), len(current_draw) - 1)
     I_t = current_draw[idx]
-    return float(THERMAL_COEFFICIENT * (I_t ** 2))
+    heatingCoeff = 5.0
+    coolingCoeff = 20.0
+    return float(THERMAL_COEFFICIENT * (I_t ** 2) * heatingCoeff + (T-ambient_temp) * -184.90636861 * Area/mc * coolingCoeff)
 
 
 def thermal_ode_solve_ivp(
