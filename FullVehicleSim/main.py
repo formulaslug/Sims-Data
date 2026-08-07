@@ -3,48 +3,52 @@ import json
 import polars as pl
 import argparse
 import time
+import numpy as np
 
 from paramLoader import *
 from engine import *
 
 if __name__ == "__main__":
-    ## Argument Parsing. Should wind up like:
-    # python main.py --simulation_parameters path/to/params.json --simulation_controls path/to/controls.csv
     Parser = argparse.ArgumentParser(description='Full Vehicle Simulator')
-    Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=True)
-
+    
+   
+    Parser.add_argument('--simulation_controls', '-c', type=str, help='Simulation Controls File Path', required=False)
+    
+    # NEW: Accepts a list of ratios to test 
+    Parser.add_argument('--ratios', '-r', nargs='+', type=float, help='List of gear ratios to sweep', default=[3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+    #(if you want to test your own ratios, enter them when you are running the program. Ex: "python main.py --ratios 1.5 2.5")
+    #if we want to test 3:2, we write the gear ratio as 1.5 since 3/2 = 1.5
+    
     args = Parser.parse_args()
 
-    simulation_controls_path = args.simulation_controls
-
-    if simulation_controls_path: # If not None or empty
-        if simulation_controls_path.endswith('.csv'): ## Check for csv and read as that
-            df_controls = pl.read_csv(simulation_controls_path)
-        elif simulation_controls_path.endswith('.parquet'): ## Check for parquet and read as that
-            df_controls = pl.read_parquet(simulation_controls_path)
-        else:
-            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
-    else:
-        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
     
-    ## Double check it has the correct columns
+    if args.simulation_controls:
+        if args.simulation_controls.endswith('.csv'):
+            df_controls = pl.read_csv(args.simulation_controls)
+        elif args.simulation_controls.endswith('.parquet'):
+            df_controls = pl.read_parquet(args.simulation_controls)
+        else:
+            raise Exception("Unsupported file format for simulation controls.")
+    else:
+        # Default Fix 1: Flat-out 100% throttle straight line
+        print("Running Straight line acceleration")
+        df_controls = pl.DataFrame({
+            'time': [0.0, Parameters["simulationDuration"]],
+            'throttle': [1.0, 1.0],
+            'brakePressureFront': [0.0, 0.0],
+            'brakePressureRear': [0.0, 0.0],
+            'steerAngle': [0.0, 0.0]
+        })
+
+    # Double check it has the correct columns
     if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'steerAngle']:
-        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'steerAngle'")
+        raise Exception("Simulation controls file must contain: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'steerAngle'")
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
 
-
-    ## This is structured so the first row is the initial conditions (inputs don't matter and will just be left to 0), and the
-    ## rest are generated as the simulation progresses. This means that a simulation array will always be 1 longer than just the time steps
-    ## and duration would indicate. 
-    worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float32)
-
-    # Set the inital time to 0 if not already 0. Eg. [1.79, 2.36, 3.13] becomes [0.0, 0.57, 1.34]
-    timeSeries = df_controls['time'] - df_controls['time'][0] # Normalize to start at 0
-
-    # This takes the last time step and copies it out to the end of the simulation duration. 
-    # This has the effect of holding the last command constant until the end of the simulation duration. 
+    # Interpolation to match simulation time steps
+    timeSeries = df_controls['time'] - df_controls['time'][0]
     if timeSeries[-1] < Parameters["simulationDuration"]:
         df_controls = df_controls.vstack(pl.DataFrame({
             'time': [Parameters["simulationDuration"]],
@@ -55,8 +59,6 @@ if __name__ == "__main__":
 
     timeSeries = df_controls['time']
         
-    # Interpolation to make the command inputs match the simulation time steps
-    # Use cubic spline for driver's real inputs
     if Parameters["interpolationMethod"] == "cubic":
         from scipy.interpolate import CubicSpline
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
@@ -67,92 +69,59 @@ if __name__ == "__main__":
         controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakePressureFront'])
         controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['brakePressureRear'])
         controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['steerAngle'])
-    else:
-        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
-    ## Setup initial conditions. Leaves row 0 with no inputs (don't matter anyway since sim runs from 1 -> end)
-    ## Some other initial conditions based on input parameters.
-    worldArray[1:, varThrottle] = controlInputs[:,0]
-    worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
-    worldArray[1:, varBrakePressureRear] = controlInputs[:,2]
-    worldArray[1:, varSteerAngle] = controlInputs[:,3]
-    worldArray[0,varCharge] = Parameters["vehicleSOC"]
-    worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
-    worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
-    worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
-    worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
-    worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
-    worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
+    # loop through gear ratios
+    gear_ratios = args.ratios
+    summary_results = []
 
-    start = time.time()
-    for i in range(1, totalSteps):
-        worldArray[i, :] = stepState(worldArray, i) # Step forward!!
-        ## This was above the stepState but I moved it down to make it clearer to read.
-        # timeRunning += 1/stepsPerSecond
-        # timeSinceLastSteer += 1/stepsPerSecond
-        # for commamd in timeBasedInputs:
-        #     if currInput + 1 < len(timeBasedInputs) and timeBasedInputs[currInput+1][0] < timeRunning:
-        #         currInput += 1
-        #         if timeBasedInputs[currInput-1][1][2] != timeBasedInputs[currInput][1][2]:
-        #             timeSinceLastSteer = 0
-        #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
+    for ratio in gear_ratios:
+        print(f"\n---> Running Sim for Gear Ratio: {ratio}")
         
-    print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
+        # Set gear ratio in parameters
+        Parameters["gearRatio"] = ratio
 
-    # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
-    #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
-    #            'brakesFront', 'brakesRear', 'drag', 'resistiveForces', 'motorForce', 'netForce',
-    #            'torque', 'motorTorque', 'maxTraction', 'maxTractionTorqueAtWheel',
-    #            'cooledBrakeTemperature', 'wheelRPM', 'wheelRotationsHZ',
-    #            'rpm', 'motorRotationsHZ', 'charge', 'voltage', 'current',
-    #            'power', 'maxPower', 'stepSize', 'timeSinceLastSteer']
-    # print(VARIABLE_NAMES)
+        # Allocate world array & initial conditions
+        worldArray = np.zeros((totalSteps + 1, len(VARIABLE_NAMES)), dtype=np.float32)
+        worldArray[1:, varThrottle] = controlInputs[:,0]
+        worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
+        worldArray[1:, varBrakePressureRear] = controlInputs[:,2]
+        worldArray[1:, varSteerAngle] = controlInputs[:,3]
+        worldArray[0, varCharge] = Parameters["vehicleSOC"]
+        worldArray[0, varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
+        worldArray[0, varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
+        worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
+        worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
+        worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
+        worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
-    df = pl.DataFrame(worldArray, schema=VARIABLE_NAMES, orient="row")
-    # print(f"df shape: {df.shape}")
-    # print(f"control inputs shape: {controlInputs.shape}")
-    # print(f"timeCol shape: {timeCol.shape}")
+        # Execute simulation run
+        start = time.time()
+        for i in range(1, totalSteps):
+            worldArray[i, :] = stepState(worldArray, i)
+        
+        # Save results
+        df = pl.DataFrame(worldArray, schema=VARIABLE_NAMES, orient="row")
+        
+        # Metric Extraction
+        top_speed_mps = df['speed'].max()
+        peak_current = df['current'].max()
+        
+        # Time to ~60mph (26.8 m/s)
+        sub_60 = df.filter(pl.col("speed") >= 26.8)
+        time_to_60 = sub_60['time'].min() if len(sub_60) > 0 else "N/A"
 
+        summary_results.append({
+            "Gear Ratio": ratio,
+            "0-60 mph (s)": round(time_to_60, 3) if isinstance(time_to_60, float) else time_to_60,
+            "Top Speed (m/s)": round(top_speed_mps, 2),
+            "Peak Current (A)": round(peak_current, 1)
+        })
+
+    # Output overall table to console
+    print("\n" + "="*50)
+    print("      POWERTRAIN GEARING SWEEP RESULTS")
+    print("="*50)
+    print(pl.DataFrame(summary_results))
+
+    # Save last run parquet for visualization
     df.write_parquet("simulation_output.parquet")
-
-    t = df['time']
-    current = df['current']
-    speed = df['speed']
-    voltage = df['voltage']
-    torque = df['motorTorque']
-    yawRate = df['yawRate']
-    frontBrakeTemperature = df['frontBrakeTemperature']
-    ax1 = plt.subplot(411)
-    ax11 = ax1.twinx()
-    ax2 = plt.subplot(412)
-    ax22 = ax2.twinx()
-    ax3 = plt.subplot(413)
-    ax33 = ax3.twinx()
-    ax4 = plt.subplot(414)
-    ax44 = ax4.twinx()
-
-    ax1.set_title("I (Blue)/V (Orange) vs Time")
-    ax1.set_xlabel("Time (s)")
-    ax1.set_ylabel("Current (A) / Voltage (V)")
-    ax1.plot(t, current, label="Current")
-    ax11.plot(t, voltage, label="Voltage", color='orange')
-
-    ax2.set_title("Speed vs Time")
-    ax2.set_xlabel("Time (s)")
-    ax2.set_ylabel("Speed (m/s)")
-    ax2.plot(t, speed)
-
-    ax3.set_title("Throttle (Blue)/Brakes (Orange) vs Time")
-    ax3.set_xlabel("Time (s)")
-    ax3.set_ylabel("Throttle (0-1)")
-    ax33.set_ylabel("Brake Pressure (PSI)")
-    ax3.plot(t, df["throttle"], label="Throttle")
-    ax33.plot(t, df["brakePressureFront"], color='orange')
-
-    ax4.set_title("rvt")
-    ax4.plot(t, yawRate)
-
-    #ax4.set_ylim([0, 190])
-    #ax4.set_yticks(np.arange(0, 181, 20))
-
-    plt.show()

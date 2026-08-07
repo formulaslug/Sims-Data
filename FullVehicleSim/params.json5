@@ -51,7 +51,7 @@
         "brakeMass": 0.408,
         "maxBrakeForce": 1500,
 
-        "seriesCells": 30,s
+        "seriesCells": 30,
         "cellCapacity_Ah": 2.6
     },
     "Magic": {
