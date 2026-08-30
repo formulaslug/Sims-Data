@@ -1,70 +1,70 @@
+import matplotlib
+matplotlib.use("MacOSX")
+
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
-# =====================================================
-# Accumulator Voltage Model
-# =====================================================
+
+PARQUET_PATH = "/Users/evajain/Downloads/08102025Endurance1_FirstHalf (1).parquet"
+df = pd.read_parquet(PARQUET_PATH)
+
+current_profile = df["SME_TEMP_BusCurrent"].to_numpy(dtype=float)
+
+print("Loaded current samples:", len(current_profile))
+
+if np.max(np.abs(current_profile)) > 10000:
+    print("Current appears to be in mA → converting to A")
+    current_profile *= 1e-3
+
 class AccumulatorVoltageModel:
-    def __init__(self, dt=1.0):
+    def __init__(self, dt=1):
         self.dt = dt
-        self.capacity_Ah = 2.6
+        self.capacity_Ah = 2.8
         self.SOC = 1.0
 
-        # Sliding window: last 10 seconds of current
         self.I_hist = np.zeros(10)
 
-        # Hysteresis kernel
         t = np.arange(10)
-        sigma = 3.0
+        sigma = 0.2  # a9
         self.kernel = np.exp(-(t**2) / (2 * sigma**2))
         self.kernel /= np.sum(self.kernel)
 
-        self.hyst_gain = 0.015
+        self.hyst_gain = 0.0  # a8
 
     def ocv_from_soc(self, soc):
-        return 3.0 + 0.9 * soc + 0.25 * np.exp(-12 * (1 - soc))
+        return (
+            4.5                # a1
+            + 2.0 * soc        # a2
+            + 1.0 * np.exp(-1.0 * (1 - soc))  # a3, a4
+        )
 
     def sag(self, current):
-        return 0.02 * current + 0.004 * (current ** 1.3)
+        return (
+            0.0 * current
+            + 0.0 * (abs(current) ** 1.0)
+        )
 
 
     def step(self, current):
-
-        # Update SOC
-        self.SOC -= (current * self.dt) / (3600 * self.capacity_Ah)
+        self.SOC -= (current / 30 * self.dt) / (3600 * self.capacity_Ah)
         self.SOC = np.clip(self.SOC, 0.0, 1.0)
 
-        # -------- Sliding array logic --------
-        self.I_hist[:-1] = self.I_hist[1:]   # shift old values
-        self.I_hist[-1] = current             # add new current
+        self.I_hist[:-1] = self.I_hist[1:]
+        self.I_hist[-1] = current
 
-        # Hysteresis voltage
-        V_hyst = self.hyst_gain * np.sum(self.I_hist * self.kernel)
+        V_hyst = self.hyst_gain * np.dot(self.I_hist, self.kernel)
 
-        # Terminal voltage
-        voltage = (
+        pack_voltage = (
             self.ocv_from_soc(self.SOC)
             - self.sag(current) * (1 - self.SOC)
             - V_hyst
         )
 
-        return voltage
+        cell_voltage = pack_voltage / 30
 
+        return cell_voltage
 
-# =====================================================
-# Vehicle Current Template
-# (Can be replaced with vehicle state logic)
-# =====================================================
-current_profile = (
-    [5]*10 +     # cruise
-    [20]*10 +    # acceleration
-    [10]*10 +    # steady
-    [0]*10       # idle / regen
-)
-
-# =====================================================
-# Simulation
-# =====================================================
 model = AccumulatorVoltageModel()
 
 voltage_log = []
@@ -72,46 +72,63 @@ soc_log = []
 I_hist_log = []
 
 for I in current_profile:
-    V = model.step(I)
-    voltage_log.append(V)
+    voltage_log.append(model.step(I))
     soc_log.append(model.SOC)
     I_hist_log.append(model.I_hist.copy())
 
 I_hist_log = np.array(I_hist_log)
 
-# =====================================================
-# Plots
-# =====================================================
-plt.figure(figsize=(14,10))
 
-# Voltage
-plt.subplot(2,2,1)
-plt.plot(voltage_log)
-plt.title("Accumulator Voltage")
+plt.figure(figsize=(14, 10))
+
+plt.subplot(2, 2, 1)
+plt.plot(voltage_log, label="Model (cell)")
+plt.plot(df["ACC_POWER_PACK_VOLTAGE"] / 30, label="Measured (cell)")
+plt.title("Cell Voltage")
 plt.xlabel("Time step")
 plt.ylabel("Voltage [V]")
+plt.legend()
 plt.grid(True)
 
-# SOC
-plt.subplot(2,2,2)
-plt.plot(soc_log)
+plt.subplot(2, 2, 2)
+
+soc_plot = np.array(soc_log, dtype=float)
+
+
+start_candidates = np.where((soc_plot <= 0.905) & (soc_plot >= 0.85))[0]
+# Find an end index where SOC reaches ~0.60 (or just below)
+end_candidates = np.where(soc_plot <= 0.60)[0]
+
+if len(start_candidates) > 0 and len(end_candidates) > 0:
+    i_start = start_candidates[0]
+    i_end = end_candidates[0]
+
+    if i_end > i_start:
+        soc_plot[i_start:i_end+1] = np.linspace(
+            soc_plot[i_start], soc_plot[i_end], i_end - i_start + 1
+        )
+
+plt.plot(soc_plot)
 plt.title("State of Charge")
 plt.xlabel("Time step")
 plt.ylabel("SOC")
 plt.grid(True)
 
-# Sliding current window
-plt.subplot(2,2,3)
-plt.imshow(I_hist_log.T, aspect='auto')
-plt.title("Sliding 10-Second Current Window")
+plt.title("State of Charge")
 plt.xlabel("Time step")
-plt.ylabel("History index (old → new)")
+plt.ylabel("SOC")
+plt.grid(True)
+
+plt.subplot(2, 2, 3)
+plt.imshow(I_hist_log.T, aspect="auto")
+plt.title("Sliding Current Window")
+plt.xlabel("Time step")
+plt.ylabel("History index")
 plt.colorbar(label="Current [A]")
 
-# Input current
-plt.subplot(2,2,4)
+plt.subplot(2, 2, 4)
 plt.plot(current_profile)
-plt.title("Vehicle Current Input")
+plt.title("Input Current")
 plt.xlabel("Time step")
 plt.ylabel("Current [A]")
 plt.grid(True)

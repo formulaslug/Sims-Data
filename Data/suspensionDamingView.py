@@ -1,0 +1,122 @@
+import polars as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.fft as fft
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
+df = pl.read_parquet("../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet").fill_null(strategy="forward").fill_null(strategy="backward")
+
+
+[x for x in df.columns if "VDM" in x]
+
+
+FR_base_value = df["TPERIPH_FR_DATA_SUSTRAVEL"][:100].mean()
+FL_base_value = df["TPERIPH_FL_DATA_SUSTRAVEL"][:100].mean()
+BR_base_value = df["TPERIPH_BR_DATA_SUSTRAVEL"][:100].mean()
+BL_base_value = df["TPERIPH_BL_DATA_SUSTRAVEL"][:100].mean()
+
+t = df["Time_ms"]/1000.0
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(t, df["TPERIPH_FR_DATA_SUSTRAVEL"] - FR_base_value, label="TPERIPH_FR_DATA_SUSTRAVEL")
+ax.plot(t, df["TPERIPH_FL_DATA_SUSTRAVEL"] - FL_base_value, label="TPERIPH_FL_DATA_SUSTRAVEL")
+ax.plot(t, df["TPERIPH_BR_DATA_SUSTRAVEL"] - BR_base_value, label="TPERIPH_BR_DATA_SUSTRAVEL")
+ax.plot(t, df["TPERIPH_BL_DATA_SUSTRAVEL"] - BL_base_value, label="TPERIPH_BL_DATA_SUSTRAVEL")
+ax.plot(t, df["VDM_Z_AXIS_YAW_RATE"]/2, label="VDM_Z_AXIS_YAW_RATE")
+ax.plot(t, df["SME_TRQSPD_Speed"]/1000, label="SME_TRQSPD_Speed")
+ax.legend()
+ax.set_xlabel("Time [s]")
+ax.set_ylabel("TPERIPH Data")
+ax.set_title("Suspension Damping View")
+ax.grid(True)
+plt.show()
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(t, -1*df["TMAIN_DATA_STEERING"], label="TMAIN_DATA_STEERING")
+ax.plot(t, df["VDM_Z_AXIS_YAW_RATE"], label="VDM_Z_AXIS_YAW_RATE")
+ax.legend()
+ax.set_xlabel("Time [s]")
+ax.set_ylabel("Steering and Yaw Rate")
+ax.set_title("Steering and Yaw Rate")
+ax.grid(True)
+plt.show()
+
+df = df.filter(pl.col("SME_TRQSPD_Speed") > 5000)
+
+suspension_FR_fft = fft.fft((df["TPERIPH_FR_DATA_SUSTRAVEL"] - FR_base_value).to_numpy())
+suspension_FL_fft = fft.fft((df["TPERIPH_FL_DATA_SUSTRAVEL"] - FL_base_value).to_numpy())
+suspension_BR_fft = fft.fft((df["TPERIPH_BR_DATA_SUSTRAVEL"] - BR_base_value).to_numpy())
+suspension_BL_fft = fft.fft((df["TPERIPH_BL_DATA_SUSTRAVEL"] - BL_base_value).to_numpy())
+suspension_FR_freq = fft.fftfreq(len(suspension_FR_fft), d=0.01)
+suspension_FL_freq = fft.fftfreq(len(suspension_FL_fft), d=0.01)
+suspension_BR_freq = fft.fftfreq(len(suspension_BR_fft), d=0.01)
+suspension_BL_freq = fft.fftfreq(len(suspension_BL_fft), d=0.01)
+
+fig = plt.figure()
+ax1 = fig.add_subplot(221)
+ax1.scatter(suspension_FR_freq, np.abs(suspension_FR_fft), label="TPERIPH_FR_DATA_SUSTRAVEL", s=0.5)
+ax1.set_title("FR Suspension FFT")
+ax1.set_xlabel("Frequency [Hz]")
+ax1.set_ylabel("Magnitude")
+ax1.set_yscale("log")
+ax1.grid(True)
+ax2 = fig.add_subplot(222)
+ax2.scatter(suspension_FL_freq, np.abs(suspension_FL_fft), label="TPERIPH_FL_DATA_SUSTRAVEL", s=0.5)
+ax2.set_title("FL Suspension FFT")
+ax2.set_xlabel("Frequency [Hz]")
+ax2.set_ylabel("Magnitude")
+ax2.set_yscale("log")
+ax2.grid(True)
+ax3 = fig.add_subplot(223)
+ax3.scatter(suspension_BR_freq, np.abs(suspension_BR_fft), label="TPERIPH_BR_DATA_SUSTRAVEL", s=0.5)
+ax3.set_title("BR Suspension FFT")
+ax3.set_xlabel("Frequency [Hz]")
+ax3.set_ylabel("Magnitude")
+ax3.set_yscale("log")
+ax3.grid(True)
+ax4 = fig.add_subplot(224)
+ax4.scatter(suspension_BL_freq, np.abs(suspension_BL_fft), label="TPERIPH_BL_DATA_SUSTRAVEL", s=0.5)
+ax4.set_title("BL Suspension FFT")
+ax4.set_xlabel("Frequency [Hz]")
+ax4.set_ylabel("Magnitude")
+ax4.set_yscale("log")
+ax4.grid(True)
+plt.tight_layout()
+plt.show()
+
+yawRate_fft = fft.fft(df["VDM_Z_AXIS_YAW_RATE"].to_numpy())
+yawRate_freq = fft.fftfreq(len(yawRate_fft), d=0.01)
+pitchRate_fft = fft.fft(df["VDM_Y_AXIS_YAW_RATE"].to_numpy())
+pitchRate_freq = fft.fftfreq(len(pitchRate_fft), d=0.01)
+rollRate_fft = fft.fft(df["VDM_X_AXIS_YAW_RATE"].to_numpy())
+rollRate_freq = fft.fftfreq(len(rollRate_fft), d=0.01)
+
+
+meanSegments = 101
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.scatter(yawRate_freq, np.convolve(np.ones(meanSegments)*1/meanSegments, np.abs(yawRate_fft), mode='same'), label="Yaw", s=0.5)
+ax.scatter(pitchRate_freq, np.convolve(np.ones(meanSegments)*1/meanSegments, np.abs(pitchRate_fft), mode='same'), label="Pitch", s=0.5)
+ax.scatter(rollRate_freq, np.convolve(np.ones(meanSegments)*1/meanSegments, np.abs(rollRate_fft), mode='same'), label="Roll", s=0.5)
+ax.legend()
+ax.set_title("Yaw Rate FFT")
+ax.set_xlabel("Frequency [Hz]")
+ax.set_ylabel("Magnitude")
+ax.set_yscale("log")
+ax.grid(True)
+plt.show()
+
+## heave based on z acceleration
+heave_fft = fft.fft(df["VDM_Z_AXIS_ACCELERATION"].to_numpy())
+heave_freq = fft.fftfreq(len(heave_fft), d=0.01)
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.scatter(heave_freq, np.convolve(np.ones(meanSegments)*1/meanSegments, np.abs(heave_fft), mode='same'), label="Heave", s=0.5)
+ax.legend()
+ax.set_title("Heave FFT")
+ax.set_xlabel("Frequency [Hz]")
+ax.set_ylabel("Magnitude")
+ax.set_yscale("log")
+ax.grid(True)
+plt.show()
