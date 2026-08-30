@@ -28,8 +28,8 @@ if __name__ == "__main__":
         raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
     
     ## Double check it has the correct columns
-    if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'steerAngle']:
-        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'steerAngle'")
+    if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'brakePedalTravel', 'steerAngle']:
+        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'brakePedalTravel', 'steerAngle'")
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
@@ -51,6 +51,7 @@ if __name__ == "__main__":
             'throttle': df_controls["throttle"][-1],
             'brakePressureFront': df_controls["brakePressureFront"][-1],
             'brakePressureRear': df_controls["brakePressureRear"][-1],
+            'brakePedalTravel': df_controls["brakePedalTravel"][-1],
             'steerAngle': df_controls["steerAngle"][-1]}))
 
     timeSeries = df_controls['time']
@@ -62,11 +63,12 @@ if __name__ == "__main__":
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
     elif Parameters["interpolationMethod"] == "linear":
-        controlInputs = np.zeros((len(steps), 4))
+        controlInputs = np.zeros((len(steps), 5))
         controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
         controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakePressureFront'])
         controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['brakePressureRear'])
-        controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['steerAngle'])
+        controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['brakePedalTravel'])
+        controlInputs[:,4] = np.interp(steps, timeSeries, df_controls['steerAngle'])
     else:
         raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
 
@@ -75,7 +77,8 @@ if __name__ == "__main__":
     worldArray[1:, varThrottle] = controlInputs[:,0]
     worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
     worldArray[1:, varBrakePressureRear] = controlInputs[:,2]
-    worldArray[1:, varSteerAngle] = controlInputs[:,3]
+    worldArray[1:, varBrakePedalTravel] = controlInputs[:,3]
+    worldArray[1:, varSteerAngle] = controlInputs[:,4]
     worldArray[0,varCharge] = Parameters["vehicleSOC"]
     worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
     worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
@@ -136,6 +139,7 @@ if __name__ == "__main__":
     ax1.set_ylabel("Current (A) / Voltage (V)")
     ax1.plot(t, current, label="Current")
     ax11.plot(t, voltage, label="Voltage", color='orange')
+    ax1.legend()
 
     ax2.set_title("Speed vs Time")
     ax2.set_xlabel("Time (s)")

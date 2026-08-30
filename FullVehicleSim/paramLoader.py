@@ -1,60 +1,73 @@
 import json5
 from typing import Dict, List, Tuple
+import polars as pl
+import numpy as np
 
 Magic: dict
 Parameters: dict
 with open('params.json5', 'r') as file:
     params = json5.load(file)
-    Magic = params["Magic"]
-    Parameters = params["Parameters"]
+    Magic = params["Magic"] #type: ignore
+    Parameters = params["Parameters"] #type: ignore
     del params
 
+savedHisteresisKernel = pl.read_csv("Electrical/HisteresisCellModel/trained_voltage_kernel.csv").to_numpy()
+kernelStepSize = Magic["cellModel_KernelStepSize"]
+newKernelLen = int(savedHisteresisKernel.shape[0] * Parameters["stepsPerSecond"] * kernelStepSize)
+histeresisKernel = np.interp(
+    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, newKernelLen, endpoint=False),
+    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, savedHisteresisKernel.shape[0], endpoint=False),
+    savedHisteresisKernel[:, 1]
+)
+ 
+## IMPORTANT: Do not name any other variable that starts with "var" in this file, as it will be included in the variable schema.
 # Variable definitions - maintain original order for compatibility
 
 varTime = 0
 varThrottle = 1
 varBrakePressureFront = 2
 varBrakePressureRear = 3
-varSteerAngle = 4
-varPosX = 5
-varPosY = 6
-varPosZ = 7
-varVelX = 8
-varVelY = 9
-varVelZ = 10
-varSpeed = 11
-varHeadingX = 12
-varHeadingY = 13
-varHeadingZ = 14
-varYawRate = 15
-varFrontBrakeTemperature = 16
-varRearBrakeTemperature = 17
-varCharge = 18
-varDrag = 19
-varResistiveForces = 20
-varMotorTorque = 21
-varMotorForce = 22
-varNetForce = 23
-varMaxTraction = 24
-varWheelRotationsHZ = 25
-varMotorRPM = 26
-varMotorRotationsHZ = 27
-varCurrent = 28
-varMaxWheelTorque = 29
-varMaxPower = 30
-varPower = 31
-varVoltage = 32
-varFrontBrakeForce = 33
-varRearBrakeForce = 34
-varFrontBrakeHeating = 35
-varRearBrakeHeating = 36
-varFrontBrakeCooling = 37
-varRearBrakeCooling = 38
-varFrontSlipAngle = 39
-varRearSlipAngle = 40
-varMaxMotorTorque = 41
-varAcceleration = 42
-varWheelRPM = 43
+varBrakePedalTravel = 4
+varSteerAngle = 5
+varPosX = 6
+varPosY = 7
+varPosZ = 8
+varVelX = 9
+varVelY = 10
+varVelZ = 11
+varSpeed = 12
+varHeadingX = 13
+varHeadingY = 14
+varHeadingZ = 15
+varYawRate = 16
+varFrontBrakeTemperature = 17
+varRearBrakeTemperature = 18
+varCharge = 19
+varDrag = 20
+varResistiveForces = 21
+varMotorTorque = 22
+varMotorForce = 23
+varNetForce = 24
+varMaxTraction = 25
+varWheelRotationsHZ = 26
+varMotorRPM = 27
+varMotorRotationsHZ = 28
+varCurrent = 29
+varMaxWheelTorque = 30
+varMaxPower = 31
+varPower = 32
+varVoltage = 33
+varFrontBrakeForce = 34
+varRearBrakeForce = 35
+varFrontBrakeHeating = 36
+varRearBrakeHeating = 37
+varFrontBrakeCooling = 38
+varRearBrakeCooling = 39
+varFrontSlipAngle = 40
+varRearSlipAngle = 41
+varMaxMotorTorque = 42
+varAcceleration = 43
+varWheelRPM = 44
 
 # Automatically generate schema from defined variables
 def generate_variable_schema() -> Dict[int, str]:
