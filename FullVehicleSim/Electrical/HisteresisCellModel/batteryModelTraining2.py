@@ -4,11 +4,11 @@ from scipy.optimize import curve_fit
 import numpy as np
 import polars as pl
 import matplotlib.pyplot as plt
-from Data.FSLib.IntegralsAndDerivatives import integrate_with_Scipy_tCol
-from Data.FSLib.AnalysisFunctions import simpleTimeCol
+# from Data.FSLib.IntegralsAndDerivatives import integrate_with_Scipy_tCol
+# from Data.FSLib.AnalysisFunctions import simpleTimeCol
 
 df = pl.read_csv("C:/Projects/FormulaSlug/fs-data/FS-3/voltageTableVTC5A.csv")
-dfLowCurr = df.filter(pl.col("Current") < 3).filter(pl.col("Voltage") > 2.5)
+dfLowCurr = df.filter(pl.col("Current") < 1).filter(pl.col("Voltage") > 2.5)
 
 df.head
 
@@ -88,7 +88,7 @@ plt.ylabel("Voltage (V)")
 plt.legend()
 plt.show()
 
-dfLowCurr1 = df.filter(pl.col("Current") < 3).filter(pl.col("Voltage") > 2.5)
+dfLowCurr1 = df.filter(pl.col("Current") < 1).filter(pl.col("Voltage") > 2.5)
 # dfLowCurr2 = df.filter(pl.col("Current") < 3)
 
 
