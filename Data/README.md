@@ -11,7 +11,6 @@ If you see anything wrong with these docs, please fix it as you see it! If you a
 1. [.fsdaq Format](../Docs/2025%20Custom%20Binary.md)
 1. [Saving Data from the Car](../Docs/Saving%20Data.md)
 1. [Ideas](../Docs/ideas.md)
-1. [IMU Calibration](<../Docs/IMU Calibration.md>)
 
 ## Dev setup
 
