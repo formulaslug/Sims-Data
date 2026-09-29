@@ -9,7 +9,6 @@ If you see anything wrong with these docs, please fix it as you see it! If you a
 1. [Library Info](../Docs/Library%20Info.md)
 1. [Using Polars](../Docs/Using%20Polars.md)
 1. [.fsdaq Format](../Docs/2025%20Custom%20Binary.md)
-1. [Saving Data from the Car](../Docs/Saving%20Data.md)
 1. [Ideas](../Docs/ideas.md)
 
 ## Dev setup
