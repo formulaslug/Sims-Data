@@ -100,7 +100,7 @@ if __name__ == "__main__":
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
         
-    print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
+    print("*****SIMULATION EXECUTION TIME****", time.time() -start)
 
     # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
     #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
