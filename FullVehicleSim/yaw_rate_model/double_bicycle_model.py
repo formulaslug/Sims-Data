@@ -2,7 +2,7 @@
 Double Bicycle Yaw Rate Model for Formula Slug
 
 2DOF model (lateral velocity + yaw rate) for basic vehicle dynamics.
-Based on Rajamani's bicycle model.
+Based on Rajamani's bicycle model.w
 """
 
 import numpy as np
@@ -20,7 +20,7 @@ class VehicleParameters:
     Lf: float = 0.8535  # Calculated from 46.32% front weight distribution
     Lr: float = 0.7365  # Calculated from weight distribution
     track_width_front: float = 1.234008  # 1234.008 mm
-    track_width_rear: float = 1.186  # 1186 mm
+    track_width_rear: float = 1.186  # 1186 m
     track_width: float = 1.234008  # Using front track for compatibility
 
     # Mass properties (with driver)
@@ -121,7 +121,7 @@ class DoubleBicycleModel:
         a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / self.params.mass + v_x * r
         dv_y = a_y
 
-        M_yaw = self.params.Lf * Fy_f_total * np.cos(delta) - self.params.Lr * Fy_r_total
+        M_yaw = self.params.Lf * Fy_f_total - self.params.Lr * Fy_r_total
         dr = M_yaw / self.params.yaw_inertia
 
         return np.array([dv_y, dr])

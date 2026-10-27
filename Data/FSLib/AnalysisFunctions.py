@@ -66,10 +66,24 @@ etcRTDButton = "ETC_STATUS_RTD_BUTTON"
 etcBrakeVoltage = "ETC_STATUS_BRAKE_SENSE_VOLTAGE"
 
 def readValid (a):
+    """
+    Built for VDM installed on fs-2 and fs-3. Do not use on fs-4+
+    """
     return pl.read_parquet(a).with_columns(pl.all().fill_null(strategy="forward")).with_columns(pl.all().fill_null(strategy="backward")).filter(pl.col("VDM_GPS_VALID1") == 1)
 
-def read (a):
-    return pl.read_parquet(a).with_columns(pl.all().fill_null(strategy="forward")).with_columns(pl.all().fill_null(strategy="backward"))
+def read (a:str, truePath:bool = False, fs2or3:bool = False):
+    if not truePath:
+        df = pl.read_parquet("../fs-data/" + a).fill_null(strategy="forward").fill_null(strategy="backward")
+    else:
+        df = pl.read_parquet(a).fill_null(strategy="forward").fill_null(strategy="backward")
+    if fs2or3:
+        return df
+    else:
+        df = df.insert_column(
+            0,
+            (df["Time_ms"] / 1000).alias("Time")
+        )
+        return df
 
 def timeCol(df, verbose = False):
     min = "VDM_UTC_TIME_SECONDS"
@@ -167,6 +181,110 @@ def mcErrorView (df, title="", tFun=timeCol, verbose=False):
 
     fig.show()
 
+def basicViewFS4 (df, title="", scatterGPS=False, scaled=False, cellVoltages=False, verbose=False, faults=False, tempsInsteadOfVoltages=False):
+    '''
+    Loads a basic view of a given run. Built for FS-4 Data generated and collected by the team.
+
+    Parameters
+    ----------
+    df
+        The Dataframe to base the time graph on. Should have valid GPS data or the graphs will be blank.
+    title 
+        Title at the top of the graph.
+    tFun 
+        Time function to be used to generate a time column
+    scatterGPS
+        Whether to scatter plot the GPS instead of line plot
+    scaled
+        Whether to scale the GPS plot to have the same vertical and horizontal scale. Useful for small plots
+    cellVoltages
+        Whether to plot the cell voltages on the plot with ACC and MC voltages
+    verbose
+        Whether to print debug messages while generating the graph
+    faults
+        Whether to plot fault codes on the graph
+    tempsInsteadOfVoltages
+        Whether to plot temperatures instead of voltages for the ACC segments
+    '''
+
+    tempVoltStr = "TEMPS" if tempsInsteadOfVoltages else "VOLTS"
+
+    df = df.with_columns(
+        pl.Series(np.convolve(df["ACC_STATUS_BMS_FAULT"].to_numpy(), [1, -1], 'same')).alias("BMS_FaultStart"),
+        pl.Series(np.convolve(df["ACC_STATUS_IMD_FAULT"].to_numpy(), [1, -1], 'same')).alias("IMD_FaultStart"),
+        pl.Series(np.convolve(df["ETC_STATUS_IMPLAUSIBILITY"].to_numpy(), [1, -1], 'same')).alias("APPS_ImplausibilityStart")
+        )
+
+    if not ("Time" in df.columns):
+        df.insert_column(0, (df["Time_ms"]/1000).alias("Time"))
+
+    fig = plt.figure(layout="constrained")
+    ax1 = fig.add_subplot(321)
+    ax2 = fig.add_subplot(322)
+    ax3 = fig.add_subplot(323)
+    ax4 = fig.add_subplot(324)
+    ax5 = fig.add_subplot(325)
+    ax6 = fig.add_subplot(326)
+    for i in range(5):
+        for j in range(6):
+            ax1.plot(df[t],df[f"ACC_SEG{i}_" + tempVoltStr + f"_CELL{j}"])
+    ax1.set_title(f"Acc Seg {tempVoltStr}")
+    ax1.vlines(df.filter(pl.col("BMS_FaultStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="red", label="BMS Fault")
+    ax1.vlines(df.filter(pl.col("IMD_FaultStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="orange", label="IMD Fault")
+    ax1.vlines(df.filter(pl.col("APPS_ImplausibilityStart") == 1)[t].to_numpy(), ymin=ax1.get_ylim()[0], ymax=ax1.get_ylim()[1], colors="blue", label="APPS Implausibility")
+    ax1.legend()
+
+    ax2.plot(df[t],df[V], color="cyan", label="Total As Reported by Acc")
+    b = sum([sum([df[f"ACC_SEG{i}_VOLTS_CELL{j}"] for j in range(6)]) for i in range (5)])
+    ax2.plot(df[t],b, color="pink", label="Sum of Cells")
+    ax2.plot(df[t], df[busV], color="purple", label="MC Voltage")
+    ax22 = ax2.twinx()
+    if cellVoltages:
+        ax22 = ax2.twinx()
+        for i in range(5):
+            a = [df[f"ACC_SEG{i}_VOLTS_CELL{j}"] for j in range(6)]
+            ax22.plot(sum(a), label=f"ACC_SEG{i}")
+        ax22.legend()
+        ax22.set_ylabel("Voltage (V)")
+    ax2.set_title("Voltages")
+    if faults:
+        ax2.plot(df[t],df[smeFaultCode], label="MC Fault Code", color="red")
+    ax2.legend()
+    # ax3.plot(df[t],df[tsC], label="Accumulator Current")
+    ax3.plot(df[t],df[busC], label = "Motor Controller Current")
+    ax3.legend()
+    dfGPSFiltered = df.filter(pl.col(lat) != 0).filter(pl.col(long) != 0)
+    if scatterGPS:
+        ax4.scatter(dfGPSFiltered[long],dfGPSFiltered[lat], s=0.5)
+    else:
+        ax4.plot(dfGPSFiltered[long],dfGPSFiltered[lat])
+    if scaled:
+        ax4.axis("scaled")
+    ax5.plot(df[t], (df["ETC_STATUS_BRAKE_SENSE_VOLTAGE"]-330)*25/33, label="Braking (psi)")
+    ax5.plot(df[t], df["SME_THROTL_TorqueDemand"]/32767*180, label="Torque Demand (N)", color="orange")
+    ax5.plot(df[t], df[speed], color = "goldenrod", label="speed mph")
+    ax5.plot(df[t], df[rpm]*11/40*0.2032*2*np.pi/60/0.44704, color = "green", label="rpm speed")
+    ax5.plot(df[t], df["VDM_Y_AXIS_ACCELERATION"]*100, label = "yaxis accel (cGs)", color="crimson")
+    ax5.set_title("Speed + Braking")
+    ax5.legend()
+    ax6.plot(df[t],df[xA_uncorrected])
+    ax6.set_title("Acceleration (X)")
+
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel("Voltage (V)" if not tempsInsteadOfVoltages else "Temperature (C)")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel("Voltage (V)")
+    ax3.set_xlabel("Time (s)")
+    ax3.set_ylabel("Current (A)")
+    ax4.set_xlabel("Longitude (deg)")
+    ax4.set_ylabel("Latitude (deg)")
+    ax5.set_xlabel("Time (s)")
+    # ax5.set_ylabel("Voltage (V)")
+    ax6.set_xlabel("Time (s)")
+    ax6.set_ylabel("Acceleration (Gs)")
+
+    plt.suptitle(title)
+    plt.show()
 
 def basicView (df, title="", tFun=timeCol, scatterGPS=False, scaled=False, cellVoltages=False, verbose=False, faults=False, tempsInsteadOfVoltages=False):
     '''

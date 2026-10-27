@@ -1,0 +1,67 @@
+
+### BR Wheel Speed Sensor:
+
+Magnitude cutoff of 10 corresponds to approximately 10 Hz. Suggested sampling frequency is 20 Hz.
+
+![alt text](wheel_speed_br_graph.png)
+![alt text](wheel_speed_br_log_graph.png)
+
+## Wheel Speed BL
+![Wheel Speed BL Graph](wheel_speed_bl_graph.png)
+![Wheel Speed BL Frequency Spectrum](wheel_speed_bl_log_graph.png)
+
+## Wheel Speed FL
+![Wheel Speed FL Graph](wheel_speed_fl_graph.png)
+![Wheel Speed FL Frequency Spectrum](wheel_speed_fl_log_graph.png)
+
+## Wheel Speed FR
+![Wheel Speed FR Graph](wheel_speed_fr_graph.png)
+![Wheel Speed FR Frequency Spectrum](wheel_speed_fr_log_graph.png)
+
+## Suspension Travel BR
+![Suspension Travel BR Graph](Suspension_Travel_BR.png)
+![Suspension Travel BR Frequency Spectrum](suspension_travel_br_graph.png)
+
+## Suspension Travel BL
+![Suspension Travel BL Graph](suspension_travel_bl_graph.png)
+![Suspension Travel BL Frequency Spectrum](suspension_travel_bl_log_graph.png)
+
+## Suspension Travel FR
+![Suspension Travel FR Graph](suspension_travel_fr_graph.png)
+![Suspension Travel FR Frequency Spectrum](suspension_travel_fr_log_graph.png)
+
+## Tire Temp FL
+![Tire Temp FL Graph](tire_temp_fl_graph.png)
+![Tire Temp FL Frequency Spectrum](tire_temp_fl_log_graph.png)
+
+## Tire Temp BL
+![Tire Temp BL Graph](tire_temp_bl_graph.png)
+![Tire Temp BL Frequency Spectrum](tire_temp_bl_log_graph.png)
+
+## Brake Temp
+![Brake Temp Graph](brake_temp.png)
+![Brake Temp Frequency Spectrum](brake_temp_log_graph.png)
+
+## APPS
+![APPS Graph](apps_graph.png)
+![APPS Frequency Spectrum](apps_log_graph.png)
+
+## Battery Voltage
+![Battery Voltage Graph](battery_voltage_graph.png)
+![Battery Voltage Frequency Spectrum](battery_voltage_log_graph.png)
+
+## Battery Current
+![Battery Current Graph](battery_current_graph.png)
+![Battery Current Frequency Spectrum](battery_current_log_graph.png)
+
+## Battery Tray Temp
+![Battery Tray Temp Graph](battery_tray_temp_graph.png)
+![Battery Tray Temp Frequency Spectrum](battery_tray_temp_log_graph.png)
+
+## Cell Temp
+![Cell Temp Graph](cell_temp_graph.png)
+![Cell Temp Frequency Spectrum](cell_temp_log_graph.png)
+
+## Cell Voltage
+![Cell Voltage Graph](cell_voltage_graph.png)
+![Cell Voltage Frequency Spectrum](cell_voltage_log_graph.png)
