@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 from scipy.optimize import curve_fit
+from scipy.interpolate import CubicSpline
 import sys
 sys.path.append(".")
 sys.path.append("..")
@@ -17,7 +18,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 df = pl.read_parquet(args.parquet_path)
-df = pl.read_parquet("fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
+#df = pl.read_parquet("fs-data/FS-3/08102025/08102025Endurance1_FirstHalf.parquet")
 
 cols = [f"ACC_SEG{x}_TEMPS_CELL0" for x in range(5)]
 #df1= pl.read_parquet("fs-data/FS-3/08172025/08172025_27autox2&45C_35C_~28Cambient_100fans.parquet")
@@ -162,6 +163,16 @@ for i in range(1, size + 1):
     logAir[i, :, :] = air
     logCase[i] = case
 
+
+simTime = simpleTimeCol(pl.DataFrame({"i": np.zeros(size + 1)})).to_numpy()
+tempSpline = CubicSpline(simTime, logCells.mean(axis=(1, 2)))
+
+def predicted_temperature (timestamp):
+    """Model-predicted mean pack temperature [C] at a timestamp [s].
+    Timestamp uses the same base as df["Time"] (seconds, starting at 0),
+    cubic-spline interpolated between simulation steps. Timestamps outside the
+    simulated range are clamped to the first/last step."""
+    return float(tempSpline(np.clip(timestamp, simTime[0], simTime[-1])))
 
 # PLOT
 
