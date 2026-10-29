@@ -1,7 +1,6 @@
-import json5
-from typing import Dict, List, Tuple
-import polars as pl
+import json5  # noqa: N999
 import numpy as np
+import polars as pl
 
 Magic: dict
 Parameters: dict
@@ -70,7 +69,7 @@ varAcceleration = 43
 varWheelRPM = 44
 
 # Automatically generate schema from defined variables
-def generate_variable_schema() -> Dict[int, str]:
+def generate_variable_schema() -> dict[int, str]:
     """
     Generate a schema mapping variable indices to their names.
     Preserves the order of definition in the file.
@@ -93,14 +92,14 @@ def generate_variable_schema() -> Dict[int, str]:
     
     return schema
 
-def get_variable_names() -> List[str]:
+def get_variable_names() -> list[str]:
     """
     Get ordered list of variable names (without 'var' prefix).
     """
     schema = generate_variable_schema()
     return [schema[i] for i in range(len(schema))]
 
-def get_variable_mapping() -> Dict[str, int]:
+def get_variable_mapping() -> dict[str, int]:
     """
     Get mapping from variable names to indices.
     """

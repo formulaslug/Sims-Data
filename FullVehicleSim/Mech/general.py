@@ -1,10 +1,11 @@
-from Mech.traction import calcCorneringStiffness
-from paramLoader import *
-from Mech.braking import calcBrakeForce
+import numpy as np
 from Mech.aero import calcDrag
+from Mech.braking import calcBrakeForce
 from Mech.steering import calcSlipAngle, calcYawRate
 from Mech.tireLoad import calcLoadTransfer
-import numpy as np
+from Mech.traction import calcCorneringStiffness
+from paramLoader import *
+
 
 def calcResistiveForces(worldArray:np.ndarray, step:int):
         if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error

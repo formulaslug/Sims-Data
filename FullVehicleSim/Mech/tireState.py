@@ -1,7 +1,9 @@
-# This implements MF 6.x (I think 6.2) as described in Tire and Vehicle Dynamics 3rd edition on page 179
+# This implements MF 6.x (I think 6.2) as described in Tire and Vehicle Dynamics 3rd edition on page 179  # noqa: N999
 # copy pasted from dumping in July 21
 import math
-from paramLoader import Parameters, Magic
+
+from paramLoader import Magic, Parameters
+
 
 class Tire:
     def __init__(self, normalForce, slipRatio, slipAngle, velocityX, pressure, temperature):

@@ -1,11 +1,19 @@
-from paramLoader import *
 import numpy as np
-from Mech.braking import calcBrakeCooling, calcBrakeHeating, calcBrakeForce
-from Mech.aero import calcDrag, calcDownForce
-from Mech.steering import calcSlipAngle
+from Electrical.powertrain import (
+    calcCurrent,
+    calcMaxMotorTorque,
+    calcMaxPower,
+    calcMaxWheelTorque,
+    calcMotorForce,
+    calcVoltage,
+)
+from Mech.aero import calcDownForce, calcDrag
+from Mech.braking import calcBrakeCooling, calcBrakeForce, calcBrakeHeating
 from Mech.general import calcResistiveForces
-from Electrical.powertrain import calcCurrent, calcMaxMotorTorque, calcMaxWheelTorque, calcMotorForce, calcMaxPower, calcVoltage
+from Mech.steering import calcSlipAngle
+from paramLoader import *
 from scipy.integrate import RK45
+
 
 # Vibe coded but it looks about right so idk.
 # TODO: Verify that this is correct
@@ -103,5 +111,5 @@ def dynamicStepState(step:np.ndarray) -> np.ndarray:
     :rtype: ndarray[Any, Any]
     """
     arr = np.array([step, step])
-    arr[1, 5:] = np.zeros((step.shape[0]-5))
+    arr[1, 5:] = np.zeros(step.shape[0]-5)
     return stepState(arr, 1)

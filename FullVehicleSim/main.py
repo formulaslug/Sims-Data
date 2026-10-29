@@ -1,11 +1,10 @@
-import matplotlib.pyplot as plt
-import json
-import polars as pl
 import argparse
 import time
 
-from paramLoader import *
+import matplotlib.pyplot as plt
+import polars as pl
 from engine import *
+from paramLoader import *
 
 if __name__ == "__main__":
     ## Argument Parsing. Should wind up like:
@@ -23,13 +22,13 @@ if __name__ == "__main__":
         elif simulation_controls_path.endswith('.parquet'): ## Check for parquet and read as that
             df_controls = pl.read_parquet(simulation_controls_path)
         else:
-            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
+            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")  # noqa: TRY002
     else:
-        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
+        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")  # noqa: TRY002
     
     ## Double check it has the correct columns
     if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'brakePedalTravel', 'steerAngle']:
-        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'brakePedalTravel', 'steerAngle'")
+        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'brakePedalTravel', 'steerAngle'")  # noqa: TRY002
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
@@ -70,7 +69,7 @@ if __name__ == "__main__":
         controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['brakePedalTravel'])
         controlInputs[:,4] = np.interp(steps, timeSeries, df_controls['steerAngle'])
     else:
-        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
+        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")  # noqa: TRY002
 
     ## Setup initial conditions. Leaves row 0 with no inputs (don't matter anyway since sim runs from 1 -> end)
     ## Some other initial conditions based on input parameters.

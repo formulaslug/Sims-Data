@@ -2,6 +2,7 @@
 import numpy as np
 from paramLoader import *
 
+
 def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """
     Calculate Slip Angle Based on yawRate, Velocity, and Steering Angle.
