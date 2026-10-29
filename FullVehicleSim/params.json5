@@ -1,15 +1,15 @@
 // Base SI Units unless otherwise specified
 {
     "Parameters": {
-        "stepsPerSecond": 300,
-        "simulationDuration": 40.0,
+        "stepsPerSecond": 100,
+        "simulationDuration": 430.0, // Seconds
         "interpolationMethod": "linear", // "linear" or "cubic", this is for interpolating the simultion controls.
 
         "ambientTemperature": 20, // °C
-        "tractiveIMax": 300, // A
+        "tractiveIMax": 400, // A
         "initialBrakeTemperature": 20, // °C
         "initialBatteryTemperature": 20, // °C
-        "vehicleSOC": 1.0, // Out of 1
+        "vehicleSOC": 1, // Out of 1
         "initSpeed": 0.0, // m/s
         "initHeading": [1.0, 0.0, 0.0], // Vector pointing in the direction of the front of the car
         "initPosition": [0.0, 0.0, 0.0], // Starting position of the car in the world frame
@@ -21,17 +21,23 @@
 
         "brakeDiscRadius": 0.09525, // meters (3.75 inches) -- Brake pad is ~1 inch wide near the edge of an 8 inch diamater rotor
         "brakeCaliperArea": 1.23, // in^2
+        "brakeRotorArea": 77, // in^2, not simply calculated because the brake disc has holes in it
+        "brakeRotorMass": 0.4908, // kg
+        "4130SpecificHeatCapacity": 540, // J/(kg*k)
+
+        "regenMaxTorque": 180, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
+        
         "wheelCircumferance": 1.35716802635079,
-        "wheelRadius": 0.216,
-        "gearRatio": 3.41667,
-        "maxTorque": 180,
+        "wheelRadius": 0.216, // m
+        "gearRatio": 3.41667, // 41/12
+        "maxTorque": 180, // Nm, max torque at the motor.
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
         "unloaded-radius": 1.7333,
         "p_0": 82000,
         "load_0": 300,
 
-        "Mass": 300, // kg
+        "Mass": 280, // kg
         "wheelBase": 1.65471,
         "a": 0.853506,
         "frontWeightDist": 46.46,
@@ -51,13 +57,25 @@
         "brakeMass": 0.408,
         "maxBrakeForce": 1500,
 
-        "seriesCells": 30,s
-        "cellCapacity_Ah": 2.6
+        "seriesCells": 30,
+        "parallelCells": 20,
+        "cellCapacity_Ah": 2.6, // Amp hours
+        "histeresisKernelLength": 10.0, // seconds
+
+        "GasConstant": 8.31446261815324,
+        "FaradaysConstant": 96485.33212,
     },
     "Magic": {
 
-        "cellModelSigma": 3.0,
-        "hysteresisGain": 0.015,
+        "cellModel_V0": 3.71,
+        "cellModel_C1": 1.127469,
+        "cellModel_C2": 6.96148085,
+        "cellModel_C3": 0.05243311,
+        "cellModel_C4": 0.01567795,
+
+        "cellModel_R0": 0.0016,
+        "cellModel_KernelStepSize": 0.01, // Time in seconds between each value in the histeresis kernel.
+        "cellModel_bias": -0.022722354020559558,
 
         "shape-factor": 0.696268618106842,
         "curvature-scaling-factor": 1.7177082300186157,
