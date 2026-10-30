@@ -75,7 +75,10 @@ _MARKERS = {
     "D": "diamond", "|": "vbar", "_": "hbar",
 }
 _LINESTYLES = ("--", "-.", "-", ":")
-PT = 96.0 / 72.0          # points -> pixels
+SCREEN_DPI = 96.0         # canvas dpi; HiDPI scaling is applied by VisPy's pixel_scale.
+                          # Leaving VisPy's detected dpi (which already includes Windows
+                          # display scaling) scales text twice on HiDPI screens.
+PT = SCREEN_DPI / 72.0    # points -> pixels
 _FG = (0.0, 0.0, 0.0, 1.0)  # axis / text color
 
 # Font sizes in points, like matplotlib's rcParams. Change before creating a
@@ -87,9 +90,21 @@ rcParams = {
     "axes.labelsize": None,      # default 1.0 x font.size
     "tick.labelsize": None,      # default 0.85 x font.size
     "legend.fontsize": None,     # default 0.85 x font.size
+    # Gap in pixels between the axis line and its tick labels.
+    "xtick.pad": None,           # default 1.0 x tick label height
+    "ytick.pad": None,           # default 0.6 x tick.labelsize + 2
 }
 _REL = {"axes.titlesize": 1.2, "axes.labelsize": 1.0,
         "tick.labelsize": 0.85, "legend.fontsize": 0.85}
+
+
+def _tick_pad(orientation, size):
+    """Axis line -> tick label gap (px) for tick labels of `size` points."""
+    key = "ytick.pad" if orientation in ("left", "right") else "xtick.pad"
+    v = rcParams.get(key)
+    if v is not None:
+        return float(v)
+    return int(size * 0.6) + 2 if key == "ytick.pad" else size * PT
 
 
 def _fs(key):
@@ -479,7 +494,7 @@ class Scatter(_Artist):
 
 def _axis_widget(orientation, size):
     kw = dict(axis_color=_FG, tick_color=_FG, text_color=_FG, tick_font_size=size,
-              tick_label_margin=int(size * 0.6) + 2, major_tick_length=6,
+              tick_label_margin=_tick_pad(orientation, size), major_tick_length=6,
               minor_tick_length=3, tick_width=1, axis_width=1)
     try:
         aw = scene.AxisWidget(orientation=orientation, **kw)
@@ -491,13 +506,24 @@ def _axis_widget(orientation, size):
     return aw
 
 
+def _link_axis(aw, view):
+    """link_view, plus recompute ticks when the axis itself is resized/moved.
+    VisPy only recomputes on camera changes, so after a grid re-layout the
+    ticks were left mapped with the axis' old geometry."""
+    aw.link_view(view)
+    refresh = lambda event=None: aw._view_changed()
+    aw.events.resize.connect(refresh)
+    aw.events.transform_change.connect(refresh)
+
+
 def _size_axis_slot(aw, size):
     """Give a tick axis enough room for labels of `size` points."""
     px = size * PT
+    pad = _tick_pad(aw.orientation, size)
     if aw.orientation in ("left", "right"):
-        aw.width_max = int(px * 3.6 + 18)
+        aw.width_max = int(pad + px * 3.6 + 10)
     else:
-        aw.height_max = int(px * 1.7 + 16)
+        aw.height_max = int(pad + px * 1.4 + 10)
 
 
 def _label(text="", rotation=0.0, size=12.0):
@@ -694,8 +720,8 @@ class Axes(_AxesBase):
 
         self.view.camera = scene.PanZoomCamera(aspect=None)
         self.view.camera.rect = (0, 0, 1, 1)
-        self._xaxis.link_view(self.view)
-        self._yaxis.link_view(self.view)
+        _link_axis(self._xaxis, self.view)
+        _link_axis(self._yaxis, self.view)
         self._data_parent = self.view.scene
         self._xlim = self._ylim = None
         self._next_col = 3
@@ -1148,7 +1174,7 @@ class Figure:
         size = (int(figsize[0] * dpi), int(figsize[1] * dpi))
         kw = {"config": {"samples": samples}} if samples else {}
         self.canvas = scene.SceneCanvas(keys="interactive", size=size, bgcolor=bgcolor,
-                                        title=title, show=False, **kw)
+                                        title=title, show=False, dpi=SCREEN_DPI, **kw)
         self.grid = self.canvas.central_widget.add_grid(margin=6)
         self.axes = []
         self._gca = None
