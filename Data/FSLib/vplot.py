@@ -51,7 +51,8 @@ from vispy.color import Color, Colormap, get_colormap
 from vispy.visuals.transforms import STTransform
 
 __all__ = [
-    "Figure", "Axes", "Axes3D", "Slider",
+    "Figure", "Axes", "Axes3D", "Slider", "BoxZoomCamera",
+    "keep_ticks_synced", "skip_offscreen_swap",
     "figure", "subplots", "subplot", "gcf", "gca", "show", "savefig", "close",
     "plot", "scatter", "xlabel", "ylabel", "zlabel", "title", "xlim", "ylim",
     "zlim", "legend", "grid", "colorbar", "twinx", "axhline", "axvline", "text",
@@ -93,6 +94,9 @@ rcParams = {
     # Gap in pixels between the axis line and its tick labels.
     "xtick.pad": None,           # default 1.0 x tick label height
     "ytick.pad": None,           # default 0.6 x tick.labelsize + 2
+    # Long 2D lines with sorted x are min/max-downsampled to ~2 points per
+    # pixel column of the visible x range, and re-sampled when the view changes.
+    "lines.downsample": False,
 }
 _REL = {"axes.titlesize": 1.2, "axes.labelsize": 1.0,
         "tick.labelsize": 0.85, "legend.fontsize": 0.85}
@@ -291,6 +295,28 @@ def _warn_once(key, msg):
 # artists
 # --------------------------------------------------------------------------
 
+_DOWNSAMPLE_MIN = 20_000      # lines shorter than this are always drawn in full
+
+
+def _is_sorted(x):
+    return bool(np.all(x[1:] >= x[:-1]))
+
+
+def _minmax_decimate(pos, nbins):
+    """Keep the min and max y of each of `nbins` equal-count bins (in x order),
+    which preserves spikes and the envelope while drawing ~2*nbins points."""
+    step = len(pos) // nbins
+    if step < 2:
+        return pos
+    m = step * nbins
+    y = pos[:m, 1].reshape(nbins, step)
+    lo, hi = y.argmin(axis=1), y.argmax(axis=1)
+    base = np.arange(nbins) * step
+    idx = np.empty(2 * nbins, dtype=np.int64)
+    idx[0::2] = base + np.minimum(lo, hi)
+    idx[1::2] = base + np.maximum(lo, hi)
+    return np.concatenate([pos[idx], pos[-1:]])
+
 class _Artist:
     label = None
 
@@ -330,24 +356,52 @@ class Line(_Artist):
         self.color, self.width = color, width
         self.marker, self.markersize = marker, markersize
         self._line = self._markers = None
+        self._downsample = (rcParams["lines.downsample"] and pos.shape[1] == 2
+                            and len(pos) > _DOWNSAMPLE_MIN and _is_sorted(pos[:, 0]))
+        self._shown = _minmax_decimate(pos, 2000) if self._downsample else pos
         if linestyle not in ("", " ", "None", "none"):
             if linestyle in ("--", "-.", ":"):
                 _warn_once("dash", "vplot: dashed/dotted lines are drawn solid")
             if method is None:
-                method = "gl" if (pos.shape[1] == 3 or len(pos) > 100_000) else "agg"
+                method = "gl" if (pos.shape[1] == 3 or len(self._shown) > 100_000) else "agg"
             self._method = method
-            self._line = scene.visuals.Line(pos=pos, color=color, width=self._gl_width(width),
+            self._line = scene.visuals.Line(pos=self._shown, color=color,
+                                            width=self._gl_width(width),
                                             method=method, parent=ax._data_parent)
         if marker:
             self._markers = scene.visuals.Markers(parent=ax._data_parent)
             self._update_markers()
+        if self._downsample:
+            ax.view.scene.transform.changed.connect(self._resample)
+            ax.view.events.resize.connect(self._resample)
+
+    def _resample(self, event=None):
+        """Re-downsample to the visible x range (plus one point either side)."""
+        x = self._pos[:, 0]
+        r = self._ax.view.camera.rect
+        i0 = max(int(np.searchsorted(x, r.left)) - 1, 0)
+        i1 = min(int(np.searchsorted(x, r.right)) + 1, len(x))
+        i0 = min(i0, len(x) - 2)
+        i1 = max(i1, i0 + 2)
+        nbins = max(int(self._ax.view.size[0]), 200)
+        self._shown = _minmax_decimate(self._pos[i0:i1], nbins)
+        if self._line is not None:
+            self._line.set_data(pos=self._shown)
+        if self._markers is not None:
+            self._update_markers()
+
+    def remove(self):
+        if self._downsample:
+            self._ax.view.scene.transform.changed.disconnect(self._resample)
+            self._ax.view.events.resize.disconnect(self._resample)
+        super().remove()
 
     def _gl_width(self, w):
         # many OpenGL drivers reject widths > 1 for raw GL lines
         return w if self._method == "agg" else 1.0
 
     def _update_markers(self):
-        _set_markers(self._markers, self._pos, self.markersize, self.color,
+        _set_markers(self._markers, self._shown, self.markersize, self.color,
                      self.color, 0.0, _MARKERS[self.marker])
 
     def _visuals(self):
@@ -357,6 +411,10 @@ class Line(_Artist):
         if y is None:
             y, x = x, np.arange(len(x))
         self._pos = _stack(x, y, z)
+        if self._downsample:
+            self._resample()
+            return
+        self._shown = self._pos
         if self._line is not None:
             self._line.set_data(pos=self._pos)
         if self._markers is not None:
@@ -396,6 +454,10 @@ class Scatter(_Artist):
         self._vmin, self._vmax = vmin, vmax
         self._set_c(c, first=True)
         self._m = scene.visuals.Markers(parent=ax._data_parent)
+        # With the depth test on, each marker's square (transparent corners included)
+        # hides markers drawn after it at the same depth -- in 2D that's all of them,
+        # so dense scatters showed only a few points.
+        self._m.set_gl_state("translucent", depth_test=False)
         self._push()
 
     @staticmethod
@@ -512,8 +574,40 @@ def _link_axis(aw, view):
     ticks were left mapped with the axis' old geometry."""
     aw.link_view(view)
     refresh = lambda event=None: aw._view_changed()
-    aw.events.resize.connect(refresh)
-    aw.events.transform_change.connect(refresh)
+    for widget in (aw, view):
+        widget.events.resize.connect(refresh)
+        widget.events.transform_change.connect(refresh)
+
+
+def _sync_axis(aw):
+    """Re-map the axis' domain from its linked view, assigning only on change."""
+    view = aw._linked_view
+    if view is None:
+        return
+    p1, p2 = aw.node_transform(view.scene).map(aw._axis_ends())
+    i = 1 if aw.orientation in ("left", "right") else 0
+    domain = (p1[i], p2[i])
+    if not np.allclose(aw.axis.domain, domain):
+        aw.axis.domain = domain
+
+
+def keep_ticks_synced(canvas, get_axes):
+    """Before each draw, re-check the ticks of every Axes from get_axes().
+    Grid re-layouts don't always emit an event the axis sees, which left ticks
+    mapped with a stale geometry; this catches those for the cost of a few maps."""
+    def sync(event=None):
+        for ax in get_axes():
+            ax._sync_ticks()
+    canvas.events.draw.connect(sync, position="first")
+
+
+def skip_offscreen_swap(canvas):
+    """Qt6/Qt5 backends draw into a QOpenGLWidget, which Qt composites itself;
+    VisPy still calls swapBuffers on the widget's offscreen surface every frame,
+    which blocks for ~35 ms on some GPUs (Intel Iris Xe) and does nothing useful."""
+    backend = canvas._backend
+    if hasattr(backend, "defaultFramebufferObject"):    # QOpenGLWidget
+        backend._vispy_swap_buffers = lambda *args: None
 
 
 def _size_axis_slot(aw, size):
@@ -521,9 +615,9 @@ def _size_axis_slot(aw, size):
     px = size * PT
     pad = _tick_pad(aw.orientation, size)
     if aw.orientation in ("left", "right"):
-        aw.width_max = int(pad + px * 3.6 + 10)
+        aw.width_max = int(pad + px * 3.2 + 4)
     else:
-        aw.height_max = int(pad + px * 1.4 + 10)
+        aw.height_max = int(pad + px * 1.2 + 2)
 
 
 def _label(text="", rotation=0.0, size=12.0):
@@ -540,9 +634,132 @@ def _set_label(lbl, text, fontsize, vertical):
 def _size_label_slot(lbl, size, vertical):
     px = size * PT
     if vertical:
-        lbl.width_max = int(px * 1.8 + 4)
+        lbl.width_max = int(px * 1.4 + 2)
     else:
-        lbl.height_max = int(px * 1.8 + 4)
+        lbl.height_max = int(px * 1.4 + 2)
+
+
+def _text_width_px(text, size):
+    """Width in logical px of `text` at `size` points (Qt font metrics when a Qt
+    app is running, else a rough per-character estimate)."""
+    px = size * PT
+    try:
+        from PySide6 import QtGui
+        if QtGui.QGuiApplication.instance() is not None:
+            font = QtGui.QFont("Open Sans")       # VisPy's default text font
+            font.setPixelSize(max(int(round(px)), 1))
+            return QtGui.QFontMetricsF(font).horizontalAdvance(text)
+    except ImportError:
+        pass
+    return len(text) * px * 0.62
+
+
+def _legend_entry(node, a, x, yc, fontsize):
+    """Draw one legend entry (sample + label) with its left edge at x, centred on yc."""
+    if isinstance(a, Line):
+        if a._line is not None:
+            ln = scene.visuals.Line(pos=np.array([[x + 2, yc], [x + 24, yc]], np.float32),
+                                    color=a.color, width=max(a.width, 1), method="agg",
+                                    parent=node)
+            _overlay(ln, 1001)
+        if a._markers is not None:
+            mk = scene.visuals.Markers(parent=node)
+            _set_markers(mk, np.array([[x + 13, yc]], np.float32), a.markersize,
+                         a.color, a.color, 0.0, _MARKERS[a.marker])
+            _overlay(mk, 1002)
+    else:
+        face = a._face()
+        face = face[len(face) // 2] if np.ndim(face) == 2 and len(face) else face
+        mk = scene.visuals.Markers(parent=node)
+        _set_markers(mk, np.array([[x + 13, yc]], np.float32), 8.0,
+                     np.atleast_2d(face), np.atleast_2d(face), 0.0, a._symbol)
+        _overlay(mk, 1002)
+    t = scene.visuals.Text(str(a.label), pos=(x + 32, yc), color=_FG,
+                           font_size=fontsize, anchor_x="left", anchor_y="center",
+                           parent=node)
+    _overlay(t, 1003)
+
+
+class BoxZoomCamera(scene.PanZoomCamera):
+    """PanZoomCamera where a left drag draws a box and zooms to it instead of
+    panning. The scroll wheel still zooms. undo_zoom() steps back through box
+    zooms (and anything else saved with remember()); on_box_zoom(camera), if
+    set, is called after each box zoom.
+
+    on_box_drag(p1, p2), if set, draws the box instead of the camera: it gets
+    the drag's corners in canvas pixels, and (None, None) when the drag ends.
+    Drawing it outside VisPy (e.g. a QRubberBand) avoids a full canvas redraw
+    on every mouse move."""
+
+    min_box_px = 5
+    box_color = (0.1, 0.1, 0.1, 0.9)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.on_box_zoom = None
+        self.on_box_drag = None
+        self._history = []
+        self._press = None
+        self._box = None
+
+    def remember(self):
+        r = self.rect
+        self._history.append((r.left, r.bottom, r.width, r.height))
+
+    def undo_zoom(self):
+        if not self._history:
+            return False
+        self.rect = self._history.pop()
+        return True
+
+    def clear_zoom_history(self):
+        self._history.clear()
+
+    def viewbox_key_event(self, event):
+        # VisPy cameras reset to their default range (0..1 when nothing set it)
+        # on Backspace; here Backspace means undo_zoom, which the owner binds.
+        pass
+
+    def _show_box(self, p1, p2):
+        (x0, y0), (x1, y1) = p1, p2
+        pts = np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], np.float32)
+        if self._box is None:
+            # Child of the viewbox, so it is drawn in the viewbox's pixel coordinates.
+            self._box = scene.visuals.Line(pos=pts, color=self.box_color, method="gl",
+                                           parent=self._viewbox)
+            _overlay(self._box, 2000)
+        else:
+            self._box.set_data(pos=pts)
+        self._box.visible = True
+
+    def viewbox_mouse_event(self, event):
+        if event.type == "mouse_wheel":
+            return super().viewbox_mouse_event(event)
+        if event.type == "mouse_press" and event.button == 1:
+            self._press = np.array(event.pos[:2], dtype=float)
+            self._press_canvas = event.mouse_event.pos[:2]
+            event.handled = True          # needed to keep receiving the drag
+        elif event.type == "mouse_move" and self._press is not None:
+            if self.on_box_drag is not None:
+                self.on_box_drag(self._press_canvas, event.mouse_event.pos[:2])
+            else:
+                self._show_box(self._press, np.array(event.pos[:2], dtype=float))
+            event.handled = True
+        elif event.type == "mouse_release" and event.button == 1 and self._press is not None:
+            p1, p2 = self._press, np.array(event.pos[:2], dtype=float)
+            self._press = None
+            if self.on_box_drag is not None:
+                self.on_box_drag(None, None)
+            if self._box is not None:
+                self._box.visible = False
+            if np.all(np.abs(p2 - p1) >= self.min_box_px):
+                (ax, ay), (bx, by) = self._transform.imap(p1)[:2], self._transform.imap(p2)[:2]
+                self.remember()
+                self.rect = (min(ax, bx), min(ay, by), abs(bx - ax), abs(by - ay))
+                if self.on_box_zoom is not None:
+                    self.on_box_zoom(self)
+            self.view_changed()
+            event.handled = True
 
 
 class _AxesBase:
@@ -634,44 +851,32 @@ class _AxesBase:
         return t
 
     # ---- legend (drawn in widget pixel coordinates) ----
+    def _clear_legend(self):
+        if self._legend_node is not None:
+            self._legend_node.parent = None
+            self._legend_node = None
+        if getattr(self, "_legend_box", None) is not None:
+            self._clear_legend_box()
+            self._place_legend_box()
+
     def legend(self, loc="upper right", fontsize=None):
+        """loc: "upper/lower left/right" (inside the plot), or "below" (2D only:
+        a row of entries under the x label that wraps to the axes width)."""
         if fontsize is None:
             fontsize = _fs("legend.fontsize")
         self._legend_kw = dict(loc=loc, fontsize=fontsize)
         view = self.view
-        if self._legend_node is not None:
-            self._legend_node.parent = None
-            self._legend_node = None
+        self._clear_legend()
         items = [a for a in self._all_artists() if a.label and not str(a.label).startswith("_")]
+        if loc == "below" and hasattr(self, "_legend_below"):
+            return self._legend_below(items, fontsize)
         if not items:
             return None
         node = scene.Node(parent=view)
         node.transform = STTransform()
         lh, pad = fontsize * PT * 1.6, 6.0
         for i, a in enumerate(items):
-            yc = pad + lh * (i + 0.5)
-            if isinstance(a, Line):
-                if a._line is not None:
-                    ln = scene.visuals.Line(pos=np.array([[pad + 2, yc], [pad + 24, yc]], np.float32),
-                                            color=a.color, width=max(a.width, 1), method="agg",
-                                            parent=node)
-                    _overlay(ln, 1001)
-                if a._markers is not None:
-                    mk = scene.visuals.Markers(parent=node)
-                    _set_markers(mk, np.array([[pad + 13, yc]], np.float32), a.markersize,
-                                 a.color, a.color, 0.0, _MARKERS[a.marker])
-                    _overlay(mk, 1002)
-            else:
-                face = a._face()
-                face = face[len(face) // 2] if np.ndim(face) == 2 and len(face) else face
-                mk = scene.visuals.Markers(parent=node)
-                _set_markers(mk, np.array([[pad + 13, yc]], np.float32), 8.0,
-                             np.atleast_2d(face), np.atleast_2d(face), 0.0, a._symbol)
-                _overlay(mk, 1002)
-            t = scene.visuals.Text(str(a.label), pos=(pad + 32, yc), color=_FG,
-                                   font_size=fontsize, anchor_x="left", anchor_y="center",
-                                   parent=node)
-            _overlay(t, 1003)
+            _legend_entry(node, a, pad, pad + lh * (i + 0.5), fontsize)
         w = pad + 32 + max(len(str(a.label)) for a in items) * fontsize * 0.85 + pad
         h = lh * len(items) + 2 * pad
         bg = scene.visuals.Rectangle(center=(w / 2, h / 2), width=w, height=h,
@@ -699,7 +904,8 @@ class Axes(_AxesBase):
     """A 2D axes with pan/zoom camera, tick axes, labels, legend and twinx."""
     _ndim = 2
 
-    def __init__(self, fig, grid):
+    def __init__(self, fig, grid, box_zoom=False):
+        """box_zoom: left drag zooms to a box (BoxZoomCamera) instead of panning."""
         super().__init__(fig)
         self._grid = grid
         ts, ls, ks = _fs("axes.titlesize"), _fs("axes.labelsize"), _fs("tick.labelsize")
@@ -718,7 +924,7 @@ class Axes(_AxesBase):
         _size_label_slot(self._xlabel, ls, vertical=False)
         grid.add_widget(self._xlabel, row=3, col=2)
 
-        self.view.camera = scene.PanZoomCamera(aspect=None)
+        self.view.camera = (BoxZoomCamera if box_zoom else scene.PanZoomCamera)(aspect=None)
         self.view.camera.rect = (0, 0, 1, 1)
         _link_axis(self._xaxis, self.view)
         _link_axis(self._yaxis, self.view)
@@ -726,11 +932,61 @@ class Axes(_AxesBase):
         self._xlim = self._ylim = None
         self._next_col = 3
         self._gridlines = None
+        self._legend_box = None          # created on first legend(loc="below")
+        self._legend_box_node = None
+        self._legend_entries = []        # (entry node, width px) of the legend below
 
     def _take_col(self):
         c = self._next_col
         self._next_col += 1
         return c
+
+    def _sync_ticks(self):
+        _sync_axis(self._xaxis)
+        _sync_axis(self._yaxis)
+
+    # ---- legend below the axes ----
+    def _legend_below(self, items, fontsize):
+        if self._legend_box is None:
+            self._legend_box = scene.Widget()
+            self._legend_box.height_min = self._legend_box.height_max = 0
+            self._grid.add_widget(self._legend_box, row=4, col=2)
+            self._legend_box.events.resize.connect(lambda event: self._place_legend_box())
+        self._clear_legend_box()
+        self._legend_lh = fontsize * PT * 1.35
+        if items:
+            # Visuals are made once here; resizing only moves them (_place_legend_box),
+            # since new Text visuals mean new shaders and the resize can come mid-draw.
+            node = scene.Node(parent=self._legend_box)
+            self._legend_box_node = node
+            for a in items:
+                entry = scene.Node(parent=node)
+                entry.transform = STTransform()
+                _legend_entry(entry, a, 0, 0, fontsize)
+                width = 32 + _text_width_px(str(a.label), fontsize) + 16   # sample + text + gap
+                self._legend_entries.append((entry, width))
+        self._place_legend_box()
+        return self._legend_box
+
+    def _clear_legend_box(self):
+        if self._legend_box_node is not None:
+            self._legend_box_node.parent = None
+            self._legend_box_node = None
+        self._legend_entries = []
+
+    def _place_legend_box(self):
+        """Lay entries out left to right, wrapping at the box width; the box's
+        height follows the number of rows (0 when empty)."""
+        box, pad, lh = self._legend_box, 2.0, getattr(self, "_legend_lh", 0)
+        x, y = pad, pad
+        for entry, width in self._legend_entries:
+            if x > pad and x + width > box.width - pad:
+                x, y = pad, y + lh
+            entry.transform.translate = (x, y + lh / 2)
+            x += width
+        h = int(y + lh + pad) if self._legend_entries else 0
+        if box.height_max != h:          # only re-layout the grid when it changes
+            box.height_min = box.height_max = h
 
     # ---- limits ----
     def _set_rect(self, x0, x1, y0, y1):
@@ -830,9 +1086,7 @@ class Axes(_AxesBase):
         for a in list(self._artists):
             a.remove()
         self._legend_kw = None
-        if self._legend_node is not None:
-            self._legend_node.parent = None
-            self._legend_node = None
+        self._clear_legend()
 
     clear = cla
 
@@ -1185,6 +1439,8 @@ class Figure:
         self._closed = False
         self.canvas.events.key_press.connect(self._on_key)
         self.canvas.events.close.connect(lambda event: self._forget())
+        keep_ticks_synced(self.canvas, lambda: [a for a in self.axes if isinstance(a, Axes)])
+        skip_offscreen_swap(self.canvas)
         _state["figs"].append(self)
         _state["fig"] = self
 
