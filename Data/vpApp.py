@@ -25,9 +25,12 @@ LayoutConfig.advanced_features (graph types, copy graph / y columns, custom colo
 """
 
 import copy
+import json
+import math
 import os
+import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, fields, replace
 from typing import NamedTuple
 
 import numpy as np
@@ -68,6 +71,32 @@ class LayoutConfig:
     tree_file_filters: tuple[str, ...] = ("*.parquet",)   # () shows every file
 
     select_button_text: str = "Select data folder"
+    file_menu_text: str = "File"
+    load_template_text: str = "Load template..."
+    load_template_folder_text: str = "Load template folder..."
+    replace_template_text: str = "Replace tabs with template..."
+    replace_template_folder_text: str = "Replace tabs with template folder..."
+    save_template_text: str = "Save template\tCtrl+S"
+    save_template_as_text: str = "Save template as..."
+    save_all_templates_text: str = "Save all templates..."
+
+    # Tabs: each holds its own grid of graphs. A tab saves to one template file
+    # (JSON); a folder of templates loads as one tab per file.
+    templates_dir: str = "templates"              # default folder, next to vpApp.py
+    template_suffix: str = ".json"
+    template_format: str = "vpApp-tab"            # "format" key written to each file
+    new_tab_name: str = "Tab {n}"
+    add_tab_tooltip: str = "Add a tab"
+    rename_tab_text: str = "Tab name:"
+    tab_bar_px: int = 28
+
+    # Settings menu (top right)
+    settings_text: str = "Settings"
+    confirm_tab_delete_text: str = "Confirm tab deletion"
+    confirm_graph_delete_text: str = "Confirm row/column removal"
+    settings_confirm_tab_key: str = "confirm_tab_delete"
+    settings_confirm_graph_key: str = "confirm_graph_delete"
+    confirm_tab_delete_default: bool = True       # graphs: require_confirm_on_graph_delete
     data_folder_name: str = "fs-data"             # expected name (case-insensitive)
     data_subfolder_prefix: str = "FS"             # shown at top level of fs-data
     data_file_suffix: str = ".parquet"
@@ -82,7 +111,12 @@ class LayoutConfig:
     # canvas edge -> graphs (left, top, right, bottom). The right side leaves room for
     # an x tick label centred on the plot's right edge.
     graph_margins_px: tuple[int, int, int, int] = (6, 6, 24, 12)
-    graph_spacing_px: int = 6                     # gap between neighbouring graphs
+    graph_spacing_px: int = 12                    # gap between neighbouring graphs
+    # Crowding: with n graphs stacked vertically, the gaps between rows and the x label
+    # font are scaled by max(crowd_min_scale, 1 / (1 + crowd_shrink * (n - 1)));
+    # columns do the same for the gaps between columns and the y label font.
+    crowd_shrink: float = 0.15
+    crowd_min_scale: float = 0.6
     plus_strip_px: int = 18                       # thickness of the "+" strips
 
     # Graph text, in points (pixel sizes follow from vplot.SCREEN_DPI).
@@ -90,6 +124,7 @@ class LayoutConfig:
     label_fontsize: float = 12.0
     tick_fontsize: float = 10.2
     legend_fontsize: float = 10.2
+    font_scale_3d: float = 2.0                    # 3D tick/axis text vs the 2D sizes
     xtick_pad_px: float | None = None             # axis line -> tick labels; None = vplot default
     ytick_pad_px: float | None = None
 
@@ -115,7 +150,24 @@ class LayoutConfig:
     rolling_max: int = 1_000_000                  # largest rolling-mean window (rows)
     rolling_center: bool = True                   # centred window (no time lag) vs trailing
     rolling_tooltip: str = "Rolling mean over this many rows (1 = off). 2D graphs only."
+    rolling_box_px: int = 88                      # width of the rolling-mean box
+    # Display transform: the rest of an expression that starts with the column's
+    # value, e.g. "/ (32767 * 180) + 2". Other columns and script functions work too.
+    expr_placeholder: str = "e.g. / 1000 + 2"
+    expr_tooltip: str = ("Applied to the column when plotted: the value, then this.\n"
+                         "e.g. \"/ (32767 * 180) + 2\" or \"* -1\" or \"- other_column\".\n"
+                         "Empty = unchanged.")
+    expr_edit_px: int = 150                       # width of the transform boxes
+    expr_error_color: str = "#d9534f"
     default_graph_kind: str = "scatter"           # type of a new graph
+    # 3D view: perspective uses this field of view; isometric is orthographic (fov 0)
+    # and snaps to the isometric angles when switched on.
+    perspective_fov: float = 30.0
+    iso_elevation: float = 35.264
+    iso_azimuth: float = -45.0
+    graph_menu_isometric_text: str = "Isometric view"
+    view_3d_options: tuple[tuple[str, str], ...] = (("perspective", "Perspective"),
+                                                    ("isometric", "Isometric"))
     default_marker_size: float = 1.0              # scatter point diameter, points
     marker_size_range: tuple[float, float] = (0.5, 30.0)
 
@@ -125,8 +177,10 @@ class LayoutConfig:
     #   copy_y        "Copy y columns to" in the graph menu
     #   custom_color  "Custom color..." (the 20 preset colors stay)
     #   script        the "Script" button (new columns from formulas, see FSLib/colscript.py)
+    #   label_toggles show legend / show x label / show y label in the Configure dialog
+    #   view_3d       perspective / isometric choice for 3D graphs (dialog and menu)
     advanced_features: tuple[str, ...] = ("graph_type", "copy_graph", "copy_y", "custom_color",
-                                          "script")
+                                          "script", "label_toggles", "view_3d")
     advanced_text: str = "Advanced"
     settings_advanced_key: str = "advanced_mode"
 
@@ -157,7 +211,7 @@ class LayoutConfig:
     confirm_text: str = "Confirm"
     cancel_text: str = "Cancel"
     graph_dialog_title: str = "Configure graph"
-    graph_dialog_size: tuple[int, int] = (640, 480)
+    graph_dialog_size: tuple[int, int] = (768, 480)
     add_line_text: str = "+ Add y line"
     line_label_placeholder: str = "legend label (defaults to column)"
     custom_color_text: str = "Custom color..."
@@ -192,6 +246,7 @@ class LineSpec:
     label: str
     color: str
     rolling: int = 1                              # rolling-mean window in rows; 1 = off (2D only)
+    expr: str = ""                                # display transform, e.g. "/ 1000 + 2"
 
 
 @dataclass
@@ -206,6 +261,12 @@ class GraphSpec:
     marker_size: float = LAYOUT.default_marker_size   # scatter point diameter (points)
     z: str | None = None                          # 3D scatter only
     zlabel: str = ""
+    legend: bool = True                           # legend below (2D) / inside (3D) the graph
+    show_xlabel: bool = True                      # 2D: hiding a label frees its space
+    show_ylabel: bool = True
+    projection: str = "perspective"               # 3D: "perspective" | "isometric"
+    x_expr: str = ""                              # display transforms of x / z
+    z_expr: str = ""
 
 
 def is_3d(kind: str) -> bool:
@@ -221,20 +282,48 @@ class Graph:
 
 @dataclass
 class GraphGrid:
-    """One SceneCanvas holding a rows x cols grid of graphs."""
+    """One SceneCanvas holding a rows x cols grid of graphs. Each graph's cell is
+    placed by layout_cells() (VisPy's Grid ignores its spacing setting)."""
     canvas: scene.SceneCanvas
-    grid: scene.widgets.Grid
+    cfg: LayoutConfig
     cells: list[list[Graph]] = field(default_factory=list)
     zoom_history: list[Graph] = field(default_factory=list)   # graph of each zoom, oldest first
     rubber_band: QtWidgets.QRubberBand | None = None          # box-zoom outline over the canvas
 
 
+@dataclass(eq=False)
+class Tab:
+    """One tab: its own graph grid (canvas + "+" strips), and the template file it
+    was loaded from / saved to, if any."""
+    name: str
+    graphs: GraphGrid
+    area: QtWidgets.QWidget                       # page in Tabs.stack
+    path: str | None = None
+
+
+@dataclass
+class Tabs:
+    bar: QtWidgets.QTabBar
+    stack: QtWidgets.QStackedWidget
+    items: list[Tab] = field(default_factory=list)   # in tab-bar order
+
+    def current(self) -> Tab:
+        return self.items[self.bar.currentIndex()]
+
+
+class TabSnapshot(NamedTuple):
+    name: str
+    path: str | None
+    specs: list[list[GraphSpec]]                  # by grid position
+
+
 class Snapshot(NamedTuple):
-    """What Ctrl+Z restores: the loaded file, the column script and every graph's
-    spec, by grid position."""
+    """What Ctrl+Z restores: the loaded file, the column script, and every tab
+    (name, template file, graph specs)."""
     df_path: str | None
     script: str
-    specs: list[list[GraphSpec]]
+    tabs: list[TabSnapshot]
+    current: int                                  # selected tab
 
 
 @dataclass
@@ -247,6 +336,8 @@ class AppState:
     undo: list[Snapshot] = field(default_factory=list)   # oldest first
     redo: list[Snapshot] = field(default_factory=list)   # oldest first
     advanced: bool = False                               # advanced-mode switch
+    confirm_tab_delete: bool = True                      # Settings menu switches
+    confirm_graph_delete: bool = True
     script_window: QtWidgets.QWidget | None = None       # open ScriptWindow, if any
 
 
@@ -275,11 +366,16 @@ class AppParts(NamedTuple):
     top_bar: QtWidgets.QFrame
     side: SideBar
     splitter: QtWidgets.QSplitter
-    graphs: GraphGrid
-    select_button: QtWidgets.QPushButton
+    tabs: Tabs
+    file_button: QtWidgets.QPushButton           # File menu (templates, data folder)
     file_label: QtWidgets.QLabel
     script_button: QtWidgets.QPushButton
     state: AppState
+
+    @property
+    def graphs(self) -> GraphGrid:
+        """The selected tab's graphs."""
+        return self.tabs.current().graphs
 
 
 # ---------------------------------------------------------------------------
@@ -355,9 +451,14 @@ def set_script(parts: AppParts, text: str, cfg: LayoutConfig,
 # ---------------------------------------------------------------------------
 # Undo (Ctrl+Z) / redo (Ctrl+Y): graph layout, graph specs and file selection
 # ---------------------------------------------------------------------------
+def grid_specs(graphs: GraphGrid) -> list[list[GraphSpec]]:
+    return [[copy.deepcopy(g.spec) for g in row] for row in graphs.cells]
+
+
 def snapshot(parts: AppParts) -> Snapshot:
-    return Snapshot(parts.state.df_path, parts.state.script,
-                    [[copy.deepcopy(g.spec) for g in row] for row in parts.graphs.cells])
+    tabs = [TabSnapshot(t.name, t.path, grid_specs(t.graphs)) for t in parts.tabs.items]
+    return Snapshot(parts.state.df_path, parts.state.script, tabs,
+                    parts.tabs.bar.currentIndex())
 
 
 def push_undo(parts: AppParts, cfg: LayoutConfig) -> None:
@@ -380,12 +481,8 @@ def restore_snapshot(parts: AppParts, snap: Snapshot, cfg: LayoutConfig) -> bool
     elif snap.script != parts.state.script:
         set_script(parts, snap.script, cfg, undoable=False)
     refresh_script_window(parts)
-    graphs = parts.graphs
-    set_grid_shape(graphs, len(snap.specs), len(snap.specs[0]))
-    for row, specs in zip(graphs.cells, snap.specs):
-        for graph, spec in zip(row, specs):
-            graph.spec = copy.deepcopy(spec)
-    redraw_all(parts, cfg)
+    set_tabs(parts, snap.tabs, cfg)
+    parts.tabs.bar.setCurrentIndex(min(snap.current, len(parts.tabs.items) - 1))
     return True
 
 
@@ -580,8 +677,13 @@ def apply_vplot_params(cfg: LayoutConfig) -> None:
     })
 
 
-def add_graph(graphs: GraphGrid, row: int, col: int) -> Graph:
-    graph = Graph(None, graphs.grid.add_grid(row=row, col=col))
+def new_cell(graphs: GraphGrid) -> scene.widgets.Grid:
+    """An empty cell for one graph's axes; layout_cells() sizes and places it."""
+    return scene.widgets.Grid(parent=graphs.canvas.scene)
+
+
+def add_graph(graphs: GraphGrid) -> Graph:
+    graph = Graph(None, new_cell(graphs))
     attach_axes(graphs, graph, three_d=False)
     return graph
 
@@ -599,16 +701,15 @@ def attach_axes(graphs: GraphGrid, graph: Graph, three_d: bool) -> None:
 
 def match_axes(graphs: GraphGrid, graph: Graph) -> None:
     """Swap the graph's axes when its spec switches between 2D and 3D. A cell can't
-    be emptied and reused, so a fresh cell takes the old one's grid slot."""
+    be emptied and reused, so a fresh cell takes the old one's place."""
     three_d = is_3d(graph.spec.kind)
     if isinstance(graph.ax, vp.Axes3D) == three_d:
         return
-    row, col = graph_position(graphs, graph)
-    graphs.grid.remove_widget(graph.cell)
     graph.cell.parent = None
-    graph.cell = graphs.grid.add_grid(row=row, col=col)
+    graph.cell = new_cell(graphs)
     attach_axes(graphs, graph, three_d)
     graphs.zoom_history[:] = [g for g in graphs.zoom_history if g is not graph]
+    layout_cells(graphs)
 
 
 def has_box_zoom(graph: Graph) -> bool:
@@ -627,41 +728,90 @@ def show_rubber_band(graphs: GraphGrid, p1, p2) -> None:
 
 
 def add_graph_row(graphs: GraphGrid) -> None:
-    row = len(graphs.cells)
-    graphs.cells.append([add_graph(graphs, row, col) for col in range(len(graphs.cells[0]))])
-    graphs.canvas.update()
+    graphs.cells.append([add_graph(graphs) for _ in graphs.cells[0]])
+    refresh_layout(graphs)
 
 
 def add_graph_col(graphs: GraphGrid) -> None:
-    col = len(graphs.cells[0])
-    for row, cells_row in enumerate(graphs.cells):
-        cells_row.append(add_graph(graphs, row, col))
-    graphs.canvas.update()
+    for cells_row in graphs.cells:
+        cells_row.append(add_graph(graphs))
+    refresh_layout(graphs)
 
 
 def remove_graph_row(graphs: GraphGrid, row: int) -> None:
-    relayout_graphs(graphs, removed=graphs.cells.pop(row))
+    drop_graphs(graphs, removed=graphs.cells.pop(row))
 
 
 def remove_graph_col(graphs: GraphGrid, col: int) -> None:
-    relayout_graphs(graphs, removed=[cells_row.pop(col) for cells_row in graphs.cells])
+    drop_graphs(graphs, removed=[cells_row.pop(col) for cells_row in graphs.cells])
 
 
-def relayout_graphs(graphs: GraphGrid, removed: list[Graph]) -> None:
-    """Drop `removed` from the canvas and re-place the rest at their new row/col."""
+def drop_graphs(graphs: GraphGrid, removed: list[Graph]) -> None:
+    """Take `removed` off the canvas; the rest move up/left to fill the space."""
     for graph in removed:
-        graphs.grid.remove_widget(graph.cell)
         graph.cell.parent = None
-    for graph in all_graphs(graphs):
-        graphs.grid.remove_widget(graph.cell)
+    graphs.zoom_history[:] = [g for g in graphs.zoom_history if g not in removed]
+    refresh_layout(graphs)
+
+
+def crowd_scale(n: int, cfg: LayoutConfig) -> float:
+    """Shrink factor for gaps/label text with n graphs side by side (1 for n = 1)."""
+    return max(cfg.crowd_min_scale, 1 / (1 + cfg.crowd_shrink * (n - 1)))
+
+
+def layout_cells(graphs: GraphGrid) -> None:
+    """Size and place every graph's cell: equal cells inside the margins, with gaps
+    that shrink as rows (vertical gap) or columns (horizontal gap) are added."""
+    cfg = graphs.cfg
+    w, h = graphs.canvas.size
+    left, top, right, bottom = cfg.graph_margins_px
+    rows, cols = len(graphs.cells), len(graphs.cells[0])
+    gap_x = cfg.graph_spacing_px * crowd_scale(cols, cfg)
+    gap_y = cfg.graph_spacing_px * crowd_scale(rows, cfg)
+    cell_w = max((w - left - right - gap_x * (cols - 1)) / cols, 1)
+    cell_h = max((h - top - bottom - gap_y * (rows - 1)) / rows, 1)
     for r, cells_row in enumerate(graphs.cells):
         for c, graph in enumerate(cells_row):
-            graphs.grid.add_widget(graph.cell, row=r, col=c)
-            # add_widget gives the cell new size variables, but the cell is a Grid
-            # whose own solver was built on the old ones; make it rebuild.
-            graph.cell._need_solver_recreate = True
-    graphs.zoom_history[:] = [g for g in graphs.zoom_history if g not in removed]
+            graph.cell.pos = (left + c * (cell_w + gap_x), top + r * (cell_h + gap_y))
+            graph.cell.size = (cell_w, cell_h)
     graphs.canvas.update()
+
+
+def refresh_layout(graphs: GraphGrid) -> None:
+    """After rows/columns change: re-place the cells and re-size the label text."""
+    layout_cells(graphs)
+    for graph in all_graphs(graphs):
+        style_axes(graphs, graph)
+
+
+def style_axes(graphs: GraphGrid, graph: Graph) -> None:
+    """Titles, axis labels (text, size, shown/hidden) and the 3D view, from the spec.
+    2D label text shrinks with crowding: x labels with the number of rows, y labels
+    with the number of columns. 3D text is font_scale_3d times the 2D sizes."""
+    cfg, ax, spec = graphs.cfg, graph.ax, graph.spec
+    ax.set_title(spec.title)
+    if isinstance(ax, vp.Axes3D):
+        camera = ax.view.camera
+        isometric = spec.projection == "isometric"
+        if isometric and camera.fov != 0:         # switching to isometric: snap the angles
+            camera.elevation, camera.azimuth = cfg.iso_elevation, cfg.iso_azimuth
+        camera.fov = 0 if isometric else cfg.perspective_fov
+        big = cfg.font_scale_3d
+        if isometric:
+            # VisPy shrinks 3D text by its depth under perspective (it's sized in clip
+            # space, before the divide by w); orthographic has no such divide. Divide
+            # by the perspective depth at the centre so both views match.
+            big /= 0.5 * camera.scale_factor / math.tan(math.radians(cfg.perspective_fov) / 2)
+        for setter, text in ((ax.set_xlabel, spec.xlabel), (ax.set_ylabel, spec.ylabel),
+                             (ax.set_zlabel, spec.zlabel)):
+            setter(text, fontsize=cfg.label_fontsize * big)
+        ax.tick_params(labelsize=cfg.tick_fontsize * big)
+        return
+    rows, cols = len(graphs.cells), len(graphs.cells[0])
+    ax.set_xlabel(spec.xlabel, fontsize=cfg.label_fontsize * crowd_scale(rows, cfg))
+    ax.set_ylabel(spec.ylabel, fontsize=cfg.label_fontsize * crowd_scale(cols, cfg))
+    ax.set_label_visible("x", spec.show_xlabel)
+    ax.set_label_visible("y", spec.show_ylabel)
 
 
 def set_grid_shape(graphs: GraphGrid, rows: int, cols: int) -> None:
@@ -702,30 +852,21 @@ def undo_zoom(graphs: GraphGrid) -> None:
             return
 
 
-def fit_grid_to_canvas(graphs: GraphGrid, cfg: LayoutConfig) -> None:
-    w, h = graphs.canvas.size
-    left, top, right, bottom = cfg.graph_margins_px
-    graphs.grid.pos = (left, top)
-    graphs.grid.size = (max(w - left - right, 1), max(h - top - bottom, 1))
-
-
 def build_graph_grid(cfg: LayoutConfig) -> GraphGrid:
     apply_vplot_params(cfg)
     canvas = scene.SceneCanvas(keys="interactive", bgcolor=cfg.graph_bgcolor, show=False,
                                dpi=vp.SCREEN_DPI)
     vp.skip_offscreen_swap(canvas)                # halves frame time on Intel GPUs
-    # Placed by hand rather than central_widget.add_grid, so the x and y margins can differ.
-    grid = scene.widgets.Grid(spacing=cfg.graph_spacing_px, parent=canvas.scene)
-    graphs = GraphGrid(canvas, grid,
+    graphs = GraphGrid(canvas, cfg,
                        rubber_band=QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle,
                                                          canvas.native))
     vp.keep_ticks_synced(canvas, lambda: [g.ax for g in all_graphs(graphs)
                                           if isinstance(g.ax, vp.Axes)])
     if cfg.print_fps:
         canvas.measure_fps()
-    canvas.events.resize.connect(lambda event: fit_grid_to_canvas(graphs, cfg))
-    fit_grid_to_canvas(graphs, cfg)
-    graphs.cells.append([add_graph(graphs, 0, 0)])
+    canvas.events.resize.connect(lambda event: layout_cells(graphs))
+    graphs.cells.append([add_graph(graphs)])
+    refresh_layout(graphs)
     return graphs
 
 
@@ -738,11 +879,7 @@ def draw_graph(graphs: GraphGrid, graph: Graph, df: pl.DataFrame | None,
         # Saved zooms belong to the old data/limits (e.g. the empty graph's 0..1).
         ax.view.camera.clear_zoom_history()
     ax.cla()
-    ax.set_title(spec.title)
-    ax.set_xlabel(spec.xlabel)
-    ax.set_ylabel(spec.ylabel)
-    if is_3d(spec.kind):
-        ax.set_zlabel(spec.zlabel)
+    style_axes(graphs, graph)
     for line, data in plot_data(spec, df, cfg):
         if spec.kind == "line":
             ax.plot(*data, color=line.color, label=line.label)
@@ -750,7 +887,10 @@ def draw_graph(graphs: GraphGrid, graph: Graph, df: pl.DataFrame | None,
             ax.scatter(*data, s=spec.marker_size ** 2, color=line.color, label=line.label)
     ax.autoscale()
     # 3D axes have no slot below them, so their legend sits inside the plot.
-    ax.legend(loc="upper right" if is_3d(spec.kind) else "below", fontsize=cfg.legend_fontsize)
+    # With the legend off, cla() above already removed it (the space below collapses).
+    if spec.legend:
+        ax.legend(loc="upper right" if is_3d(spec.kind) else "below",
+                  fontsize=cfg.legend_fontsize)
 
 
 def plot_data(spec: GraphSpec, df: pl.DataFrame | None, cfg: LayoutConfig):
@@ -758,28 +898,50 @@ def plot_data(spec: GraphSpec, df: pl.DataFrame | None, cfg: LayoutConfig):
     needed = [spec.x, spec.z] if is_3d(spec.kind) else [spec.x]
     if df is None or not all(c in df.columns for c in needed):
         return []
-    x = df[spec.x].to_numpy()
+    x = transformed(df[spec.x], spec.x_expr, df)
     if is_3d(spec.kind):
-        z = df[spec.z].to_numpy()
-        return [(line, (x, df[line.column].to_numpy(), z))
+        z = transformed(df[spec.z], spec.z_expr, df)
+        return [(line, (x, y_values(df[line.column], line, 1, df, cfg), z))
                 for line in spec.lines if line.column in df.columns]
-    return [(line, (x, y_values(df[line.column], line.rolling, cfg)))
+    return [(line, (x, y_values(df[line.column], line, line.rolling, df, cfg)))
             for line in spec.lines if line.column in df.columns]
 
 
-def y_values(column: pl.Series, rolling: int, cfg: LayoutConfig) -> np.ndarray:
-    """The column, as a rolling mean over `rolling` rows when that's above 1. The
-    ends average over the rows available, so there are no missing points."""
+def y_values(column: pl.Series, line: LineSpec, rolling: int, df: pl.DataFrame,
+             cfg: LayoutConfig) -> np.ndarray:
+    """The column as plotted: a rolling mean over `rolling` rows when that's above 1
+    (the ends average over the rows available, so no points go missing), then
+    the line's display transform."""
     if rolling > 1:
         column = column.cast(pl.Float64).rolling_mean(
             window_size=rolling, min_samples=1, center=cfg.rolling_center)
-    return column.to_numpy()
+    return transformed(column, line.expr, df)
+
+
+def transformed(column: pl.Series, expr: str, df: pl.DataFrame) -> np.ndarray:
+    """The column with its display transform applied (see colscript.transform). A
+    transform that fails here (e.g. a column it names isn't in this file) leaves
+    the column unchanged."""
+    if not expr.strip():
+        return column.to_numpy()
+    values = column.cast(pl.Float64).to_numpy()
+    try:
+        return colscript.transform(
+            expr, values, lambda name: df[name].cast(pl.Float64).to_numpy())
+    except (colscript.ScriptError, ValueError, TypeError, pl.exceptions.PolarsError):
+        return values
 
 
 def redraw_all(parts: "AppParts", cfg: LayoutConfig) -> None:
-    for graph in all_graphs(parts.graphs):
-        draw_graph(parts.graphs, graph, parts.state.df, cfg)
-    parts.graphs.canvas.update()
+    """Redraw every graph in every tab (e.g. after a new file or script)."""
+    for tab in parts.tabs.items:
+        redraw_grid(parts, tab.graphs, cfg)
+
+
+def redraw_grid(parts: "AppParts", graphs: GraphGrid, cfg: LayoutConfig) -> None:
+    for graph in all_graphs(graphs):
+        draw_graph(graphs, graph, parts.state.df, cfg)
+    graphs.canvas.update()
 
 
 def canvas_rect(widget: scene.widgets.Widget) -> tuple[float, float, float, float]:
@@ -843,10 +1005,10 @@ def build_graph_area(graphs: GraphGrid, before_change, cfg: LayoutConfig) -> QtW
 # ---------------------------------------------------------------------------
 # Right-click menu
 # ---------------------------------------------------------------------------
-def connect_graph_menu(parts: "AppParts", cfg: LayoutConfig) -> None:
+def connect_graph_menu(parts: "AppParts", graphs: GraphGrid, cfg: LayoutConfig) -> None:
     """A right click (press and release without moving) opens the menu for the
     graph under the mouse."""
-    canvas = parts.graphs.canvas
+    canvas = graphs.canvas
     press = {}
 
     def on_press(event):
@@ -859,7 +1021,7 @@ def connect_graph_menu(parts: "AppParts", cfg: LayoutConfig) -> None:
             return
         if np.hypot(*(np.asarray(event.pos, dtype=float) - start)) > cfg.right_click_slop_px:
             return
-        graph = graph_at(parts.graphs, event.pos)
+        graph = graph_at(graphs, event.pos)
         if graph is not None:
             # Deferred so the menu's event loop doesn't run inside VisPy's handler.
             QtCore.QTimer.singleShot(0, lambda: show_graph_menu(parts, graph, cfg))
@@ -894,21 +1056,17 @@ def show_graph_menu(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
     def clear():
         set_spec(parts, graph, GraphSpec(), cfg)
 
+    def confirmed(text):
+        # The Settings menu switch (default: require_confirm_on_graph_delete).
+        return not parts.state.confirm_graph_delete or confirm(parts.window, text, cfg)
+
     def remove_row():
-        if LAYOUT.require_confirm_on_graph_delete == True:
-            if confirm(parts.window, f"Remove row {row + 1} ({len(graphs.cells[0])} graphs)?", cfg):
-                push_undo(parts, cfg)
-                remove_graph_row(graphs, row)
-        else:
+        if confirmed(f"Remove row {row + 1} ({len(graphs.cells[0])} graphs)?"):
             push_undo(parts, cfg)
             remove_graph_row(graphs, row)
 
     def remove_col():
-        if LAYOUT.require_confirm_on_graph_delete == True:
-            if confirm(parts.window, f"Remove column {col + 1} ({len(graphs.cells)} graphs)?", cfg):
-                push_undo(parts, cfg)
-                remove_graph_col(graphs, col)
-        else:
+        if confirmed(f"Remove column {col + 1} ({len(graphs.cells)} graphs)?"):
             push_undo(parts, cfg)
             remove_graph_col(graphs, col)
 
@@ -918,6 +1076,13 @@ def show_graph_menu(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
     menu.addAction(cfg.graph_menu_undo_zoom_text, lambda: undo_zoom(graphs)).setEnabled(
         bool(graphs.zoom_history))
     menu.addAction(cfg.graph_menu_clear_text, clear)
+    if is_3d(graph.spec.kind) and feature_on(parts.state, "view_3d", cfg):
+        isometric = graph.spec.projection == "isometric"
+        iso = menu.addAction(cfg.graph_menu_isometric_text, lambda: set_spec(
+            parts, graph,
+            replace(graph.spec, projection="perspective" if isometric else "isometric"), cfg))
+        iso.setCheckable(True)
+        iso.setChecked(graph.spec.projection == "isometric")
     others = [g for g in all_graphs(graphs) if g is not graph]
     if feature_on(parts.state, "copy_graph", cfg):
         add_target_menu(menu, cfg.graph_menu_copy_graph_text, graphs, others,
@@ -985,12 +1150,13 @@ def add_y_columns(parts: "AppParts", graph: Graph, columns: list[str | LineSpec]
     shown = {line.column for line in graph.spec.lines}
     spec = copy.deepcopy(graph.spec)
     for item in columns:
-        name, label, rolling = ((item, item, 1) if isinstance(item, str)
-                                else (item.column, item.label, item.rolling))
-        if name in shown or (df is not None and name not in numeric):
+        # A copied line keeps its label, rolling mean and transform; only the color is new.
+        line = LineSpec(item, item, "") if isinstance(item, str) else copy.copy(item)
+        if line.column in shown or (df is not None and line.column not in numeric):
             continue
-        shown.add(name)
-        spec.lines.append(LineSpec(name, label, unused_line_color(cfg, spec.lines), rolling))
+        shown.add(line.column)
+        line.color = unused_line_color(cfg, spec.lines)
+        spec.lines.append(line)
     if spec.x is None and spec.lines:
         spec.x = default_x(df, cfg) or cfg.default_x_column
         if spec.x == cfg.default_x_column and not spec.xlabel:
@@ -1001,14 +1167,14 @@ def add_y_columns(parts: "AppParts", graph: Graph, columns: list[str | LineSpec]
 class ColumnDropFilter(QtCore.QObject):
     """Event filter on the graph canvas: accepts column drags over a graph."""
 
-    def __init__(self, parts: "AppParts", cfg: LayoutConfig):
-        super().__init__(parts.graphs.canvas.native)
-        self.parts, self.cfg = parts, cfg
+    def __init__(self, parts: "AppParts", graphs: GraphGrid, cfg: LayoutConfig):
+        super().__init__(graphs.canvas.native)
+        self.parts, self.graphs, self.cfg = parts, graphs, cfg
 
     def target(self, event) -> tuple[Graph | None, list[str]]:
         names = dropped_columns(event.mimeData(), self.cfg)
         pos = event.position()
-        graph = graph_at(self.parts.graphs, (pos.x(), pos.y())) if names else None
+        graph = graph_at(self.graphs, (pos.x(), pos.y())) if names else None
         return graph, names
 
     def eventFilter(self, obj, event):
@@ -1028,10 +1194,10 @@ class ColumnDropFilter(QtCore.QObject):
         return False
 
 
-def connect_column_drops(parts: "AppParts", cfg: LayoutConfig) -> None:
-    native = parts.graphs.canvas.native
+def connect_column_drops(parts: "AppParts", graphs: GraphGrid, cfg: LayoutConfig) -> None:
+    native = graphs.canvas.native
     native.setAcceptDrops(True)
-    native.installEventFilter(ColumnDropFilter(parts, cfg))   # parented to native
+    native.installEventFilter(ColumnDropFilter(parts, graphs, cfg))   # parented to native
 
 
 # ---------------------------------------------------------------------------
@@ -1042,7 +1208,16 @@ class LineRow(NamedTuple):
     column: QtWidgets.QComboBox
     label: QtWidgets.QLineEdit
     rolling: QtWidgets.QSpinBox
+    transform: "TransformEdit"
     color: QtWidgets.QToolButton
+
+
+class TransformEdit(NamedTuple):
+    """One-line display transform, e.g. "/ (32767 * 180) + 2"."""
+    widget: QtWidgets.QLineEdit
+
+    def text(self) -> str:
+        return self.widget.text().strip()
 
 
 def numeric_columns(df: pl.DataFrame | None) -> list[str]:
@@ -1135,8 +1310,9 @@ def build_line_row(columns: list[str], line: LineSpec, on_remove, custom_color: 
     rolling = QtWidgets.QSpinBox()
     rolling.setRange(1, cfg.rolling_max)
     rolling.setValue(line.rolling)
-    rolling.setPrefix("avg ")
     rolling.setToolTip(cfg.rolling_tooltip)
+    rolling.setFixedWidth(cfg.rolling_box_px)
+    transform = build_transform(line.expr, columns, cfg)
     remove = QtWidgets.QToolButton()
     remove.setText("\u2715")
     remove.setToolTip("Remove line")
@@ -1153,11 +1329,41 @@ def build_line_row(columns: list[str], line: LineSpec, on_remove, custom_color: 
     layout.addWidget(combo, 3)
     layout.addWidget(label, 2)
     layout.addWidget(rolling)
+    layout.addWidget(transform.widget)
     layout.addWidget(color)
     layout.addWidget(remove)
-    row = LineRow(widget, combo, label, rolling, color)
+    row = LineRow(widget, combo, label, rolling, transform, color)
     remove.clicked.connect(lambda: on_remove(row))
     return row
+
+
+def build_transform(expr: str, columns: list[str], cfg: LayoutConfig) -> TransformEdit:
+    """Transform box; turns red (with the reason as its tooltip) while invalid."""
+    edit = QtWidgets.QLineEdit(expr)
+    edit.setPlaceholderText(cfg.expr_placeholder)
+    edit.setFixedWidth(cfg.expr_edit_px)
+    known = set(columns) or None                  # no file loaded: don't check names
+
+    def check(text):
+        error = colscript.check_transform(text, known)
+        edit.setProperty("error", error)
+        edit.setStyleSheet(f"border: 1px solid {cfg.expr_error_color};" if error else "")
+        edit.setToolTip(f"{error}\n\n{cfg.expr_tooltip}" if error else cfg.expr_tooltip)
+
+    edit.textChanged.connect(check)
+    check(expr)
+    return TransformEdit(edit)
+
+
+def column_with_transform(combo: QtWidgets.QComboBox,
+                          transform: TransformEdit) -> QtWidgets.QWidget:
+    """A column picker with its transform box on the same line."""
+    widget = QtWidgets.QWidget()
+    layout = QtWidgets.QHBoxLayout(widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(combo, 1)
+    layout.addWidget(transform.widget)
+    return widget
 
 
 def build_kind_combo(kind: str, cfg: LayoutConfig) -> QtWidgets.QComboBox:
@@ -1192,29 +1398,54 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
     kind = build_kind_combo(spec.kind, cfg)
     marker_size = build_marker_size(spec.marker_size, cfg)
     x_combo = build_column_combo(columns, spec.x or default_x(df, cfg) or cfg.default_x_column)
+    x_transform = build_transform(spec.x_expr, columns, cfg)
+    x_row = column_with_transform(x_combo, x_transform)
     xlabel = QtWidgets.QLineEdit(spec.xlabel)
     if new_graph and not spec.xlabel and x_combo.currentText() == cfg.default_x_column:
         xlabel.setText(cfg.default_xlabel)
     ylabel = QtWidgets.QLineEdit(spec.ylabel)
     z_combo = build_column_combo(columns, spec.z)
+    z_transform = build_transform(spec.z_expr, columns, cfg)
+    z_row = column_with_transform(z_combo, z_transform)
     zlabel = QtWidgets.QLineEdit(spec.zlabel)
+    view_3d = QtWidgets.QComboBox()
+    for key, name in cfg.view_3d_options:
+        view_3d.addItem(name, key)
+    view_3d.setCurrentIndex(max(view_3d.findData(spec.projection), 0))
+    toggles = QtWidgets.QWidget()                 # advanced: show legend / x label / y label
+    toggles_layout = QtWidgets.QHBoxLayout(toggles)
+    toggles_layout.setContentsMargins(0, 0, 0, 0)
+    legend, show_x, show_y = (QtWidgets.QCheckBox(text) for text in
+                              ("Show legend", "Show x label", "Show y label"))
+    for box, on in ((legend, spec.legend), (show_x, spec.show_xlabel),
+                    (show_y, spec.show_ylabel)):
+        box.setChecked(on)
+        toggles_layout.addWidget(box)
+    toggles_layout.addStretch(1)
     form = QtWidgets.QFormLayout()
     form.addRow("Title", title)
     form.addRow("Graph type", kind)
     form.addRow("Point size", marker_size)
-    form.addRow("X column", x_combo)
+    form.addRow("3D view", view_3d)
+    form.addRow("X column", x_row)
     form.addRow("X label", xlabel)
     form.addRow("Y label", ylabel)
-    form.addRow("Z column", z_combo)
+    form.addRow("Z column", z_row)
     form.addRow("Z label", zlabel)
+    form.addRow("", toggles)
 
     def show_kind_rows():
-        """Point size only for scatter, Z only for 3D; the type itself is advanced."""
+        """Point size only for scatter, Z and the view only for 3D, x/y label toggles
+        only for 2D; the type and the toggles are advanced-mode features."""
         key = kind.currentData()
         form.setRowVisible(kind, feature("graph_type"))
         form.setRowVisible(marker_size, key != "line")
-        form.setRowVisible(z_combo, is_3d(key))
-        form.setRowVisible(zlabel, is_3d(key))
+        for widget in (z_row, zlabel):
+            form.setRowVisible(widget, is_3d(key))
+        form.setRowVisible(view_3d, is_3d(key) and feature("view_3d"))
+        form.setRowVisible(toggles, feature("label_toggles"))
+        show_x.setVisible(not is_3d(key))
+        show_y.setVisible(not is_3d(key))
         for row in rows:                          # rolling mean is 2D only
             row.rolling.setVisible(not is_3d(key))
 
@@ -1247,12 +1478,25 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
 
     buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok
                                          | QtWidgets.QDialogButtonBox.Cancel)
-    buttons.accepted.connect(dialog.accept)
+    def accept():
+        """OK only once every transform is valid; otherwise say which isn't."""
+        boxes = [("X", x_transform), ("Z", z_transform)] + [
+            (r.column.currentText() or "a y line", r.transform) for r in rows]
+        bad = [(name, t.widget.property("error")) for name, t in boxes
+               if t.widget.property("error") and t.widget.isVisibleTo(dialog)]
+        if bad:
+            QtWidgets.QMessageBox.warning(dialog, cfg.graph_dialog_title, "\n".join(
+                f"{name} transform: {error}" for name, error in bad))
+            return
+        dialog.accept()
+
+    buttons.accepted.connect(accept)
     buttons.rejected.connect(dialog.reject)
 
     layout = QtWidgets.QVBoxLayout(dialog)
     layout.addLayout(form)
-    layout.addWidget(QtWidgets.QLabel("Y lines  (column / legend label / rolling mean / color)"))
+    layout.addWidget(QtWidgets.QLabel(
+        "Y lines  (column / legend label / rolling mean / transform / color)"))
     layout.addWidget(scroll, 1)
     layout.addWidget(add_button, 0, QtCore.Qt.AlignLeft)
     layout.addWidget(buttons)
@@ -1265,12 +1509,17 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
         return bool(name) and (not columns or name in columns)
 
     lines = [LineSpec(r.column.currentText(), r.label.text() or r.column.currentText(),
-                      r.color.property("color"), r.rolling.value())
+                      r.color.property("color"), r.rolling.value(), r.transform.text())
              for r in rows if valid(r.column.currentText())]
     x, z = x_combo.currentText(), z_combo.currentText()
-    return GraphSpec(x if valid(x) else None, lines, xlabel.text(), ylabel.text(), title.text(),
-                     kind.currentData(), marker_size.value(), z if valid(z) else None,
-                     zlabel.text())
+    # replace() keeps any spec field this dialog doesn't show.
+    return replace(spec, x=x if valid(x) else None, lines=lines, xlabel=xlabel.text(),
+                   ylabel=ylabel.text(), title=title.text(), kind=kind.currentData(),
+                   marker_size=marker_size.value(), z=z if valid(z) else None,
+                   zlabel=zlabel.text(), legend=legend.isChecked(),
+                   show_xlabel=show_x.isChecked(), show_ylabel=show_y.isChecked(),
+                   projection=view_3d.currentData(),
+                   x_expr=x_transform.text(), z_expr=z_transform.text())
 
 
 # ---------------------------------------------------------------------------
@@ -1395,11 +1644,274 @@ def refresh_script_window(parts: AppParts) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tabs -- each with its own graph grid
+# ---------------------------------------------------------------------------
+def new_tab(parts: AppParts, name: str, cfg: LayoutConfig, path: str | None = None) -> Tab:
+    """Append a tab with one empty graph (not undoable by itself; callers push_undo)."""
+    graphs = build_graph_grid(cfg)
+    area = build_graph_area(graphs, lambda: push_undo(parts, cfg), cfg)
+    connect_graph_menu(parts, graphs, cfg)
+    connect_column_drops(parts, graphs, cfg)
+    tab = Tab(name, graphs, area, path)
+    tabs = parts.tabs
+    tabs.items.append(tab)                        # before insertTab, which may select it
+    tabs.stack.addWidget(area)
+    tabs.bar.addTab(name)
+    set_tab_label(parts, tab)
+    return tab
+
+
+def set_tab_label(parts: AppParts, tab: Tab) -> None:
+    i = parts.tabs.items.index(tab)
+    parts.tabs.bar.setTabText(i, tab.name)
+    parts.tabs.bar.setTabToolTip(i, tab.path or "Not saved to a template file yet")
+
+
+def drop_tab(parts: AppParts, index: int) -> None:
+    """Remove a tab and free its canvas (not undoable by itself)."""
+    tab = parts.tabs.items.pop(index)             # before removeTab, which may select another
+    parts.tabs.bar.removeTab(index)
+    parts.tabs.stack.removeWidget(tab.area)
+    tab.graphs.canvas.close()
+    tab.area.deleteLater()
+
+
+def next_tab_name(parts: AppParts, cfg: LayoutConfig) -> str:
+    names = {t.name for t in parts.tabs.items}
+    n = 1
+    while cfg.new_tab_name.format(n=n) in names:
+        n += 1
+    return cfg.new_tab_name.format(n=n)
+
+
+def add_tab(parts: AppParts, cfg: LayoutConfig) -> None:
+    push_undo(parts, cfg)
+    new_tab(parts, next_tab_name(parts, cfg), cfg)
+    parts.tabs.bar.setCurrentIndex(len(parts.tabs.items) - 1)
+
+
+def close_tab(parts: AppParts, index: int, cfg: LayoutConfig) -> None:
+    """Tab close button: confirm (if switched on in Settings), then delete. Deleting
+    the last tab leaves a fresh empty one."""
+    tab = parts.tabs.items[index]
+    count = len(all_graphs(tab.graphs))
+    if parts.state.confirm_tab_delete and not confirm(
+            parts.window, f'Delete tab "{tab.name}" ({count} graph{"s" * (count != 1)})?', cfg):
+        return
+    push_undo(parts, cfg)
+    drop_tab(parts, index)
+    if not parts.tabs.items:
+        new_tab(parts, next_tab_name(parts, cfg), cfg)
+
+
+def rename_tab(parts: AppParts, index: int, cfg: LayoutConfig) -> None:
+    if index < 0:                                 # double click beside the tabs
+        return
+    tab = parts.tabs.items[index]
+    name, ok = QtWidgets.QInputDialog.getText(parts.window, cfg.window_title,
+                                              cfg.rename_tab_text, text=tab.name)
+    name = name.strip()
+    if ok and name and name != tab.name:
+        push_undo(parts, cfg)
+        tab.name = name
+        set_tab_label(parts, tab)
+
+
+def fill_tab(parts: AppParts, tab: Tab, snap: TabSnapshot, cfg: LayoutConfig) -> None:
+    """Give `tab` the name, template path and graphs of `snap`, and draw it."""
+    tab.name, tab.path = snap.name, snap.path
+    set_tab_label(parts, tab)
+    set_grid_shape(tab.graphs, len(snap.specs), len(snap.specs[0]))
+    for row, specs in zip(tab.graphs.cells, snap.specs):
+        for graph, spec in zip(row, specs):
+            graph.spec = copy.deepcopy(spec)
+    redraw_grid(parts, tab.graphs, cfg)
+
+
+def set_tabs(parts: AppParts, snaps: list[TabSnapshot], cfg: LayoutConfig) -> None:
+    """Make the open tabs match `snaps` (reusing existing tabs by position)."""
+    while len(parts.tabs.items) > len(snaps):
+        drop_tab(parts, len(parts.tabs.items) - 1)
+    while len(parts.tabs.items) < len(snaps):
+        new_tab(parts, "", cfg)
+    for tab, snap in zip(parts.tabs.items, snaps):
+        fill_tab(parts, tab, snap, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Templates -- one JSON file per tab
+# ---------------------------------------------------------------------------
+def templates_dir(cfg: LayoutConfig) -> str:
+    """The default template folder (created if missing)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg.templates_dir)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def template_filter(cfg: LayoutConfig) -> str:
+    return f"Tab templates (*{cfg.template_suffix})"
+
+
+def safe_file_name(name: str) -> str:
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).strip(" .") or "tab"
+
+
+def write_template(tab: Tab, path: str, cfg: LayoutConfig) -> None:
+    data = {"format": cfg.template_format, "version": 1, "name": tab.name,
+            "graphs": [[asdict(g.spec) for g in row] for row in tab.graphs.cells]}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def _known(cls, data: dict) -> dict:
+    """The keys of `data` that are fields of dataclass `cls` (older/newer files
+    may have fewer or extra keys)."""
+    names = {f.name for f in fields(cls)}
+    return {k: v for k, v in data.items() if k in names}
+
+
+def _legacy_expr(d: dict, prefix: str) -> str:
+    """Transform text for files saved with the earlier scale/offset/divide fields."""
+    scale, offset = d.get(prefix + "scale", 1), d.get(prefix + "offset", 0)
+    parts = []
+    if scale != 1 and not (scale == 0 and d.get(prefix + "divide")):
+        parts.append(f"{'/' if d.get(prefix + 'divide') else '*'} {scale:g}")
+    if offset:
+        parts.append(f"{'-' if offset < 0 else '+'} {abs(offset):g}")
+    return " ".join(parts)
+
+
+def read_template(path: str, cfg: LayoutConfig) -> TabSnapshot:
+    """Raises ValueError if the file isn't a tab template."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict) or data.get("format") != cfg.template_format:
+            raise ValueError("not a tab template")
+        grid = data["graphs"]
+        if not grid or not grid[0] or any(len(row) != len(grid[0]) for row in grid):
+            raise ValueError("graph grid is empty or not rectangular")
+        specs = [[GraphSpec(**{**_known(GraphSpec, d),
+                               "x_expr": d.get("x_expr") or _legacy_expr(d, "x_"),
+                               "z_expr": d.get("z_expr") or _legacy_expr(d, "z_"),
+                               "lines": [LineSpec(**{**_known(LineSpec, line),
+                                                     "expr": line.get("expr")
+                                                     or _legacy_expr(line, "")})
+                                         for line in d.get("lines", [])]})
+                  for d in row] for row in grid]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as e:
+        raise ValueError(str(e) or type(e).__name__) from e
+    name = data.get("name") or os.path.splitext(os.path.basename(path))[0]
+    return TabSnapshot(str(name), path, specs)
+
+
+def template_files(folder: str, cfg: LayoutConfig) -> list[str]:
+    return sorted(os.path.join(folder, f) for f in os.listdir(folder)
+                  if f.lower().endswith(cfg.template_suffix))
+
+
+def load_templates(parts: AppParts, paths: list[str], replace: bool,
+                   cfg: LayoutConfig) -> None:
+    """Open each template file as a tab, after the open tabs or (replace) instead of
+    them. One Ctrl+Z step. Files that aren't templates are skipped with a toast."""
+    snaps, skipped = [], []
+    for path in paths:
+        try:
+            snaps.append(read_template(path, cfg))
+        except ValueError as e:
+            skipped.append(f"{os.path.basename(path)} ({e})")
+    if snaps:
+        push_undo(parts, cfg)
+        if replace:
+            set_tabs(parts, snaps, cfg)
+            first = 0
+        else:
+            first = len(parts.tabs.items)
+            for snap in snaps:
+                fill_tab(parts, new_tab(parts, snap.name, cfg), snap, cfg)
+        parts.tabs.bar.setCurrentIndex(first)
+    if skipped:
+        show_toast(parts, f"Skipped {len(skipped)} file(s): " + "; ".join(skipped), cfg)
+    elif not snaps:
+        show_toast(parts, "No tab templates found", cfg)
+
+
+def choose_templates(parts: AppParts, replace: bool, cfg: LayoutConfig) -> None:
+    paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
+        parts.window, cfg.load_template_text, templates_dir(cfg), template_filter(cfg))
+    if paths:
+        load_templates(parts, paths, replace, cfg)
+
+
+def choose_template_folder(parts: AppParts, replace: bool, cfg: LayoutConfig) -> None:
+    folder = QtWidgets.QFileDialog.getExistingDirectory(
+        parts.window, cfg.load_template_folder_text, templates_dir(cfg))
+    if folder:
+        load_templates(parts, template_files(folder, cfg), replace, cfg)
+
+
+def save_tab(parts: AppParts, tab: Tab, path: str, cfg: LayoutConfig) -> bool:
+    try:
+        write_template(tab, path, cfg)
+    except OSError as e:
+        show_toast(parts, f"Could not save {os.path.basename(path)}: {e}", cfg)
+        return False
+    tab.path = path
+    set_tab_label(parts, tab)
+    return True
+
+
+def save_template(parts: AppParts, cfg: LayoutConfig) -> None:
+    """Save the current tab to its template file, or ask where if it has none."""
+    tab = parts.tabs.current()
+    if tab.path is None:
+        save_template_as(parts, cfg)
+    elif save_tab(parts, tab, tab.path, cfg):
+        show_toast(parts, f"Saved {os.path.basename(tab.path)}", cfg)
+
+
+def save_template_as(parts: AppParts, cfg: LayoutConfig) -> None:
+    tab = parts.tabs.current()
+    start = tab.path or os.path.join(templates_dir(cfg), safe_file_name(tab.name)
+                                     + cfg.template_suffix)
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(parts.window, cfg.save_template_as_text,
+                                                    start, template_filter(cfg))
+    if not path:
+        return
+    if not path.lower().endswith(cfg.template_suffix):
+        path += cfg.template_suffix
+    if save_tab(parts, tab, path, cfg):
+        show_toast(parts, f"Saved {os.path.basename(path)}", cfg)
+
+
+def save_all_templates(parts: AppParts, cfg: LayoutConfig) -> None:
+    """Save every tab into one folder, a file per tab named after the tab."""
+    folder = QtWidgets.QFileDialog.getExistingDirectory(
+        parts.window, cfg.save_all_templates_text, templates_dir(cfg))
+    if not folder:
+        return
+    paths, used = [], set()
+    for tab in parts.tabs.items:
+        base = safe_file_name(tab.name)
+        name, n = base, 2
+        while name.lower() in used:               # two tabs with the same name
+            name, n = f"{base} ({n})", n + 1
+        used.add(name.lower())
+        paths.append(os.path.join(folder, name + cfg.template_suffix))
+    existing = [p for p in paths if os.path.exists(p)]
+    if existing and not confirm(parts.window, f"Overwrite {len(existing)} existing "
+                                              f"template file(s) in {folder}?", cfg):
+        return
+    saved = sum(save_tab(parts, tab, path, cfg) for tab, path in zip(parts.tabs.items, paths))
+    show_toast(parts, f"Saved {saved} template(s) to {folder}", cfg)
+
+
+# ---------------------------------------------------------------------------
 # Folder selection
 # ---------------------------------------------------------------------------
 def apply_data_dir(parts: AppParts, path: str, cfg: LayoutConfig) -> None:
     """Point the app at `path`: tooltip, file tree, and a warning if misnamed."""
-    parts.select_button.setToolTip(f"Data folder:\n{path}")
+    parts.file_button.setToolTip(f"Data folder:\n{path}")
     set_tree_root(parts.side.tree, path, cfg)
     if not is_data_folder(path, cfg):
         show_toast(parts, f'Selected folder is not named "{cfg.data_folder_name}"', cfg)
@@ -1432,11 +1944,83 @@ def build_top_bar(cfg: LayoutConfig) -> QtWidgets.QFrame:
     return bar
 
 
-def build_select_button(cfg: LayoutConfig) -> QtWidgets.QPushButton:
-    button = QtWidgets.QPushButton(cfg.select_button_text)
-    button.setToolTip("No data folder selected")
+def build_bar_button(text: str) -> QtWidgets.QPushButton:
+    button = QtWidgets.QPushButton(text)
     button.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Ignored)
     return button
+
+
+def build_file_menu(parts: AppParts, cfg: LayoutConfig) -> QtWidgets.QMenu:
+    """Template loading/saving, with the data folder choice at the bottom."""
+    menu = QtWidgets.QMenu(parts.file_button)
+    menu.addAction(cfg.load_template_text, lambda: choose_templates(parts, False, cfg))
+    menu.addAction(cfg.load_template_folder_text,
+                   lambda: choose_template_folder(parts, False, cfg))
+    menu.addAction(cfg.replace_template_text, lambda: choose_templates(parts, True, cfg))
+    menu.addAction(cfg.replace_template_folder_text,
+                   lambda: choose_template_folder(parts, True, cfg))
+    menu.addSeparator()
+    menu.addAction(cfg.save_template_text, lambda: save_template(parts, cfg))
+    menu.addAction(cfg.save_template_as_text, lambda: save_template_as(parts, cfg))
+    menu.addAction(cfg.save_all_templates_text, lambda: save_all_templates(parts, cfg))
+    menu.addSeparator()
+    menu.addAction(cfg.select_button_text, lambda: choose_data_dir(parts, cfg))
+    return menu
+
+
+def build_switch_action(menu: QtWidgets.QMenu, text: str, on: bool, on_toggle,
+                        cfg: LayoutConfig) -> "ToggleSwitchAction":
+    """Menu row "text  [switch]"; clicking it flips the switch without closing the menu."""
+    action = ToggleSwitchAction(menu, text, on, cfg)
+    action.switch.toggled.connect(on_toggle)
+    menu.addAction(action)
+    return action
+
+
+def build_settings_menu(parts: AppParts, cfg: LayoutConfig) -> QtWidgets.QMenu:
+    state, menu = parts.state, QtWidgets.QMenu(parts.top_bar)   # parented, so it isn't GC'd
+
+    def setter(attr, key):
+        def toggle(on):
+            setattr(state, attr, on)
+            _settings(cfg).setValue(key, on)
+        return toggle
+
+    build_switch_action(menu, cfg.advanced_text, state.advanced,
+                        lambda on: set_advanced(parts, on, cfg), cfg)
+    build_switch_action(menu, cfg.confirm_tab_delete_text, state.confirm_tab_delete,
+                        setter("confirm_tab_delete", cfg.settings_confirm_tab_key), cfg)
+    build_switch_action(menu, cfg.confirm_graph_delete_text, state.confirm_graph_delete,
+                        setter("confirm_graph_delete", cfg.settings_confirm_graph_key), cfg)
+    return menu
+
+
+def build_tab_strip(cfg: LayoutConfig) -> tuple[QtWidgets.QWidget, QtWidgets.QTabBar,
+                                                QtWidgets.QToolButton]:
+    """Tab bar with a "+" button after the tabs."""
+    strip = make_panel(cfg.top_bar_color, cfg)
+    strip.setFixedHeight(cfg.tab_bar_px)
+    bar = QtWidgets.QTabBar()
+    bar.setTabsClosable(True)
+    bar.setExpanding(False)
+    bar.setDocumentMode(True)
+    bar.setDrawBase(False)
+    bar.setStyleSheet(
+        f"QTabBar::tab {{ background: {cfg.tab_color}; color: {cfg.text_color};"
+        " padding: 4px 10px; border: none; }"
+        f"QTabBar::tab:selected {{ background: {cfg.tab_checked_color}; }}")
+    add = QtWidgets.QToolButton()
+    add.setText("+")
+    add.setToolTip(cfg.add_tab_tooltip)
+    add.setStyleSheet(f"QToolButton {{ border: none; padding: 0 8px; color: {cfg.text_color}; }}"
+                      f"QToolButton:hover {{ background: {cfg.plus_hover_color}; }}")
+    layout = QtWidgets.QHBoxLayout(strip)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+    layout.addWidget(bar)
+    layout.addWidget(add)
+    layout.addStretch(1)
+    return strip, bar, add
 
 
 def build_file_label(cfg: LayoutConfig) -> QtWidgets.QLabel:
@@ -1535,8 +2119,30 @@ class ToggleSwitch(QtWidgets.QAbstractButton):
         p.end()
 
 
+class ToggleSwitchAction(QtWidgets.QWidgetAction):
+    """A menu row with a label and a ToggleSwitch; a click anywhere on the row flips it."""
+
+    def __init__(self, menu: QtWidgets.QMenu, text: str, on: bool, cfg: LayoutConfig):
+        super().__init__(menu)
+        row = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(row)
+        layout.setContentsMargins(10, 4, 10, 4)
+        label = QtWidgets.QLabel(text)
+        self.switch = ToggleSwitch(cfg)
+        self.switch.setChecked(on)
+        layout.addWidget(label, 1)
+        layout.addSpacing(16)
+        layout.addWidget(self.switch)
+        row.mouseReleaseEvent = lambda event: self.switch.toggle()
+        self.setDefaultWidget(row)
+
+
+def load_flag(key: str, default: bool, cfg: LayoutConfig) -> bool:
+    return _settings(cfg).value(key, default, type=bool)
+
+
 def load_advanced(cfg: LayoutConfig) -> bool:
-    return _settings(cfg).value(cfg.settings_advanced_key, False, type=bool)
+    return load_flag(cfg.settings_advanced_key, False, cfg)
 
 
 def load_script(cfg: LayoutConfig) -> str:
@@ -1557,26 +2163,29 @@ def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
     window.resize(*cfg.window_size)
 
     top_bar = build_top_bar(cfg)
-    select_button = build_select_button(cfg)
+    file_button = build_bar_button(cfg.file_menu_text)
+    file_button.setToolTip("No data folder selected")
     file_label = build_file_label(cfg)
-    top_bar.layout().addWidget(select_button)
+    top_bar.layout().addWidget(file_button)
     top_bar.layout().addSpacing(12)
     top_bar.layout().addWidget(file_label)
     top_bar.layout().addStretch(1)
-    script_button = QtWidgets.QPushButton(cfg.script_button_text)
-    script_button.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Ignored)
-    advanced_switch = ToggleSwitch(cfg)
-    advanced_label = QtWidgets.QLabel(cfg.advanced_text)
-    advanced_label.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Ignored)
+    script_button = build_bar_button(cfg.script_button_text)
+    settings_button = build_bar_button(cfg.settings_text)
     top_bar.layout().addWidget(script_button)
     top_bar.layout().addSpacing(12)
-    top_bar.layout().addWidget(advanced_label)
-    top_bar.layout().addWidget(advanced_switch)
+    top_bar.layout().addWidget(settings_button)
 
     side = build_side_bar(cfg)
-    graphs = build_graph_grid(cfg)
-    before_change = lambda: push_undo(parts, cfg)  # parts is bound below, before any click
-    splitter = build_splitter(side.frame, build_graph_area(graphs, before_change, cfg), cfg)
+    tab_strip, tab_bar, add_tab_button = build_tab_strip(cfg)
+    tabs = Tabs(tab_bar, QtWidgets.QStackedWidget())
+    main_area = QtWidgets.QWidget()
+    main_layout = QtWidgets.QVBoxLayout(main_area)
+    main_layout.setContentsMargins(0, 0, 0, 0)
+    main_layout.setSpacing(0)
+    main_layout.addWidget(tab_strip)
+    main_layout.addWidget(tabs.stack, 1)
+    splitter = build_splitter(side.frame, main_area, cfg)
 
     root = QtWidgets.QWidget()
     layout = QtWidgets.QVBoxLayout(root)
@@ -1591,23 +2200,33 @@ def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
     splitter.resizeEvent = _chain_resize(splitter.resizeEvent,
                                          lambda: clamp_side_bar(splitter, side.frame, cfg))
 
-    parts = AppParts(window, top_bar, side, splitter, graphs, select_button, file_label,
-                     script_button, AppState(script=load_script(cfg)))
-    select_button.clicked.connect(lambda: choose_data_dir(parts, cfg))
+    state = AppState(
+        script=load_script(cfg),
+        confirm_tab_delete=load_flag(cfg.settings_confirm_tab_key,
+                                     cfg.confirm_tab_delete_default, cfg),
+        confirm_graph_delete=load_flag(cfg.settings_confirm_graph_key,
+                                       cfg.require_confirm_on_graph_delete, cfg))
+    parts = AppParts(window, top_bar, side, splitter, tabs, file_button, file_label,
+                     script_button, state)
+    set_advanced(parts, load_advanced(cfg), cfg)
+    file_button.setMenu(build_file_menu(parts, cfg))
+    settings_button.setMenu(build_settings_menu(parts, cfg))
     script_button.clicked.connect(lambda: open_script_window(parts, cfg))
     side.tree.clicked.connect(lambda index: on_tree_clicked(side.tree, index))
     side.tree.doubleClicked.connect(lambda index: on_tree_double_clicked(parts, index, cfg))
-    connect_graph_menu(parts, cfg)
-    connect_column_drops(parts, cfg)
-    # Window-wide; a focused text box still gets Ctrl+Z / Ctrl+Y for its own text first.
-    undo = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Z"), window)
-    undo.activated.connect(lambda: step_history(parts, True, cfg))
-    redo = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Y"), window)
-    redo.activated.connect(lambda: step_history(parts, False, cfg))
 
-    advanced_switch.setChecked(load_advanced(cfg))
-    set_advanced(parts, advanced_switch.isChecked(), cfg)
-    advanced_switch.toggled.connect(lambda on: set_advanced(parts, on, cfg))
+    tab_bar.currentChanged.connect(
+        lambda i: tabs.stack.setCurrentWidget(tabs.items[i].area) if i >= 0 else None)
+    tab_bar.tabCloseRequested.connect(lambda i: close_tab(parts, i, cfg))
+    tab_bar.tabBarDoubleClicked.connect(lambda i: rename_tab(parts, i, cfg))
+    add_tab_button.clicked.connect(lambda: add_tab(parts, cfg))
+    new_tab(parts, next_tab_name(parts, cfg), cfg)
+
+    # Window-wide; a focused text box still gets Ctrl+Z / Ctrl+Y for its own text first.
+    for keys, action in (("Ctrl+Z", lambda: step_history(parts, True, cfg)),
+                         ("Ctrl+Y", lambda: step_history(parts, False, cfg)),
+                         ("Ctrl+S", lambda: save_template(parts, cfg))):
+        QtGui.QShortcut(QtGui.QKeySequence(keys), window).activated.connect(action)
     return parts
 
 

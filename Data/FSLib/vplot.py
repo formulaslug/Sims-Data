@@ -46,7 +46,7 @@ import warnings
 
 import numpy as np
 
-from vispy import app, scene
+from vispy import app, scene, visuals
 from vispy.color import Color, Colormap, get_colormap
 from vispy.visuals.transforms import STTransform
 
@@ -97,9 +97,39 @@ rcParams = {
     # Long 2D lines with sorted x are min/max-downsampled to ~2 points per
     # pixel column of the visible x range, and re-sampled when the view changes.
     "lines.downsample": False,
+    # 2D scatters of plain round markers (no edges) are drawn as GPU point sprites:
+    # far cheaper per point than VisPy's Markers, so dense scatters stay smooth.
+    "scatter.fast2d": True,
 }
 _REL = {"axes.titlesize": 1.2, "axes.labelsize": 1.0,
         "tick.labelsize": 0.85, "legend.fontsize": 0.85}
+
+
+def _cache_text_layout(limit=20_000):
+    """Memoize VisPy's per-string glyph layout. Tick labels are re-laid out on every
+    pan/zoom frame, and each layout also flushes the GL command queue; the same
+    strings ("0", "100", ...) come back constantly, so this saves ~40% of a 2D frame.
+    The result depends only on (text, font, anchors), and fonts are long-lived."""
+    from vispy.visuals.text import text as text_module
+    layout = text_module._text_to_vbo
+    if getattr(layout, "_vplot_cached", False):
+        return
+    cache = {}
+
+    def cached(text, font, anchor_x, anchor_y, lowres_size):
+        key = (text, id(font), anchor_x, anchor_y, lowres_size)
+        vertices = cache.get(key)
+        if vertices is None:
+            if len(cache) >= limit:
+                cache.clear()
+            vertices = cache[key] = layout(text, font, anchor_x, anchor_y, lowres_size)
+        return vertices
+
+    cached._vplot_cached = True
+    text_module._text_to_vbo = cached
+
+
+_cache_text_layout()
 
 
 def _tick_pad(orientation, size):
@@ -437,6 +467,69 @@ class Line(_Artist):
             self._line.set_data(width=self._gl_width(self.width))
 
 
+class _PointsVisual(visuals.Visual):
+    """Round dots drawn as GL point sprites: positions, colors and sizes live in GPU
+    buffers, so zooming/panning only changes the transform. The fragment shader
+    is a few instructions (soft 1 px rim, no outline), unlike MarkersVisual."""
+
+    _vertex = """
+        attribute vec2 a_pos;
+        attribute vec4 a_color;
+        attribute float a_size;          // diameter, logical px
+        uniform float u_px_scale;        // logical -> framebuffer px (HiDPI)
+        varying vec4 v_color;
+        varying float v_size;
+        void main() {
+            gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+            v_size = max(a_size * u_px_scale, 1.0);
+            gl_PointSize = v_size + 1.0;  // +1 px for the soft rim
+            v_color = a_color;
+        }
+    """
+    _fragment = """
+        varying vec4 v_color;
+        varying float v_size;
+        void main() {
+            float r = length(gl_PointCoord - 0.5) * (v_size + 1.0);
+            float a = clamp(0.5 * v_size - r + 0.5, 0.0, 1.0);
+            if (a <= 0.0) discard;
+            gl_FragColor = vec4(v_color.rgb, v_color.a * a);
+        }
+    """
+
+    def __init__(self):
+        visuals.Visual.__init__(self, vcode=self._vertex, fcode=self._fragment)
+        self._draw_mode = "points"
+        self.set_gl_state("translucent", depth_test=False)
+        self._n = 0
+        self.freeze()
+
+    def set_data(self, pos, color, size):
+        n = len(pos)
+        color = np.asarray(color, np.float32)
+        size = np.asarray(size, np.float32)
+        prog = self.shared_program
+        prog["a_pos"] = np.ascontiguousarray(pos[:, :2], np.float32)
+        prog["a_color"] = np.ascontiguousarray(np.broadcast_to(color, (n, 4)))
+        prog["a_size"] = np.ascontiguousarray(np.broadcast_to(size, (n,)))
+        self._n = n
+        self.update()
+
+    def _prepare_transforms(self, view):
+        view.view_program.vert["transform"] = view.get_transform()
+
+    def _prepare_draw(self, view):
+        if self._n == 0:
+            return False
+        view.view_program["u_px_scale"] = view.transforms.pixel_scale
+
+    def _compute_bounds(self, axis, view):
+        return None
+
+
+_FastPoints = scene.visuals.create_visual_node(_PointsVisual)
+
+
 class Scatter(_Artist):
     """Returned by Axes.scatter. Update with set_data(x, y, z=None, c=None, s=None)."""
 
@@ -453,6 +546,12 @@ class Scatter(_Artist):
         self._sizes = self._size_px(s)
         self._vmin, self._vmax = vmin, vmax
         self._set_c(c, first=True)
+        self._fast = (rcParams["scatter.fast2d"] and ax._ndim == 2 and pos.shape[1] == 2
+                      and self._symbol == "disc" and self._edge is None)
+        if self._fast:
+            self._m = _FastPoints(parent=ax._data_parent)
+            self._push()
+            return
         self._m = scene.visuals.Markers(parent=ax._data_parent)
         # With the depth test on, each marker's square (transparent corners included)
         # hides markers drawn after it at the same depth -- in 2D that's all of them,
@@ -503,6 +602,9 @@ class Scatter(_Artist):
 
     def _push(self):
         face = self._face()
+        if self._fast:
+            self._m.set_data(self._pos, face, self._sizes)
+            return
         edge = self._edge if self._edge is not None else face
         _set_markers(self._m, self._pos, self._sizes, face, edge,
                      self._edge_width, self._symbol)
@@ -632,11 +734,21 @@ def _set_label(lbl, text, fontsize, vertical):
 
 
 def _size_label_slot(lbl, size, vertical):
-    px = size * PT
+    """Fit the label's grid slot to text of `size` points (0 when the label is hidden)."""
+    object.__setattr__(lbl, "_vp_size", size)     # VisPy nodes are frozen to new attributes
+    px = int(size * PT * 1.4 + 2) if lbl.visible else 0
     if vertical:
-        lbl.width_max = int(px * 1.4 + 2)
+        if lbl.width_max == px:
+            return
+        lbl.width_max = px
     else:
-        lbl.height_max = int(px * 1.4 + 2)
+        if lbl.height_max == px:
+            return
+        lbl.height_max = px
+    # VisPy's Grid keeps its old layout when a child's size limits change.
+    if isinstance(lbl.parent, scene.widgets.Grid):
+        lbl.parent._need_solver_recreate = True
+        lbl.parent.update()
 
 
 def _text_width_px(text, size):
@@ -987,6 +1099,11 @@ class Axes(_AxesBase):
         h = int(y + lh + pad) if self._legend_entries else 0
         if box.height_max != h:          # only re-layout the grid when it changes
             box.height_min = box.height_max = h
+            # VisPy's Grid keeps its old solution when a child's size limits change;
+            # without this the slot kept its previous height (e.g. after the legend
+            # was removed, or went from two rows to one).
+            self._grid._need_solver_recreate = True
+            self._grid.update()
 
     # ---- limits ----
     def _set_rect(self, x0, x1, y0, y1):
@@ -1047,6 +1164,13 @@ class Axes(_AxesBase):
 
     def set_title(self, s, fontsize=None):
         _set_label(self._title, s, fontsize, vertical=False)
+
+    def set_label_visible(self, axis, visible=True):
+        """Show/hide the x or y axis label; hidden, it takes no space."""
+        lbl, vertical = (self._xlabel, False) if axis == "x" else (self._ylabel, True)
+        if lbl.visible != bool(visible):
+            lbl.visible = bool(visible)
+            _size_label_slot(lbl, getattr(lbl, "_vp_size", _fs("axes.labelsize")), vertical)
 
     def tick_params(self, labelsize=None, axis="both"):
         """Change tick-label font size (points), like matplotlib's tick_params."""
