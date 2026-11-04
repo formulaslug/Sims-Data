@@ -1,8 +1,9 @@
-from Mech import tireState as tire
-from paramLoader import Parameters, Magic
-from Mech.tireLoad import calcLoadTransfer
-from Mech.steering import calcSlipAngle
 import numpy as np
+from Mech import tireState as tire
+from Mech.steering import calcSlipAngle
+from Mech.tireLoad import calcLoadTransfer
+from paramLoader import Magic, Parameters
+
 
 def calcTraction(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,float], slipRatio:float, speed, surfaceTemperature, tirePressure):
     frontLeft = tire.Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40)

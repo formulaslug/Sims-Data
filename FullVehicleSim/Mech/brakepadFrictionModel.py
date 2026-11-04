@@ -1,5 +1,4 @@
-# Vibecoded lol. hopefully this works
-import numpy as np
+import numpy as np  # noqa: N999
 from scipy.interpolate import interp1d
 
 # TODO: Move this to a parquet that gets read in at runtime

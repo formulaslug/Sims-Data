@@ -5,10 +5,10 @@ Double Bicycle Yaw Rate Model for Formula Slug
 Based on Rajamani's bicycle model.w
 """
 
-import numpy as np
 from dataclasses import dataclass
-from typing import Tuple, List
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 @dataclass
@@ -87,7 +87,7 @@ class DoubleBicycleModel:
         self.input_history = []
     
     def get_slip_angles(self, v_y: float, r: float, v_x: float, delta: float) \
-            -> Tuple[float, float]:
+            -> tuple[float, float]:
         """Calculate front and rear slip angles"""
         if abs(v_x) < 0.1:
             return delta, 0.0
@@ -148,8 +148,8 @@ class DoubleBicycleModel:
         else:
             raise ValueError(f"Unknown integration method: {method}")
     
-    def simulate(self, v_x: float, steering_inputs: List[float],
-                dt: float = 0.01, method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
+    def simulate(self, v_x: float, steering_inputs: list[float],
+                dt: float = 0.01, method: str = "rk4") -> tuple[np.ndarray, np.ndarray]:
         """Run simulation with given steering input sequence"""
         self.state = np.array([0.0, 0.0])
         self.time_history = [0.0]
@@ -184,7 +184,7 @@ def validate_against_telemetry(csv_path: str, model: DoubleBicycleModel,
 
     try:
         df = pd.read_csv(csv_path, low_memory=False)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to load {csv_path}: {e}")
         return {}
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
     print(f"Duration: {duration:.2f} s")
-    print(f"Results at end:")
+    print("Results at end:")
     print(f"  Lateral velocity: {states_sim[-1, 0]:.3f} m/s")
     print(f"  Yaw rate: {np.rad2deg(states_sim[-1, 1]):.2f} °/s")
     print(f"  G-force: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
     print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
     print(f"Ramp rate: {np.rad2deg(10):.1f}°/s")
-    print(f"Results at end:")
+    print("Results at end:")
     print(f"  Lateral velocity: {states_sim[-1, 0]:.3f} m/s")
     print(f"  Yaw rate: {np.rad2deg(states_sim[-1, 1]):.2f} °/s")
     print(f"  Steady-state G: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
@@ -339,7 +339,7 @@ if __name__ == "__main__":
 
     print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
     print(f"Frequency: {freq:.1f} Hz (±10° amplitude)")
-    print(f"Results:")
+    print("Results:")
     print(f"  Max lateral velocity: {np.max(np.abs(states_sim[:, 0])):.3f} m/s")
     print(f"  Max yaw rate: {np.rad2deg(np.max(np.abs(states_sim[:, 1]))):.2f} °/s")
     print(f"  Max G-force: {v_x * np.max(np.abs(states_sim[:, 1])) / 9.81:.3f}g")
@@ -395,7 +395,7 @@ if __name__ == "__main__":
             valid_yaw = df[df['VDM_Z_AXIS_YAW_RATE'].notna()]['VDM_Z_AXIS_YAW_RATE']
 
             if len(valid_yaw) > 0:
-                print(f"\nYaw rate statistics from telemetry:")
+                print("\nYaw rate statistics from telemetry:")
                 print(f"  Min: {valid_yaw.min():.1f} °/s ({np.deg2rad(valid_yaw.min()):.3f} rad/s)")
                 print(f"  Max: {valid_yaw.max():.1f} °/s ({np.deg2rad(valid_yaw.max()):.3f} rad/s)")
                 print(f"  Mean: {valid_yaw.mean():.1f} °/s ({np.deg2rad(valid_yaw.mean()):.3f} rad/s)")
@@ -413,7 +413,7 @@ if __name__ == "__main__":
     except ImportError:
         print("Pandas not installed - can't load CSV")
         print("Install with: pip install pandas")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error loading telemetry: {e}")
 
     plt.show()

@@ -1,11 +1,10 @@
-import matplotlib.pyplot as plt
-import json
-import polars as pl
 import argparse
 import time
 
-from paramLoader import *
+import matplotlib.pyplot as plt
+import polars as pl
 from engine import *
+from paramLoader import *
 
 if __name__ == "__main__":
     ## Argument Parsing. Should wind up like:
@@ -23,13 +22,13 @@ if __name__ == "__main__":
         elif simulation_controls_path.endswith('.parquet'): ## Check for parquet and read as that
             df_controls = pl.read_parquet(simulation_controls_path)
         else:
-            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")
+            raise Exception("Unsupported file format for simulation controls. Please use .csv or .parquet files.")  # noqa: TRY002
     else:
-        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")
+        raise Exception("Please provide a valid simulation controls file path using --simulation_controls or -c")  # noqa: TRY002
     
     ## Double check it has the correct columns
-    if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'steerAngle']:
-        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'steerAngle'")
+    if df_controls.columns != ['time', 'throttle', 'brakePressureFront','brakePressureRear', 'brakePedalTravel', 'steerAngle']:
+        raise Exception("Simulation controls file must contain the following columns: 'time', 'throttle', 'brakePressureFront', 'brakePressureRear', 'brakePedalTravel', 'steerAngle'")  # noqa: TRY002
     
     totalSteps = int(Parameters["stepsPerSecond"] * Parameters["simulationDuration"])
     steps = np.arange(0, Parameters["simulationDuration"], 1/Parameters["stepsPerSecond"])
@@ -51,6 +50,7 @@ if __name__ == "__main__":
             'throttle': df_controls["throttle"][-1],
             'brakePressureFront': df_controls["brakePressureFront"][-1],
             'brakePressureRear': df_controls["brakePressureRear"][-1],
+            'brakePedalTravel': df_controls["brakePedalTravel"][-1],
             'steerAngle': df_controls["steerAngle"][-1]}))
 
     timeSeries = df_controls['time']
@@ -62,20 +62,22 @@ if __name__ == "__main__":
         cs = CubicSpline(timeSeries, df_controls.drop('time').to_numpy())
         controlInputs = cs(steps)
     elif Parameters["interpolationMethod"] == "linear":
-        controlInputs = np.zeros((len(steps), 4))
+        controlInputs = np.zeros((len(steps), 5))
         controlInputs[:,0] = np.interp(steps, timeSeries, df_controls['throttle'])
         controlInputs[:,1] = np.interp(steps, timeSeries, df_controls['brakePressureFront'])
         controlInputs[:,2] = np.interp(steps, timeSeries, df_controls['brakePressureRear'])
-        controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['steerAngle'])
+        controlInputs[:,3] = np.interp(steps, timeSeries, df_controls['brakePedalTravel'])
+        controlInputs[:,4] = np.interp(steps, timeSeries, df_controls['steerAngle'])
     else:
-        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")
+        raise Exception("Unsupported interpolation method. Please use 'cubic' or 'linear'.")  # noqa: TRY002
 
     ## Setup initial conditions. Leaves row 0 with no inputs (don't matter anyway since sim runs from 1 -> end)
     ## Some other initial conditions based on input parameters.
     worldArray[1:, varThrottle] = controlInputs[:,0]
     worldArray[1:, varBrakePressureFront] = controlInputs[:,1]
     worldArray[1:, varBrakePressureRear] = controlInputs[:,2]
-    worldArray[1:, varSteerAngle] = controlInputs[:,3]
+    worldArray[1:, varBrakePedalTravel] = controlInputs[:,3]
+    worldArray[1:, varSteerAngle] = controlInputs[:,4]
     worldArray[0,varCharge] = Parameters["vehicleSOC"]
     worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
     worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
@@ -97,7 +99,7 @@ if __name__ == "__main__":
         #             timeSinceLastSteer = 0
         #             initSpeed = max(currVehicle.speed, 5) # Fails below roughly 5ish
         
-    print("*****SIMULATION EXECUTATION TIME****", time.time() -start)
+    print("*****SIMULATION EXECUTION TIME****", time.time() -start)
 
     # columns = ['posX', 'posY', 'velX', 'velY', 'speed', 'acceleration',
     #            'headingX', 'headingY', 'yawRate', 'steerAngle', 'throttle',
@@ -136,6 +138,7 @@ if __name__ == "__main__":
     ax1.set_ylabel("Current (A) / Voltage (V)")
     ax1.plot(t, current, label="Current")
     ax11.plot(t, voltage, label="Voltage", color='orange')
+    ax1.legend()
 
     ax2.set_title("Speed vs Time")
     ax2.set_xlabel("Time (s)")

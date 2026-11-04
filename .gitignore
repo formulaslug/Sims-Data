@@ -212,3 +212,4 @@ Projects/.DS_Store
 .DS_Store
 .fake
 *.joblib
+FullVehicleSim/simulation_output.parquet
