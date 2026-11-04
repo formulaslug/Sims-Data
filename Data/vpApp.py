@@ -91,6 +91,8 @@ class LayoutConfig:
     new_tab_name: str = "Tab {n}"
     add_tab_tooltip: str = "Add a tab"
     rename_tab_text: str = "Tab name:"
+    duplicate_tab_text: str = "Duplicate"
+    copy_tab_suffix: str = " copy"
     tab_bar_px: int = 28
 
     # Settings menu (top right)
@@ -1015,12 +1017,23 @@ def build_graph_grid(cfg: LayoutConfig) -> GraphGrid:
     return graphs
 
 
+def view_key(spec: GraphSpec) -> tuple:
+    """What decides where the data sits. Specs with the same key (e.g. line vs
+    scatter, other colors or labels) can keep the current zoom."""
+    return (is_3d(spec.kind), spec.x, spec.x_expr, spec.z, spec.z_expr,
+            tuple((line.column, line.expr, line.rolling) for line in spec.lines),
+            spec.x_min, spec.x_max, spec.y_min, spec.y_max)
+
+
 def draw_graph(graphs: GraphGrid, graph: Graph, df: pl.DataFrame | None,
-               cfg: LayoutConfig) -> None:
-    """Rebuild a graph from its spec; columns missing from df are skipped."""
+               cfg: LayoutConfig, keep_view: bool = False) -> None:
+    """Rebuild a graph from its spec; columns missing from df are skipped.
+    keep_view (2D): keep the current zoom and Backspace history instead of fitting."""
     match_axes(graphs, graph)
     ax, spec = graph.ax, graph.spec
-    if has_box_zoom(graph):
+    keep_view = keep_view and has_box_zoom(graph)
+    view = ax.view.camera.rect if keep_view else None
+    if has_box_zoom(graph) and not keep_view:
         # Saved zooms belong to the old data/limits (e.g. the empty graph's 0..1).
         ax.view.camera.clear_zoom_history()
     ax.cla()
@@ -1030,8 +1043,11 @@ def draw_graph(graphs: GraphGrid, graph: Graph, df: pl.DataFrame | None,
             ax.plot(*data, color=line.color, label=line.label)
         else:                                     # scatter size is an area, in points^2
             ax.scatter(*data, s=spec.marker_size ** 2, color=line.color, label=line.label)
-    ax.autoscale()
-    apply_bounds(graph)
+    if keep_view:
+        ax.view.camera.rect = (view.left, view.bottom, view.width, view.height)
+    else:
+        ax.autoscale()
+        apply_bounds(graph)
     # 3D axes have no slot below them, so their legend sits inside the plot.
     # With the legend off, cla() above already removed it (the space below collapses).
     if spec.legend:
@@ -1390,9 +1406,11 @@ def set_spec(parts: "AppParts", graph: Graph, spec: GraphSpec, cfg: LayoutConfig
     if spec == graph.spec:
         return
     push_undo(parts, cfg)
+    keep = view_key(spec) == view_key(graph.spec)
     graph.spec = spec
-    draw_graph(parts.graphs, graph, parts.state.df, cfg)
-    fit_links(parts.graphs, only=graph)
+    draw_graph(parts.graphs, graph, parts.state.df, cfg, keep_view=keep)
+    if not keep:
+        fit_links(parts.graphs, only=graph)
     parts.graphs.canvas.update()
 
 
@@ -1402,6 +1420,7 @@ def configure_graph(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
     if spec is None or spec == graph.spec:
         return
     push_undo(parts, cfg)
+    keep = view_key(spec) == view_key(graph.spec)  # e.g. only line <-> scatter
     graph.spec = spec
     graphs, changed = parts.graphs, [graph]
     # Fixed bounds on a linked axis go to every graph in the link (same undo step).
@@ -1415,6 +1434,10 @@ def configure_graph(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
                                           for k, v in bounds.items()):
                 other.spec = replace(other.spec, **bounds)
                 changed.append(other)
+    if keep and changed == [graph]:
+        draw_graph(graphs, graph, parts.state.df, cfg, keep_view=True)
+        graphs.canvas.update()
+        return
     for g in changed:
         draw_graph(graphs, g, parts.state.df, cfg)
     for g in changed:
@@ -2037,6 +2060,42 @@ def close_tab(parts: AppParts, index: int, cfg: LayoutConfig) -> None:
     drop_tab(parts, index)
     if not parts.tabs.items:
         new_tab(parts, next_tab_name(parts, cfg), cfg)
+
+
+def show_tab_menu(parts: AppParts, pos: QtCore.QPoint, cfg: LayoutConfig) -> None:
+    """Right click on a tab."""
+    index = parts.tabs.bar.tabAt(pos)
+    if index < 0:
+        return
+    menu = QtWidgets.QMenu(parts.window)
+    menu.addAction(cfg.duplicate_tab_text, lambda: duplicate_tab(parts, index, cfg))
+    menu.exec(parts.tabs.bar.mapToGlobal(pos))
+
+
+def duplicate_tab(parts: AppParts, index: int, cfg: LayoutConfig) -> None:
+    """Copy a tab (graphs, links and current zoom) into a new tab right after it.
+    The copy isn't tied to the original's template file. One Ctrl+Z step."""
+    tabs, source = parts.tabs, parts.tabs.items[index]
+    push_undo(parts, cfg)
+    names = {t.name for t in tabs.items}
+    name, n = source.name + cfg.copy_tab_suffix, 2
+    while name in names:
+        name, n = f"{source.name}{cfg.copy_tab_suffix} {n}", n + 1
+    snap = TabSnapshot(name, None, grid_specs(source.graphs), link_positions(source.graphs))
+    tab = new_tab(parts, name, cfg)
+    fill_tab(parts, tab, snap, cfg)
+    for old_row, new_row in zip(source.graphs.cells, tab.graphs.cells):
+        for old, new in zip(old_row, new_row):
+            if has_box_zoom(old) and has_box_zoom(new):
+                r = old.ax.view.camera.rect
+                new.ax.view.camera.rect = (r.left, r.bottom, r.width, r.height)
+    # new_tab appends; move it to just after the original. The list moves first, so
+    # a currentChanged fired by moveTab already maps bar indices to the right tabs.
+    last = len(tabs.items) - 1
+    tabs.items.insert(index + 1, tabs.items.pop(last))
+    tabs.bar.moveTab(last, index + 1)
+    tabs.bar.setCurrentIndex(index + 1)
+    tabs.stack.setCurrentWidget(tab.area)
 
 
 def rename_tab(parts: AppParts, index: int, cfg: LayoutConfig) -> None:
@@ -2813,6 +2872,8 @@ def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
         lambda i: tabs.stack.setCurrentWidget(tabs.items[i].area) if i >= 0 else None)
     tab_bar.tabCloseRequested.connect(lambda i: close_tab(parts, i, cfg))
     tab_bar.tabBarDoubleClicked.connect(lambda i: rename_tab(parts, i, cfg))
+    tab_bar.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+    tab_bar.customContextMenuRequested.connect(lambda pos: show_tab_menu(parts, pos, cfg))
     add_tab_button.clicked.connect(lambda: add_tab(parts, cfg))
     new_tab(parts, next_tab_name(parts, cfg), cfg)
 
