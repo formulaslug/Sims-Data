@@ -405,39 +405,38 @@ def _names(node, cols: set, funcs: set) -> None:
         _names(node.right, cols, funcs)
 
 
-def check_transform(text: str, columns: set[str] | None = None) -> str | None:
-    """None if `text` is a valid transform, else what's wrong with it. Other
-    column names are checked against `columns` when given."""
+def check_transform(text: str) -> str | None:
+    """None if `text` is a valid transform, else what's wrong with it. Transforms
+    are plain arithmetic on the value with numbers: no columns, no functions."""
     try:
         node = _parse_transform(text)
     except ScriptError as e:
         return e.message
     cols, funcs = set(), set()
     _names(node, cols, funcs)
-    unknown_funcs = sorted(funcs - set(FUNCTIONS))
-    if unknown_funcs:
-        return f"unknown function {unknown_funcs[0]!r} (known: {', '.join(sorted(FUNCTIONS))})"
+    if funcs:
+        return f"functions aren't allowed here ({sorted(funcs)[0]}); use the column script"
     cols.discard(_VALUE)
-    if columns is not None and cols - columns:
-        return f"unknown column {sorted(cols - columns)[0]!r}"
+    if cols:
+        return (f"only numbers are allowed, not column names ({sorted(cols)[0]}); "
+                "use the column script to combine columns")
     return None
 
 
-def transform(text: str, value: np.ndarray,
-              column: Callable[[str], np.ndarray]) -> np.ndarray:
-    """Apply a display transform to `value`. Other names in it are looked up with
-    column(name). Raises ScriptError if the text is bad or a column is missing."""
+def transform(text: str, value: np.ndarray) -> np.ndarray:
+    """Apply a display transform to `value`. Results that aren't finite (e.g. from
+    dividing by 0) become NaN, i.e. gaps. Raises ScriptError if the text is bad."""
     if not text.strip():
         return value
+    error = check_transform(text)
+    if error:
+        raise ScriptError(1, error)
 
     def lookup(name):
-        if name == _VALUE:
-            return value
-        try:
-            return column(name)
-        except KeyError:
-            raise ScriptError(1, f"unknown column {name!r}") from None
+        return value                              # check_transform allowed only the value
 
     with np.errstate(all="ignore"):
         out = _evaluate(_parse_transform(text), lookup, 1)
-    return np.broadcast_to(np.asarray(out, dtype=np.float64), value.shape)
+    out = np.array(np.broadcast_to(np.asarray(out, dtype=np.float64), value.shape))
+    out[~np.isfinite(out)] = np.nan
+    return out

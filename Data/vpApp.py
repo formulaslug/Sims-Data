@@ -69,6 +69,9 @@ class LayoutConfig:
     column_search_placeholder: str = "Search columns..."
     tree_indent_px: int = 12
     tree_file_filters: tuple[str, ...] = ("*.parquet",)   # () shows every file
+    tree_hide_empty_folders: bool = True          # hide folders with no data file inside
+    tree_refresh_text: str = "\u27f3 Refresh"
+    tree_refresh_tooltip: str = "Re-read the data folder (it isn't watched for changes)"
 
     select_button_text: str = "Select data folder"
     file_menu_text: str = "File"
@@ -152,10 +155,10 @@ class LayoutConfig:
     rolling_tooltip: str = "Rolling mean over this many rows (1 = off). 2D graphs only."
     rolling_box_px: int = 88                      # width of the rolling-mean box
     # Display transform: the rest of an expression that starts with the column's
-    # value, e.g. "/ (32767 * 180) + 2". Other columns and script functions work too.
+    # value, e.g. "/ (32767 * 180) + 2". Numbers only; combine columns in the script.
     expr_placeholder: str = "e.g. / 1000 + 2"
     expr_tooltip: str = ("Applied to the column when plotted: the value, then this.\n"
-                         "e.g. \"/ (32767 * 180) + 2\" or \"* -1\" or \"- other_column\".\n"
+                         "e.g. \"/ (32767 * 180) + 2\" or \"* -1\". Numbers only.\n"
                          "Empty = unchanged.")
     expr_edit_px: int = 150                       # width of the transform boxes
     expr_error_color: str = "#d9534f"
@@ -179,8 +182,25 @@ class LayoutConfig:
     #   script        the "Script" button (new columns from formulas, see FSLib/colscript.py)
     #   label_toggles show legend / show x label / show y label in the Configure dialog
     #   view_3d       perspective / isometric choice for 3D graphs (dialog and menu)
+    #   links         the "Links" button (link graphs' x / y axes)
     advanced_features: tuple[str, ...] = ("graph_type", "copy_graph", "copy_y", "custom_color",
-                                          "script", "label_toggles", "view_3d")
+                                          "script", "label_toggles", "view_3d", "links")
+
+    # Axis links: linked 2D graphs share that axis's range (zoom one, all follow;
+    # autoscale fits all their data). Edited in the overlay the Links button opens.
+    links_button_text: str = "Links"
+    add_x_link_text: str = "+x link"
+    add_y_link_text: str = "+y link"
+    links_done_text: str = "Done"
+    links_cancel_text: str = "Cancel"
+    links_help_text: str = ("Select a link, then click graphs to add or remove them. "
+                            "Done merges overlapping links; Esc cancels.")
+    link_box_color: tuple[int, int, int, int] = (120, 190, 255, 70)      # RGBA, checked graph
+    link_box_border: tuple[int, int, int, int] = (60, 140, 230, 200)
+    link_free_border: tuple[int, int, int, int] = (60, 140, 230, 60)     # unchecked 2D graph
+    link_3d_color: tuple[int, int, int, int] = (128, 128, 128, 60)       # 3D: can't be linked
+    link_box_gap_px: int = 6                      # space between boxes of adjacent graphs
+    links_side_bar_px: int = 240                  # side bar is widened to this while editing
     advanced_text: str = "Advanced"
     settings_advanced_key: str = "advanced_mode"
 
@@ -280,6 +300,13 @@ class Graph:
     spec: GraphSpec = field(default_factory=GraphSpec)
 
 
+@dataclass(eq=False)
+class AxisLink:
+    """Graphs whose x (or y) axis shows the same range."""
+    axis: str                                     # "x" | "y"
+    graphs: list[Graph] = field(default_factory=list)
+
+
 @dataclass
 class GraphGrid:
     """One SceneCanvas holding a rows x cols grid of graphs. Each graph's cell is
@@ -289,6 +316,8 @@ class GraphGrid:
     cells: list[list[Graph]] = field(default_factory=list)
     zoom_history: list[Graph] = field(default_factory=list)   # graph of each zoom, oldest first
     rubber_band: QtWidgets.QRubberBand | None = None          # box-zoom outline over the canvas
+    links: list[AxisLink] = field(default_factory=list)
+    syncing: bool = False                         # set while sync_links moves cameras
 
 
 @dataclass(eq=False)
@@ -315,6 +344,7 @@ class TabSnapshot(NamedTuple):
     name: str
     path: str | None
     specs: list[list[GraphSpec]]                  # by grid position
+    links: tuple = ()                             # ((axis, ((row, col), ...)), ...)
 
 
 class Snapshot(NamedTuple):
@@ -339,6 +369,7 @@ class AppState:
     confirm_tab_delete: bool = True                      # Settings menu switches
     confirm_graph_delete: bool = True
     script_window: QtWidgets.QWidget | None = None       # open ScriptWindow, if any
+    link_edit: "LinkEdit | None" = None                  # set while the links overlay is open
 
 
 def feature_on(state: AppState, name: str, cfg: LayoutConfig) -> bool:
@@ -347,7 +378,8 @@ def feature_on(state: AppState, name: str, cfg: LayoutConfig) -> bool:
 
 
 class SideBar(NamedTuple):
-    """Left bar: Files/Columns tab buttons over a stack of the two pages."""
+    """Left bar: Files/Columns tab buttons over a stack of pages. The links page
+    replaces both (tab buttons hidden) while axis links are being edited."""
     frame: QtWidgets.QFrame
     files_button: QtWidgets.QPushButton
     columns_button: QtWidgets.QPushButton
@@ -355,9 +387,18 @@ class SideBar(NamedTuple):
     tree: QtWidgets.QTreeView
     column_search: QtWidgets.QLineEdit
     column_list: QtWidgets.QListWidget
+    links: "LinksPage"
 
 
-FILES_PAGE, COLUMNS_PAGE = 0, 1
+class LinksPage(NamedTuple):
+    done: QtWidgets.QCheckBox
+    cancel: QtWidgets.QPushButton
+    add_x: QtWidgets.QPushButton
+    add_y: QtWidgets.QPushButton
+    list: QtWidgets.QListWidget
+
+
+FILES_PAGE, COLUMNS_PAGE, LINKS_PAGE = 0, 1, 2
 
 
 class AppParts(NamedTuple):
@@ -370,6 +411,7 @@ class AppParts(NamedTuple):
     file_button: QtWidgets.QPushButton           # File menu (templates, data folder)
     file_label: QtWidgets.QLabel
     script_button: QtWidgets.QPushButton
+    links_button: QtWidgets.QPushButton
     state: AppState
 
     @property
@@ -456,7 +498,8 @@ def grid_specs(graphs: GraphGrid) -> list[list[GraphSpec]]:
 
 
 def snapshot(parts: AppParts) -> Snapshot:
-    tabs = [TabSnapshot(t.name, t.path, grid_specs(t.graphs)) for t in parts.tabs.items]
+    tabs = [TabSnapshot(t.name, t.path, grid_specs(t.graphs), link_positions(t.graphs))
+            for t in parts.tabs.items]
     return Snapshot(parts.state.df_path, parts.state.script, tabs,
                     parts.tabs.bar.currentIndex())
 
@@ -487,7 +530,10 @@ def restore_snapshot(parts: AppParts, snap: Snapshot, cfg: LayoutConfig) -> bool
 
 
 def step_history(parts: AppParts, back: bool, cfg: LayoutConfig) -> None:
-    """Ctrl+Z (back=True) / Ctrl+Y: move one snapshot between the undo and redo stacks."""
+    """Ctrl+Z (back=True) / Ctrl+Y: move one snapshot between the undo and redo stacks.
+    Ignored while the links overlay is open (finish or cancel it first)."""
+    if parts.state.link_edit is not None:
+        return
     source, dest = ((parts.state.undo, parts.state.redo) if back
                     else (parts.state.redo, parts.state.undo))
     if not source:
@@ -523,26 +569,61 @@ def is_data_folder(path: str, cfg: LayoutConfig) -> bool:
 # File tree
 # ---------------------------------------------------------------------------
 class TopLevelFilter(QtCore.QSortFilterProxyModel):
-    """Hides children of `root_path` that aren't folders starting with `prefix`.
-    Set `prefix` to None to show everything."""
+    """Inside `root_path`: hides top-level entries that aren't folders starting with
+    `prefix` (None shows all), and folders with no `suffix` file anywhere inside
+    (when `hide_empty`). The folder checks are cached until clear_cache()."""
 
-    def __init__(self):
+    def __init__(self, suffix: str, hide_empty: bool):
         super().__init__()
         self.root_path = ""
         self.prefix = None
+        self.suffix, self.hide_empty = suffix.lower(), hide_empty
+        self._has_data: dict[str, bool] = {}
+
+    def clear_cache(self):
+        self._has_data.clear()
+
+    def has_data(self, folder: str) -> bool:
+        """True if a data file is somewhere below `folder` (stops at the first one)."""
+        if folder not in self._has_data:
+            self._has_data[folder] = self._scan(folder)
+        return self._has_data[folder]
+
+    def _scan(self, folder: str) -> bool:
+        stack = [folder]
+        while stack:
+            try:
+                with os.scandir(stack.pop()) as entries:
+                    for entry in entries:
+                        if entry.is_file() and entry.name.lower().endswith(self.suffix):
+                            return True
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+            except OSError:                       # unreadable folder: skip it
+                continue
+        return False
 
     def filterAcceptsRow(self, row, parent):
-        if self.prefix is None:
+        if not self.root_path:                    # no data folder yet: drives etc.
             return True
         model = self.sourceModel()
-        if QtCore.QDir.cleanPath(model.filePath(parent)) != self.root_path:
-            return True
         index = model.index(row, 0, parent)
-        return model.isDir(index) and model.fileName(index).startswith(self.prefix)
+        path = QtCore.QDir.cleanPath(model.filePath(index))
+        if not path.startswith(self.root_path + "/"):
+            return True                           # the root's ancestors
+        if self.prefix is not None and QtCore.QDir.cleanPath(
+                model.filePath(parent)) == self.root_path:
+            if not (model.isDir(index) and model.fileName(index).startswith(self.prefix)):
+                return False
+        if self.hide_empty and model.isDir(index):
+            return self.has_data(model.filePath(index))
+        return True
 
 
-def build_file_tree(cfg: LayoutConfig) -> QtWidgets.QTreeView:
+def build_fs_model(cfg: LayoutConfig) -> QtWidgets.QFileSystemModel:
     model = QtWidgets.QFileSystemModel()
+    # The folder isn't watched; the Refresh button re-reads it.
+    model.setOption(QtWidgets.QFileSystemModel.DontWatchForChanges, True)
     # AllDirs: the name filters below apply to files only, not folder names.
     model.setFilter(QtCore.QDir.AllDirs | QtCore.QDir.Files | QtCore.QDir.Drives
                     | QtCore.QDir.NoDotAndDotDot)
@@ -550,7 +631,12 @@ def build_file_tree(cfg: LayoutConfig) -> QtWidgets.QTreeView:
         model.setNameFilters(list(cfg.tree_file_filters))
         model.setNameFilterDisables(False)        # hide, rather than grey out
     model.sort(0)                                 # folders first, then by name
-    proxy = TopLevelFilter()
+    return model
+
+
+def build_file_tree(cfg: LayoutConfig) -> QtWidgets.QTreeView:
+    model = build_fs_model(cfg)
+    proxy = TopLevelFilter(cfg.data_file_suffix, cfg.tree_hide_empty_folders)
     proxy.setSourceModel(model)
 
     tree = QtWidgets.QTreeView()
@@ -564,6 +650,46 @@ def build_file_tree(cfg: LayoutConfig) -> QtWidgets.QTreeView:
     tree.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
     tree.setExpandsOnDoubleClick(False)           # clicks handled in on_tree_*clicked
     return tree
+
+
+def expanded_paths(tree: QtWidgets.QTreeView) -> list[str]:
+    """Paths of the expanded folders under the tree's root, parents first."""
+    proxy, out = tree.model(), []
+    pending = [tree.rootIndex()]
+    while pending:
+        parent = pending.pop()
+        for row in range(proxy.rowCount(parent)):
+            index = proxy.index(row, 0, parent)
+            if tree.isExpanded(index):
+                out.append(tree_path(tree, index))
+                pending.append(index)
+    return out
+
+
+def refresh_tree(tree: QtWidgets.QTreeView, cfg: LayoutConfig) -> None:
+    """Re-read the data folder: a fresh file model, folder checks redone, and the
+    folders that were open opened again as they load."""
+    proxy = tree.model()
+    root = proxy.root_path
+    if not root:
+        return
+    reopen = expanded_paths(tree)
+    old = proxy.sourceModel()
+    model = build_fs_model(cfg)
+    proxy.clear_cache()
+    proxy.setSourceModel(model)
+    old.deleteLater()
+    for col in range(1, model.columnCount()):
+        tree.hideColumn(col)
+    model.setRootPath(root)
+    tree.setRootIndex(proxy.mapFromSource(model.index(root)))
+
+    def expand_loaded(folder):
+        for path in reopen:
+            if QtCore.QDir.cleanPath(os.path.dirname(path)) == QtCore.QDir.cleanPath(folder):
+                tree.setExpanded(proxy.mapFromSource(model.index(path)), True)
+
+    model.directoryLoaded.connect(expand_loaded)
 
 
 def tree_path(tree: QtWidgets.QTreeView, index: QtCore.QModelIndex) -> str:
@@ -593,6 +719,7 @@ def set_tree_root(tree: QtWidgets.QTreeView, path: str, cfg: LayoutConfig) -> No
         proxy.beginFilterChange()
     proxy.root_path = QtCore.QDir.cleanPath(path)
     proxy.prefix = cfg.data_subfolder_prefix if is_data_folder(path, cfg) else None
+    proxy.clear_cache()
     if new_filter:
         proxy.endFilterChange()
     else:
@@ -605,11 +732,13 @@ def set_tree_root(tree: QtWidgets.QTreeView, path: str, cfg: LayoutConfig) -> No
 # Column list
 # ---------------------------------------------------------------------------
 class ColumnList(QtWidgets.QListWidget):
-    """Column names; dragging carries the selected names (one per line) as `mime_type`."""
+    """Column names; dragging carries the selected names (one per line) as `mime_type`.
+    `entries` holds every (name, tooltip); the list shows the ones matching the search."""
 
     def __init__(self, mime_type: str):
         super().__init__()
         self.mime_type = mime_type
+        self.entries: list[tuple[str, str]] = []
 
     def mimeData(self, items):
         mime = QtCore.QMimeData()
@@ -644,21 +773,24 @@ def build_column_page(cfg: LayoutConfig) -> tuple[QtWidgets.QWidget, QtWidgets.Q
     return page, search, columns
 
 
-def filter_column_list(columns: QtWidgets.QListWidget, text: str) -> None:
-    """Case-insensitive substring match; empty text shows everything."""
+def filter_column_list(columns: ColumnList, text: str) -> None:
+    """Show the entries matching `text` (case-insensitive substring; empty = all).
+    The list is rebuilt rather than rows hidden: with hidden rows QListView kept
+    the old scroll offset and applied it on the next click, jumping down."""
     needle = text.strip().lower()
-    for i in range(columns.count()):
-        item = columns.item(i)
-        item.setHidden(needle not in item.text().lower())
-
-
-def fill_column_list(columns: QtWidgets.QListWidget, search: QtWidgets.QLineEdit,
-                     df: pl.DataFrame | None) -> None:
     columns.clear()
-    for name, dtype in ({} if df is None else df.schema).items():
-        item = QtWidgets.QListWidgetItem(name)
-        item.setToolTip(str(dtype))
-        columns.addItem(item)
+    for name, tooltip in columns.entries:
+        if needle in name.lower():
+            item = QtWidgets.QListWidgetItem(name)
+            item.setToolTip(tooltip)
+            columns.addItem(item)
+    columns.scrollToTop()                         # clear() keeps the old scroll offset
+
+
+def fill_column_list(columns: ColumnList, search: QtWidgets.QLineEdit,
+                     df: pl.DataFrame | None) -> None:
+    columns.entries = [(name, str(dtype))
+                       for name, dtype in ({} if df is None else df.schema).items()]
     filter_column_list(columns, search.text())
 
 
@@ -697,6 +829,7 @@ def attach_axes(graphs: GraphGrid, graph: Graph, three_d: bool) -> None:
     graph.ax = vp.Axes(None, graph.cell, box_zoom=True)
     graph.ax.view.camera.on_box_zoom = lambda camera: graphs.zoom_history.append(graph)
     graph.ax.view.camera.on_box_drag = lambda p1, p2: show_rubber_band(graphs, p1, p2)
+    graph.ax.view.scene.transform.changed.connect(lambda event: sync_links(graphs, graph))
 
 
 def match_axes(graphs: GraphGrid, graph: Graph) -> None:
@@ -751,6 +884,9 @@ def drop_graphs(graphs: GraphGrid, removed: list[Graph]) -> None:
     for graph in removed:
         graph.cell.parent = None
     graphs.zoom_history[:] = [g for g in graphs.zoom_history if g not in removed]
+    for link in graphs.links:
+        link.graphs = [g for g in link.graphs if g not in removed]
+    graphs.links = [link for link in graphs.links if len(link.graphs) >= 2]
     refresh_layout(graphs)
 
 
@@ -854,7 +990,8 @@ def undo_zoom(graphs: GraphGrid) -> None:
 
 def build_graph_grid(cfg: LayoutConfig) -> GraphGrid:
     apply_vplot_params(cfg)
-    canvas = scene.SceneCanvas(keys="interactive", bgcolor=cfg.graph_bgcolor, show=False,
+    # keys=None: VisPy's "interactive" keys close the canvas on Escape.
+    canvas = scene.SceneCanvas(keys=None, bgcolor=cfg.graph_bgcolor, show=False,
                                dpi=vp.SCREEN_DPI)
     vp.skip_offscreen_swap(canvas)                # halves frame time on Intel GPUs
     graphs = GraphGrid(canvas, cfg,
@@ -898,9 +1035,9 @@ def plot_data(spec: GraphSpec, df: pl.DataFrame | None, cfg: LayoutConfig):
     needed = [spec.x, spec.z] if is_3d(spec.kind) else [spec.x]
     if df is None or not all(c in df.columns for c in needed):
         return []
-    x = transformed(df[spec.x], spec.x_expr, df)
+    x = transformed(df[spec.x], spec.x_expr)
     if is_3d(spec.kind):
-        z = transformed(df[spec.z], spec.z_expr, df)
+        z = transformed(df[spec.z], spec.z_expr)
         return [(line, (x, y_values(df[line.column], line, 1, df, cfg), z))
                 for line in spec.lines if line.column in df.columns]
     return [(line, (x, y_values(df[line.column], line, line.rolling, df, cfg)))
@@ -915,20 +1052,18 @@ def y_values(column: pl.Series, line: LineSpec, rolling: int, df: pl.DataFrame,
     if rolling > 1:
         column = column.cast(pl.Float64).rolling_mean(
             window_size=rolling, min_samples=1, center=cfg.rolling_center)
-    return transformed(column, line.expr, df)
+    return transformed(column, line.expr)
 
 
-def transformed(column: pl.Series, expr: str, df: pl.DataFrame) -> np.ndarray:
-    """The column with its display transform applied (see colscript.transform). A
-    transform that fails here (e.g. a column it names isn't in this file) leaves
-    the column unchanged."""
+def transformed(column: pl.Series, expr: str) -> np.ndarray:
+    """The column with its display transform applied (see colscript.transform). An
+    invalid transform (e.g. from an older template) leaves the column unchanged."""
     if not expr.strip():
         return column.to_numpy()
     values = column.cast(pl.Float64).to_numpy()
     try:
-        return colscript.transform(
-            expr, values, lambda name: df[name].cast(pl.Float64).to_numpy())
-    except (colscript.ScriptError, ValueError, TypeError, pl.exceptions.PolarsError):
+        return colscript.transform(expr, values)
+    except colscript.ScriptError:
         return values
 
 
@@ -941,7 +1076,100 @@ def redraw_all(parts: "AppParts", cfg: LayoutConfig) -> None:
 def redraw_grid(parts: "AppParts", graphs: GraphGrid, cfg: LayoutConfig) -> None:
     for graph in all_graphs(graphs):
         draw_graph(graphs, graph, parts.state.df, cfg)
+    fit_links(graphs)
     graphs.canvas.update()
+
+
+# ---------------------------------------------------------------------------
+# Axis links
+# ---------------------------------------------------------------------------
+def linkable(graph: Graph) -> bool:
+    """Only 2D graphs (box-zoom cameras) can share an axis."""
+    return graph.ax is not None and has_box_zoom(graph)
+
+
+def sync_links(graphs: GraphGrid, source: Graph) -> None:
+    """`source`'s view changed (zoom, Backspace, autoscale...): give the graphs
+    linked to it the same range on the linked axis."""
+    if graphs.syncing or not graphs.links or not linkable(source):
+        return
+    r = source.ax.view.camera.rect
+    graphs.syncing = True
+    try:
+        for link in graphs.links:
+            if source not in link.graphs:
+                continue
+            for graph in link.graphs:
+                if graph is source or not linkable(graph):
+                    continue
+                camera = graph.ax.view.camera
+                g = camera.rect
+                new = ((r.left, g.bottom, r.width, g.height) if link.axis == "x"
+                       else (g.left, r.bottom, g.width, r.height))
+                if not np.allclose(new, (g.left, g.bottom, g.width, g.height)):
+                    camera.rect = new
+    finally:
+        graphs.syncing = False
+
+
+def fit_links(graphs: GraphGrid, only: Graph | None = None) -> None:
+    """Fit each link's axis to all of its graphs' data (only links holding `only`,
+    if given)."""
+    for link in graphs.links:
+        if only is not None and only not in link.graphs:
+            continue
+        members = [g for g in link.graphs if linkable(g)]
+        i = 0 if link.axis == "x" else 1
+        bounds = [b for g in members for b in (a.bounds() for a in g.ax._artists)
+                  if b is not None]
+        if not bounds:
+            continue
+        lo, hi = vp._pad(min(b[i][0] for b in bounds), max(b[i][1] for b in bounds))
+        graphs.syncing = True
+        try:
+            for graph in members:
+                camera = graph.ax.view.camera
+                g = camera.rect
+                camera.rect = ((lo, g.bottom, hi - lo, g.height) if link.axis == "x"
+                               else (g.left, lo, g.width, hi - lo))
+        finally:
+            graphs.syncing = False
+
+
+def link_positions(graphs: GraphGrid) -> tuple:
+    """The links by grid position, for snapshots and templates."""
+    return tuple((link.axis, tuple(graph_position(graphs, g) for g in link.graphs))
+                 for link in graphs.links)
+
+
+def links_from_positions(graphs: GraphGrid, positions) -> list[AxisLink]:
+    rows, cols = len(graphs.cells), len(graphs.cells[0])
+    links = []
+    for axis, cells in positions:
+        members = [graphs.cells[r][c] for r, c in cells if 0 <= r < rows and 0 <= c < cols]
+        if axis in ("x", "y") and len(members) >= 2:
+            links.append(AxisLink(axis, members))
+    return links
+
+
+def merged_links(graphs: GraphGrid, links: list[AxisLink]) -> list[AxisLink]:
+    """Links of the same axis that share a graph become one; links with fewer than
+    two graphs are dropped. Members are kept in grid order."""
+    order = {g: i for i, g in enumerate(all_graphs(graphs))}
+    out = []
+    for axis in ("x", "y"):
+        groups: list[set[Graph]] = []
+        for link in links:
+            if link.axis != axis:
+                continue
+            group = set(link.graphs)
+            for other in [g for g in groups if g & group]:
+                groups.remove(other)
+                group |= other
+            groups.append(group)
+        out += [AxisLink(axis, sorted(group, key=order.__getitem__))
+                for group in groups if len(group) >= 2]
+    return out
 
 
 def canvas_rect(widget: scene.widgets.Widget) -> tuple[float, float, float, float]:
@@ -1051,6 +1279,7 @@ def show_graph_menu(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
         if has_box_zoom(graph):
             remember_zoom(graphs, graph)
         graph.ax.autoscale()
+        fit_links(graphs, only=graph)             # linked axes fit all their graphs
         graphs.canvas.update()
 
     def clear():
@@ -1120,6 +1349,7 @@ def set_spec(parts: "AppParts", graph: Graph, spec: GraphSpec, cfg: LayoutConfig
     push_undo(parts, cfg)
     graph.spec = spec
     draw_graph(parts.graphs, graph, parts.state.df, cfg)
+    fit_links(parts.graphs, only=graph)
     parts.graphs.canvas.update()
 
 
@@ -1342,10 +1572,9 @@ def build_transform(expr: str, columns: list[str], cfg: LayoutConfig) -> Transfo
     edit = QtWidgets.QLineEdit(expr)
     edit.setPlaceholderText(cfg.expr_placeholder)
     edit.setFixedWidth(cfg.expr_edit_px)
-    known = set(columns) or None                  # no file loaded: don't check names
 
     def check(text):
-        error = colscript.check_transform(text, known)
+        error = colscript.check_transform(text)
         edit.setProperty("error", error)
         edit.setStyleSheet(f"border: 1px solid {cfg.expr_error_color};" if error else "")
         edit.setToolTip(f"{error}\n\n{cfg.expr_tooltip}" if error else cfg.expr_tooltip)
@@ -1422,7 +1651,11 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
         box.setChecked(on)
         toggles_layout.addWidget(box)
     toggles_layout.addStretch(1)
+    # The layouts go on the dialog before anything is shown/hidden: setVisible(True)
+    # on a widget without a parent opens it as its own window (they flashed up).
+    layout = QtWidgets.QVBoxLayout(dialog)
     form = QtWidgets.QFormLayout()
+    layout.addLayout(form)
     form.addRow("Title", title)
     form.addRow("Graph type", kind)
     form.addRow("Point size", marker_size)
@@ -1453,7 +1686,7 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
     rows_box = QtWidgets.QWidget()
     rows_layout = QtWidgets.QVBoxLayout(rows_box)
     rows_layout.addStretch(1)                     # rows are inserted above this
-    scroll = QtWidgets.QScrollArea()
+    scroll = QtWidgets.QScrollArea(dialog)
     scroll.setWidgetResizable(True)
     scroll.setWidget(rows_box)
 
@@ -1493,8 +1726,6 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
     buttons.accepted.connect(accept)
     buttons.rejected.connect(dialog.reject)
 
-    layout = QtWidgets.QVBoxLayout(dialog)
-    layout.addLayout(form)
     layout.addWidget(QtWidgets.QLabel(
         "Y lines  (column / legend label / rolling mean / transform / color)"))
     layout.addWidget(scroll, 1)
@@ -1725,6 +1956,7 @@ def fill_tab(parts: AppParts, tab: Tab, snap: TabSnapshot, cfg: LayoutConfig) ->
     for row, specs in zip(tab.graphs.cells, snap.specs):
         for graph, spec in zip(row, specs):
             graph.spec = copy.deepcopy(spec)
+    tab.graphs.links = links_from_positions(tab.graphs, snap.links)
     redraw_grid(parts, tab.graphs, cfg)
 
 
@@ -1758,7 +1990,9 @@ def safe_file_name(name: str) -> str:
 
 def write_template(tab: Tab, path: str, cfg: LayoutConfig) -> None:
     data = {"format": cfg.template_format, "version": 1, "name": tab.name,
-            "graphs": [[asdict(g.spec) for g in row] for row in tab.graphs.cells]}
+            "graphs": [[asdict(g.spec) for g in row] for row in tab.graphs.cells],
+            "links": [{"axis": axis, "graphs": [list(cell) for cell in cells]}
+                      for axis, cells in link_positions(tab.graphs)]}
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
@@ -1802,7 +2036,12 @@ def read_template(path: str, cfg: LayoutConfig) -> TabSnapshot:
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as e:
         raise ValueError(str(e) or type(e).__name__) from e
     name = data.get("name") or os.path.splitext(os.path.basename(path))[0]
-    return TabSnapshot(str(name), path, specs)
+    try:
+        links = tuple((str(link["axis"]), tuple((int(r), int(c)) for r, c in link["graphs"]))
+                      for link in data.get("links", []))
+    except (KeyError, TypeError, ValueError):
+        links = ()                                # a bad links entry: keep the graphs
+    return TabSnapshot(str(name), path, specs, links)
 
 
 def template_files(folder: str, cfg: LayoutConfig) -> list[str]:
@@ -1907,6 +2146,199 @@ def save_all_templates(parts: AppParts, cfg: LayoutConfig) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Axis-link editing overlay
+# ---------------------------------------------------------------------------
+@dataclass
+class LinkEdit:
+    """An open links overlay: working copies of the tab's links (applied on Done)."""
+    graphs: GraphGrid
+    links: list[AxisLink]
+    overlay: "LinkOverlay"
+    escape: QtGui.QShortcut
+    page_before: int                              # side-bar page to go back to
+    sizes_before: list[int]                       # splitter sizes to go back to
+    redraw: object                                # canvas draw handler (to disconnect)
+
+
+class LinkOverlay(QtWidgets.QWidget):
+    """Covers the graph canvas while links are edited: draws a translucent box on
+    each graph of the selected link and turns clicks into checking/unchecking.
+    It also keeps clicks from zooming the graphs underneath."""
+
+    def __init__(self, parts: AppParts, graphs: GraphGrid, cfg: LayoutConfig):
+        native = graphs.canvas.native
+        super().__init__(native)
+        self.parts, self.graphs, self.cfg = parts, graphs, cfg
+        self.setGeometry(native.rect())
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        native.installEventFilter(self)           # follow the canvas's size
+        self.show()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Resize:
+            self.setGeometry(obj.rect())
+        return False
+
+    def selected(self) -> AxisLink | None:
+        edit, row = self.parts.state.link_edit, self.parts.side.links.list.currentRow()
+        return edit.links[row] if edit is not None and 0 <= row < len(edit.links) else None
+
+    def paintEvent(self, event):
+        cfg, link = self.cfg, self.selected()
+        painter = QtGui.QPainter(self)
+        gap = cfg.link_box_gap_px / 2
+        for graph in all_graphs(self.graphs):
+            x, y, w, h = canvas_rect(graph.cell)
+            box = QtCore.QRectF(x + gap, y + gap, w - 2 * gap, h - 2 * gap)
+            if not linkable(graph):
+                painter.fillRect(box, QtGui.QColor(*cfg.link_3d_color))
+            elif link is not None and graph in link.graphs:
+                painter.fillRect(box, QtGui.QColor(*cfg.link_box_color))
+                painter.setPen(QtGui.QPen(QtGui.QColor(*cfg.link_box_border), 2))
+                painter.drawRect(box)
+                painter.drawText(box.adjusted(8, 6, 0, 0), link_name(self.parts, link))
+            else:
+                painter.setPen(QtGui.QPen(QtGui.QColor(*cfg.link_free_border), 1,
+                                          QtCore.Qt.DashLine))
+                painter.drawRect(box)
+        painter.end()
+
+    def mousePressEvent(self, event):
+        if event.button() != QtCore.Qt.LeftButton:
+            return
+        pos = event.position()
+        graph = graph_at(self.graphs, (pos.x(), pos.y()))
+        link = self.selected()
+        if graph is None:
+            return
+        if not linkable(graph):
+            show_toast(self.parts, "3D graphs can't be linked", self.cfg)
+        elif link is None:
+            show_toast(self.parts, "Add a link (or select one) first", self.cfg)
+        else:
+            if graph in link.graphs:
+                link.graphs.remove(graph)
+            else:
+                link.graphs.append(graph)
+            refresh_link_list(self.parts, self.cfg)
+        self.update()
+
+
+def link_name(parts: AppParts, link: AxisLink) -> str:
+    edit = parts.state.link_edit
+    same_axis = [l for l in edit.links if l.axis == link.axis] if edit else [link]
+    return f"{link.axis} link {same_axis.index(link) + 1}"
+
+
+def refresh_link_list(parts: AppParts, cfg: LayoutConfig) -> None:
+    """Rebuild the side-bar list from the working links, keeping the selection."""
+    edit, widget = parts.state.link_edit, parts.side.links.list
+    row = widget.currentRow()
+    widget.blockSignals(True)
+    widget.clear()
+    for link in edit.links:
+        item = QtWidgets.QListWidgetItem()
+        widget.addItem(item)
+        line = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(line)
+        layout.setContentsMargins(6, 2, 2, 2)
+        n = len(link.graphs)
+        layout.addWidget(QtWidgets.QLabel(f"{link_name(parts, link)}  "
+                                          f"({n} graph{'s' * (n != 1)})"), 1)
+        remove = QtWidgets.QToolButton()
+        remove.setText("\u2715")
+        remove.setToolTip("Delete this link")
+        remove.setAutoRaise(True)
+        remove.clicked.connect(lambda checked=False, l=link: delete_link(parts, l, cfg))
+        layout.addWidget(remove)
+        item.setSizeHint(line.sizeHint())
+        widget.setItemWidget(item, line)
+    widget.setCurrentRow(min(row, len(edit.links) - 1))
+    widget.blockSignals(False)
+    edit.overlay.update()
+
+
+def add_link(parts: AppParts, axis: str, cfg: LayoutConfig) -> None:
+    edit = parts.state.link_edit
+    edit.links.append(AxisLink(axis))
+    refresh_link_list(parts, cfg)
+    parts.side.links.list.setCurrentRow(len(edit.links) - 1)   # new link is selected
+
+
+def delete_link(parts: AppParts, link: AxisLink, cfg: LayoutConfig) -> None:
+    parts.state.link_edit.links.remove(link)
+    refresh_link_list(parts, cfg)
+
+
+def start_link_edit(parts: AppParts, cfg: LayoutConfig) -> None:
+    """Open the overlay on the current tab: side bar shows its links."""
+    if parts.state.link_edit is not None:
+        return
+    graphs, side = parts.graphs, parts.side
+    overlay = LinkOverlay(parts, graphs, cfg)
+    escape = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), parts.window)
+    escape.activated.connect(lambda: finish_link_edit(parts, False, cfg))
+    redraw = lambda event: overlay.update()      # graphs moved (e.g. a row added)
+    graphs.canvas.events.draw.connect(redraw)
+    parts.state.link_edit = LinkEdit(graphs, [AxisLink(l.axis, list(l.graphs))
+                                              for l in graphs.links],
+                                     overlay, escape, side.stack.currentIndex(),
+                                     parts.splitter.sizes(), redraw)
+    sizes = parts.splitter.sizes()
+    if sizes[0] < cfg.links_side_bar_px:          # room for the links page
+        wide = min(cfg.links_side_bar_px, side.frame.maximumWidth())
+        parts.splitter.setSizes([wide, sum(sizes) - wide])
+    for widget in (side.files_button, side.columns_button):
+        widget.hide()
+    side.stack.setCurrentIndex(LINKS_PAGE)
+    side.links.done.setChecked(False)
+    for widget in (parts.tabs.bar.parentWidget(), parts.file_button, parts.links_button):
+        widget.setEnabled(False)                  # no tab/file changes under the overlay
+    refresh_link_list(parts, cfg)
+    side.links.list.setCurrentRow(0 if parts.state.link_edit.links else -1)
+
+
+def finish_link_edit(parts: AppParts, apply: bool, cfg: LayoutConfig) -> None:
+    """Close the overlay. apply: merge overlapping links and keep them (one undo
+    step, and linked axes are fitted to their data); otherwise discard the edits."""
+    edit = parts.state.link_edit
+    if edit is None:
+        return
+    graphs = edit.graphs
+    parts.state.link_edit = None
+    if apply:
+        links = merged_links(graphs, edit.links)
+        if [(l.axis, l.graphs) for l in links] != [(l.axis, l.graphs) for l in graphs.links]:
+            push_undo(parts, cfg)
+            graphs.links = links
+            fit_links(graphs)
+            graphs.canvas.update()
+    graphs.canvas.events.draw.disconnect(edit.redraw)
+    edit.overlay.deleteLater()
+    edit.escape.setEnabled(False)
+    edit.escape.deleteLater()
+    side = parts.side
+    side.links.list.clear()
+    for widget in (side.files_button, side.columns_button):
+        widget.show()
+    side.stack.setCurrentIndex(edit.page_before)
+    parts.splitter.setSizes(edit.sizes_before)
+    for widget in (parts.tabs.bar.parentWidget(), parts.file_button, parts.links_button):
+        widget.setEnabled(True)
+
+
+def connect_links_page(parts: AppParts, cfg: LayoutConfig) -> None:
+    links = parts.side.links
+    links.add_x.clicked.connect(lambda: add_link(parts, "x", cfg))
+    links.add_y.clicked.connect(lambda: add_link(parts, "y", cfg))
+    links.done.toggled.connect(lambda on: finish_link_edit(parts, True, cfg) if on else None)
+    links.cancel.clicked.connect(lambda: finish_link_edit(parts, False, cfg))
+    links.list.currentRowChanged.connect(
+        lambda row: parts.state.link_edit and parts.state.link_edit.overlay.update())
+    parts.links_button.clicked.connect(lambda: start_link_edit(parts, cfg))
+
+
+# ---------------------------------------------------------------------------
 # Folder selection
 # ---------------------------------------------------------------------------
 def apply_data_dir(parts: AppParts, path: str, cfg: LayoutConfig) -> None:
@@ -1995,12 +2427,23 @@ def build_settings_menu(parts: AppParts, cfg: LayoutConfig) -> QtWidgets.QMenu:
     return menu
 
 
+class TabBar(QtWidgets.QTabBar):
+    """QTabBar whose minimum width never exceeds its tabs' width. Qt's minimum
+    reserves room for the scroll arrows, which with one short tab left a gap
+    before the "+" button."""
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(min(hint.width(), self.sizeHint().width()))
+        return hint
+
+
 def build_tab_strip(cfg: LayoutConfig) -> tuple[QtWidgets.QWidget, QtWidgets.QTabBar,
                                                 QtWidgets.QToolButton]:
     """Tab bar with a "+" button after the tabs."""
     strip = make_panel(cfg.top_bar_color, cfg)
     strip.setFixedHeight(cfg.tab_bar_px)
-    bar = QtWidgets.QTabBar()
+    bar = TabBar()
     bar.setTabsClosable(True)
     bar.setExpanding(False)
     bar.setDocumentMode(True)
@@ -2046,11 +2489,25 @@ def build_side_bar(cfg: LayoutConfig) -> SideBar:
     files_button = build_tab_button(cfg.files_tab_text, cfg)
     columns_button = build_tab_button(cfg.columns_tab_text, cfg)
     tree = build_file_tree(cfg)
+    refresh = QtWidgets.QToolButton()
+    refresh.setText(cfg.tree_refresh_text)
+    refresh.setToolTip(cfg.tree_refresh_tooltip)
+    refresh.setAutoRaise(True)
+    refresh.clicked.connect(lambda: refresh_tree(tree, cfg))
+    files_page = QtWidgets.QWidget()
+    files_layout = QtWidgets.QVBoxLayout(files_page)
+    files_layout.setContentsMargins(0, 0, 0, 0)
+    files_layout.setSpacing(0)
+    files_layout.addWidget(refresh, 0, QtCore.Qt.AlignRight)
+    files_layout.addWidget(tree, 1)
     column_page, column_search, column_list = build_column_page(cfg)
 
+    links_page, links = build_links_page(cfg)
+
     stack = QtWidgets.QStackedWidget()
-    stack.insertWidget(FILES_PAGE, tree)
+    stack.insertWidget(FILES_PAGE, files_page)
     stack.insertWidget(COLUMNS_PAGE, column_page)
+    stack.insertWidget(LINKS_PAGE, links_page)
 
     # Exclusive group: exactly one tab button is checked, and it picks the page.
     tabs = QtWidgets.QButtonGroup(frame)
@@ -2069,7 +2526,35 @@ def build_side_bar(cfg: LayoutConfig) -> SideBar:
     layout.setSpacing(0)
     layout.addLayout(tab_row)
     layout.addWidget(stack)
-    return SideBar(frame, files_button, columns_button, stack, tree, column_search, column_list)
+    return SideBar(frame, files_button, columns_button, stack, tree, column_search, column_list,
+                   links)
+
+
+def build_links_page(cfg: LayoutConfig) -> tuple[QtWidgets.QWidget, LinksPage]:
+    page = QtWidgets.QWidget()
+    done = QtWidgets.QCheckBox(cfg.links_done_text)
+    cancel = QtWidgets.QPushButton(cfg.links_cancel_text)
+    add_x = QtWidgets.QPushButton(cfg.add_x_link_text)
+    add_y = QtWidgets.QPushButton(cfg.add_y_link_text)
+    help_text = QtWidgets.QLabel(cfg.links_help_text)
+    help_text.setWordWrap(True)
+    links = QtWidgets.QListWidget()
+    links.setFrameShape(QtWidgets.QFrame.NoFrame)
+
+    top = QtWidgets.QHBoxLayout()
+    top.addWidget(done)
+    top.addStretch(1)
+    top.addWidget(cancel)
+    adds = QtWidgets.QHBoxLayout()
+    adds.addWidget(add_x)
+    adds.addWidget(add_y)
+    layout = QtWidgets.QVBoxLayout(page)
+    layout.setContentsMargins(4, 4, 4, 4)
+    layout.addLayout(top)
+    layout.addLayout(adds)
+    layout.addWidget(help_text)
+    layout.addWidget(links, 1)
+    return page, LinksPage(done, cancel, add_x, add_y, links)
 
 
 def build_splitter(side_bar: QtWidgets.QWidget, main: QtWidgets.QWidget,
@@ -2155,6 +2640,7 @@ def set_advanced(parts: AppParts, on: bool, cfg: LayoutConfig) -> None:
     parts.state.advanced = on
     _settings(cfg).setValue(cfg.settings_advanced_key, on)
     parts.script_button.setVisible(feature_on(parts.state, "script", cfg))
+    parts.links_button.setVisible(feature_on(parts.state, "links", cfg))
 
 
 def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
@@ -2170,8 +2656,11 @@ def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
     top_bar.layout().addSpacing(12)
     top_bar.layout().addWidget(file_label)
     top_bar.layout().addStretch(1)
+    links_button = build_bar_button(cfg.links_button_text)
     script_button = build_bar_button(cfg.script_button_text)
     settings_button = build_bar_button(cfg.settings_text)
+    top_bar.layout().addWidget(links_button)
+    top_bar.layout().addSpacing(12)
     top_bar.layout().addWidget(script_button)
     top_bar.layout().addSpacing(12)
     top_bar.layout().addWidget(settings_button)
@@ -2207,7 +2696,8 @@ def build_window(cfg: LayoutConfig = LAYOUT) -> AppParts:
         confirm_graph_delete=load_flag(cfg.settings_confirm_graph_key,
                                        cfg.require_confirm_on_graph_delete, cfg))
     parts = AppParts(window, top_bar, side, splitter, tabs, file_button, file_label,
-                     script_button, state)
+                     script_button, links_button, state)
+    connect_links_page(parts, cfg)
     set_advanced(parts, load_advanced(cfg), cfg)
     file_button.setMenu(build_file_menu(parts, cfg))
     settings_button.setMenu(build_settings_menu(parts, cfg))

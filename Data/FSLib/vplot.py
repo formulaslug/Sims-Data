@@ -353,11 +353,12 @@ class _Artist:
     def bounds(self):
         if self._pos is None or len(self._pos) == 0:
             return None
-        lo = np.nanmin(self._pos, axis=0)
-        hi = np.nanmax(self._pos, axis=0)
-        if not np.all(np.isfinite(lo)):
+        # Only finite points count: one inf (e.g. x / 0) would make the limits
+        # infinite, and VisPy then fails to draw the whole canvas.
+        finite = self._pos[np.isfinite(self._pos).all(axis=1)]
+        if len(finite) == 0:
             return None
-        return np.column_stack([lo, hi])
+        return np.column_stack([finite.min(axis=0), finite.max(axis=0)])
 
     def _visuals(self):
         return []
@@ -830,7 +831,18 @@ class BoxZoomCamera(scene.PanZoomCamera):
     def viewbox_key_event(self, event):
         # VisPy cameras reset to their default range (0..1 when nothing set it)
         # on Backspace; here Backspace means undo_zoom, which the owner binds.
-        pass
+        # Escape cancels a box being dragged.
+        if event.type == "key_press" and event.key == "Escape" and self._press is not None:
+            self.cancel_box()
+            event.handled = True
+
+    def cancel_box(self):
+        self._press = None
+        if self.on_box_drag is not None:
+            self.on_box_drag(None, None)
+        if self._box is not None:
+            self._box.visible = False
+            self.view_changed()
 
     def _show_box(self, p1, p2):
         (x0, y0), (x1, y1) = p1, p2
