@@ -161,6 +161,10 @@ class LayoutConfig:
                          "e.g. \"/ (32767 * 180) + 2\" or \"* -1\". Numbers only.\n"
                          "Empty = unchanged.")
     expr_edit_px: int = 150                       # width of the transform boxes
+    bound_edit_px: int = 90                       # width of the axis min / max boxes
+    bound_tooltip: str = ("Fixed {end} of the {axis} axis. Empty = fit to the data.\n"
+                          "Linked axes share it. Box zoom still zooms; Autoscale "
+                          "comes back to it.")
     expr_error_color: str = "#d9534f"
     default_graph_kind: str = "scatter"           # type of a new graph
     # 3D view: perspective uses this field of view; isometric is orthographic (fov 0)
@@ -284,6 +288,10 @@ class GraphSpec:
     legend: bool = True                           # legend below (2D) / inside (3D) the graph
     show_xlabel: bool = True                      # 2D: hiding a label frees its space
     show_ylabel: bool = True
+    x_min: float | None = None                    # fixed axis bounds; None = fit the data
+    x_max: float | None = None
+    y_min: float | None = None
+    y_max: float | None = None
     projection: str = "perspective"               # 3D: "perspective" | "isometric"
     x_expr: str = ""                              # display transforms of x / z
     z_expr: str = ""
@@ -1023,11 +1031,38 @@ def draw_graph(graphs: GraphGrid, graph: Graph, df: pl.DataFrame | None,
         else:                                     # scatter size is an area, in points^2
             ax.scatter(*data, s=spec.marker_size ** 2, color=line.color, label=line.label)
     ax.autoscale()
+    apply_bounds(graph)
     # 3D axes have no slot below them, so their legend sits inside the plot.
     # With the legend off, cla() above already removed it (the space below collapses).
     if spec.legend:
         ax.legend(loc="upper right" if is_3d(spec.kind) else "below",
                   fontsize=cfg.legend_fontsize)
+
+
+def axis_bounds(spec: GraphSpec, axis: str) -> tuple[float | None, float | None]:
+    return (spec.x_min, spec.x_max) if axis == "x" else (spec.y_min, spec.y_max)
+
+
+def apply_bounds(graph: Graph) -> None:
+    """Pin the axes to the spec's fixed bounds (after an autoscale). A bound that's
+    None keeps the fitted value."""
+    ax = graph.ax
+    for axis, setter in (("x", ax.set_xlim), ("y", ax.set_ylim)):
+        fixed_lo, fixed_hi = axis_bounds(graph.spec, axis)
+        if fixed_lo is None and fixed_hi is None:
+            continue
+        cur = ax.get_xlim() if axis == "x" else ax.get_ylim()
+        lo = cur[0] if fixed_lo is None else fixed_lo
+        hi = cur[1] if fixed_hi is None else fixed_hi
+        if hi <= lo:                              # one bound set beyond all the data
+            span = abs(fixed_lo if fixed_lo is not None else fixed_hi) * 0.1 or 1.0
+            if fixed_hi is None:
+                hi = lo + span
+            elif fixed_lo is None:
+                lo = hi - span
+            else:
+                continue                          # min >= max: the dialog refuses this
+        setter(lo, hi)
 
 
 def plot_data(spec: GraphSpec, df: pl.DataFrame | None, cfg: LayoutConfig):
@@ -1113,8 +1148,8 @@ def sync_links(graphs: GraphGrid, source: Graph) -> None:
 
 
 def fit_links(graphs: GraphGrid, only: Graph | None = None) -> None:
-    """Fit each link's axis to all of its graphs' data (only links holding `only`,
-    if given)."""
+    """Fit each link's axis to all of its graphs' data, or to their fixed bounds
+    where set (only links holding `only`, if given)."""
     for link in graphs.links:
         if only is not None and only not in link.graphs:
             continue
@@ -1125,6 +1160,13 @@ def fit_links(graphs: GraphGrid, only: Graph | None = None) -> None:
         if not bounds:
             continue
         lo, hi = vp._pad(min(b[i][0] for b in bounds), max(b[i][1] for b in bounds))
+        # Fixed bounds (normally the same on every member) win over the data.
+        fixed = [axis_bounds(g.spec, link.axis) for g in members]
+        mins = [f[0] for f in fixed if f[0] is not None]
+        maxs = [f[1] for f in fixed if f[1] is not None]
+        lo, hi = (min(mins) if mins else lo), (max(maxs) if maxs else hi)
+        if hi <= lo:
+            continue
         graphs.syncing = True
         try:
             for graph in members:
@@ -1279,6 +1321,7 @@ def show_graph_menu(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
         if has_box_zoom(graph):
             remember_zoom(graphs, graph)
         graph.ax.autoscale()
+        apply_bounds(graph)                       # back to the fixed bounds, if any
         fit_links(graphs, only=graph)             # linked axes fit all their graphs
         graphs.canvas.update()
 
@@ -1356,8 +1399,27 @@ def set_spec(parts: "AppParts", graph: Graph, spec: GraphSpec, cfg: LayoutConfig
 def configure_graph(parts: "AppParts", graph: Graph, cfg: LayoutConfig) -> None:
     spec = run_graph_dialog(parts.window, graph.spec, parts.state.df,
                             lambda name: feature_on(parts.state, name, cfg), cfg)
-    if spec is not None:
-        set_spec(parts, graph, spec, cfg)
+    if spec is None or spec == graph.spec:
+        return
+    push_undo(parts, cfg)
+    graph.spec = spec
+    graphs, changed = parts.graphs, [graph]
+    # Fixed bounds on a linked axis go to every graph in the link (same undo step).
+    for link in graphs.links:
+        if graph not in link.graphs:
+            continue
+        lo_key, hi_key = ("x_min", "x_max") if link.axis == "x" else ("y_min", "y_max")
+        bounds = {lo_key: getattr(spec, lo_key), hi_key: getattr(spec, hi_key)}
+        for other in link.graphs:
+            if other is not graph and any(getattr(other.spec, k) != v
+                                          for k, v in bounds.items()):
+                other.spec = replace(other.spec, **bounds)
+                changed.append(other)
+    for g in changed:
+        draw_graph(graphs, g, parts.state.df, cfg)
+    for g in changed:
+        fit_links(graphs, only=g)
+    graphs.canvas.update()
 
 
 # ---------------------------------------------------------------------------
@@ -1584,6 +1646,38 @@ def build_transform(expr: str, columns: list[str], cfg: LayoutConfig) -> Transfo
     return TransformEdit(edit)
 
 
+def build_bound_edit(value: float | None, axis: str, end: str,
+                     cfg: LayoutConfig) -> QtWidgets.QLineEdit:
+    """Box for one fixed axis bound; empty = fit to the data."""
+    edit = QtWidgets.QLineEdit("" if value is None else f"{value:g}")
+    validator = QtGui.QDoubleValidator(edit)
+    validator.setLocale(QtCore.QLocale.c())       # "." decimals whatever the system locale
+    validator.setNotation(QtGui.QDoubleValidator.ScientificNotation)
+    edit.setValidator(validator)
+    edit.setPlaceholderText(f"{axis} {end}")
+    edit.setFixedWidth(cfg.bound_edit_px)
+    edit.setToolTip(cfg.bound_tooltip.format(end=end, axis=axis))
+    return edit
+
+
+def bound_value(edit: QtWidgets.QLineEdit) -> float | None:
+    try:
+        return float(edit.text())
+    except ValueError:                            # empty (auto) or half-typed
+        return None
+
+
+def label_with_bounds(label: QtWidgets.QLineEdit, lo: QtWidgets.QLineEdit,
+                      hi: QtWidgets.QLineEdit) -> QtWidgets.QWidget:
+    widget = QtWidgets.QWidget()
+    layout = QtWidgets.QHBoxLayout(widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(label, 1)
+    layout.addWidget(lo)
+    layout.addWidget(hi)
+    return widget
+
+
 def column_with_transform(combo: QtWidgets.QComboBox,
                           transform: TransformEdit) -> QtWidgets.QWidget:
     """A column picker with its transform box on the same line."""
@@ -1661,8 +1755,12 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
     form.addRow("Point size", marker_size)
     form.addRow("3D view", view_3d)
     form.addRow("X column", x_row)
-    form.addRow("X label", xlabel)
-    form.addRow("Y label", ylabel)
+    x_lo, x_hi = (build_bound_edit(spec.x_min, "x", "min", cfg),
+                  build_bound_edit(spec.x_max, "x", "max", cfg))
+    y_lo, y_hi = (build_bound_edit(spec.y_min, "y", "min", cfg),
+                  build_bound_edit(spec.y_max, "y", "max", cfg))
+    form.addRow("X label", label_with_bounds(xlabel, x_lo, x_hi))
+    form.addRow("Y label", label_with_bounds(ylabel, y_lo, y_hi))
     form.addRow("Z column", z_row)
     form.addRow("Z label", zlabel)
     form.addRow("", toggles)
@@ -1712,14 +1810,18 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
     buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok
                                          | QtWidgets.QDialogButtonBox.Cancel)
     def accept():
-        """OK only once every transform is valid; otherwise say which isn't."""
+        """OK only once every transform and bound pair is valid; otherwise say which isn't."""
         boxes = [("X", x_transform), ("Z", z_transform)] + [
             (r.column.currentText() or "a y line", r.transform) for r in rows]
-        bad = [(name, t.widget.property("error")) for name, t in boxes
+        bad = [(f"{name} transform", t.widget.property("error")) for name, t in boxes
                if t.widget.property("error") and t.widget.isVisibleTo(dialog)]
+        for axis, lo, hi in (("X", x_lo, x_hi), ("Y", y_lo, y_hi)):
+            a, b = bound_value(lo), bound_value(hi)
+            if a is not None and b is not None and a >= b:
+                bad.append((f"{axis} bounds", f"min ({a:g}) must be below max ({b:g})"))
         if bad:
             QtWidgets.QMessageBox.warning(dialog, cfg.graph_dialog_title, "\n".join(
-                f"{name} transform: {error}" for name, error in bad))
+                f"{name}: {error}" for name, error in bad))
             return
         dialog.accept()
 
@@ -1750,7 +1852,9 @@ def run_graph_dialog(parent: QtWidgets.QWidget, spec: GraphSpec, df: pl.DataFram
                    zlabel=zlabel.text(), legend=legend.isChecked(),
                    show_xlabel=show_x.isChecked(), show_ylabel=show_y.isChecked(),
                    projection=view_3d.currentData(),
-                   x_expr=x_transform.text(), z_expr=z_transform.text())
+                   x_expr=x_transform.text(), z_expr=z_transform.text(),
+                   x_min=bound_value(x_lo), x_max=bound_value(x_hi),
+                   y_min=bound_value(y_lo), y_max=bound_value(y_hi))
 
 
 # ---------------------------------------------------------------------------

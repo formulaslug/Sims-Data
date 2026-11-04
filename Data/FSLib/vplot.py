@@ -1445,6 +1445,15 @@ class Axes3D(_AxesBase):
     def set_zlim(self, lo=None, hi=None):
         self._set_lim(2, lo, hi)
 
+    def get_xlim(self):
+        return tuple(self._limits()[0])
+
+    def get_ylim(self):
+        return tuple(self._limits()[1])
+
+    def get_zlim(self):
+        return tuple(self._limits()[2])
+
     # In 3D all three axis labels share one text visual, so fontsize applies to all.
     def _set_axlabel(self, i, s, fontsize):
         self._labels[i] = s
