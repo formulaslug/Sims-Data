@@ -440,13 +440,18 @@ def simpleTimeCol (df):
 
 
 def read (a:str):
-    df = pl.read_parquet(a).fill_null(strategy="forward").fill_null(strategy="backward")
+    df = pl.read_parquet(a)
     if "Time" in df.columns:
-        return df
+        pass
     elif "Time_ms" in df.columns:
-        return df.insert_column(0, (df["Time_ms"] / 1000).alias("Time"))
+        df = df.insert_column(0, (df["Time_ms"] / 1000).alias("Time"))
     else:
-        return df.insert_column(0, simpleTimeCol(df))
+        df = df.insert_column(0, simpleTimeCol(df))
+    # Booleans hold their value between samples. Other columns keep their gaps
+    # (nulls): plot_data shows a signal against time at its real samples only.
+    return df.with_columns(
+        pl.col(pl.Boolean).fill_null(strategy="forward").fill_null(strategy="backward"),
+        pl.col("Time").interpolate().fill_null(strategy="forward").fill_null(strategy="backward"))
 
 
 def load_data_file(parts: AppParts, path: str | None, cfg: LayoutConfig,
@@ -1082,23 +1087,58 @@ def apply_bounds(graph: Graph) -> None:
 
 
 def plot_data(spec: GraphSpec, df: pl.DataFrame | None, cfg: LayoutConfig):
-    """(line, (x, y[, z]) arrays) for each line whose columns are all in df."""
+    """(line, (x, y[, z]) arrays) for each line whose columns are all in df.
+    A signal against Time shows only its real samples (rows where it isn't null).
+    Signals plotted against each other (2D without Time, or 3D) are interpolated
+    in time first, so their rows line up."""
     needed = [spec.x, spec.z] if is_3d(spec.kind) else [spec.x]
     if df is None or not all(c in df.columns for c in needed):
         return []
-    x = transformed(df[spec.x], spec.x_expr)
+    lines = [line for line in spec.lines if line.column in df.columns]
     if is_3d(spec.kind):
-        z = transformed(df[spec.z], spec.z_expr)
-        return [(line, (x, y_values(df[line.column], line, 1, df, cfg), z))
-                for line in spec.lines if line.column in df.columns]
-    return [(line, (x, y_values(df[line.column], line, line.rolling, df, cfg)))
-            for line in spec.lines if line.column in df.columns]
+        x = transformed(dense_column(df, spec.x), spec.x_expr)
+        z = transformed(dense_column(df, spec.z), spec.z_expr)
+        return [(line, (x, y_values(dense_column(df, line.column), line, 1, df, cfg), z))
+                for line in lines]
+    out = []
+    for line in lines:
+        if colscript.TIME in (spec.x, line.column):
+            x, y = drop_gaps(df[spec.x], df[line.column])
+        else:
+            x, y = dense_column(df, spec.x), dense_column(df, line.column)
+        out.append((line, (transformed(x, spec.x_expr),
+                           y_values(y, line, line.rolling, df, cfg))))
+    return out
+
+
+def drop_gaps(x: pl.Series, y: pl.Series) -> tuple[pl.Series, pl.Series]:
+    """x and y at the rows where both have a value."""
+    keep = x.is_not_null() & y.is_not_null()
+    if keep.all():
+        return x, y
+    return x.filter(keep), y.filter(keep)
+
+
+_dense_cache: dict = {"df": None, "columns": {}}
+
+
+def dense_column(df: pl.DataFrame, name: str) -> pl.Series:
+    """The column with its gaps interpolated in time (colscript.interpolated).
+    Kept for the current frame, so redraws and other graphs don't redo it."""
+    if _dense_cache["df"] is not df:
+        _dense_cache.update(df=df, columns={})
+    columns = _dense_cache["columns"]
+    if name not in columns:
+        time = df[colscript.TIME] if colscript.TIME in df.columns else None
+        columns[name] = colscript.interpolated(df[name], time)
+    return columns[name]
 
 
 def y_values(column: pl.Series, line: LineSpec, rolling: int, df: pl.DataFrame,
              cfg: LayoutConfig) -> np.ndarray:
-    """The column as plotted: a rolling mean over `rolling` rows when that's above 1
-    (the ends average over the rows available, so no points go missing), then
+    """The column as plotted: a rolling mean over `rolling` values when that's above 1
+    (real samples on a Time graph; the ends average over the values available, so
+    no points go missing), then
     the line's display transform."""
     if rolling > 1:
         column = column.cast(pl.Float64).rolling_mean(

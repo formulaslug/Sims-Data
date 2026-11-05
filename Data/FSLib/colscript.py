@@ -16,6 +16,10 @@ Operators, loosest to tightest: + -   then * / %   then unary -   then ^ (right
 associative, so -2^2 == -4 and 2^-1 == 0.5). Numbers broadcast against columns.
 Later lines may use columns defined on earlier lines.
 
+Columns sampled at different rates have gaps (nulls) between their samples. Every
+column a script reads is filled first (see interpolated): linearly in Time, so the
+columns line up row by row. The results have no gaps.
+
 run(text, df) applies a script to a polars DataFrame. A line that fails (bad
 syntax, unknown column, ...) is reported as a ScriptError and skipped; the
 other lines still run.
@@ -31,6 +35,22 @@ import numpy as np
 import polars as pl
 from scipy.integrate import cumulative_simpson
 from scipy.fftpack import fft, ifft
+
+TIME = "Time"                 # the column gaps are interpolated over
+
+
+def interpolated(column: pl.Series, time: pl.Series | None) -> pl.Series:
+    """The column as Float64 with its gaps (nulls) filled: linearly in `time` (row
+    number if None) between samples, and the nearest sample before the first and
+    after the last one. Booleans take the previous (else next) value instead."""
+    if column.dtype == pl.Boolean:
+        filled = column.fill_null(strategy="forward").fill_null(strategy="backward")
+        return filled.cast(pl.Float64)
+    values = column.cast(pl.Float64, strict=False)
+    if values.null_count() == 0:
+        return values
+    values = values.interpolate() if time is None else values.interpolate_by(time)
+    return values.fill_null(strategy="forward").fill_null(strategy="backward")
 
 
 # --------------------------------------------------------------------------
@@ -344,12 +364,13 @@ def run(text: str, df: pl.DataFrame) -> tuple[pl.DataFrame, list[ScriptError]]:
     statements, errors = parse(text)
     original = set(df.columns)
     new: dict[str, np.ndarray] = {}
+    time = df[TIME] if TIME in original else None
 
     def column(name: str) -> np.ndarray:
         if name in new:
             return new[name]
         if name in original:
-            return df[name].cast(pl.Float64, strict=False).to_numpy()
+            return interpolated(df[name], time).to_numpy()
         raise KeyError(name)
 
     for st in statements:
