@@ -114,7 +114,9 @@ def plot_wpd(
         93: "#eb0509",
         94: "#c00002",
         95: "#920100"
-    }
+    },
+    df: pd.DataFrame = None,
+    valid: pd.Series = None
 ) -> None:
 
     """Plot WebPlotDigitizer csvs so they look like the given image"""
@@ -133,15 +135,84 @@ def plot_wpd(
     plt.show()
 
     return efficiency
+
+def validate(efficiency_formula: LinearNDInterpolator, parquet_path: Path) -> float:
+    """
+    Validate interpolator using fs parquets
+    """
+
+
+    """
+    Motor Efficiency = Mechanical Power Output / Electrical Power Input 
+
+    P_mech = (2pi/60) * Torque * RPM
+    P_elec = V_DC * I_DC
+
+    """
+
+    df = pd.read_parquet(parquet_path)
+
+    # Calculate Mechanical Power Output (P_mech = (2pi/60) * Torque * RPM)
+    # df["Mechanical_Power_W"] = (
+    #     df["SME_THROTL_TorqueDemand"] / 32767 * 180
+    #     * df["SME_TRQSPD_Speed"]
+    #     * 2 * np.pi / 60
+    # )
+
+    # Calculate Electrical Power Input (P_elec = V_DC * I_DC)
+    # df["Electrical_Power_W"] = (
+    #     df["SME_TEMP_DC_Bus_V"]
+    #     * df["SME_TEMP_BusCurrent"]
+    # )
+
+    # Calculate Torque in Nm
+    df["Torque_Demand_Nm"] = (
+        df["SME_THROTL_TorqueDemand"] / 32767 * 180
+    )
+
+    df["Torque_Demand_Scaled"] = (
+        df["Torque_Demand_Nm"] / 1.8
+    )
     
+    # Calculate torque delivery ratio
+    df["Torque_Delivery_Percent"] = (
+        df["SME_TRQSPD_Torque"]
+        / df["Torque_Demand_Scaled"]
+        * 100
+    )
+
+    # Gather input for the interpolation function
+    points = df[
+        ["SME_TRQSPD_Speed", "Torque_Demand_Nm"]
+    ].to_numpy()
+
+    # Calculate and store motor efficiency
+    df["Motor_Efficiency_Interpolation"] = efficiency_formula(points)
+
+    # filter any NaN for SME_TRQSPD_Torque
+    valid = (
+        np.isfinite(df["Torque_Delivery_Percent"])
+        & np.isfinite(df["Motor_Efficiency_Interpolation"])
+    )
+
+    # MAE for Torque Efficiency vs Interpolation
+    res = (
+        df.loc[valid, "Torque_Delivery_Percent"]
+        - df.loc[valid, "Motor_Efficiency_Interpolation"]
+    ).abs().mean()
+
+    print(f"MAE: {res:.2f}%")
+    print(f"Total valid samples: {valid.sum()} / {len(df)}")
+
+    return float(res)
+
 if __name__ == "__main__":
+
+    parquet_path = "135455_AutoX_Ayrton.parquet"
     
-    path = 'wpd_dataset.csv'
+    with open("interpolator.pickle", "rb") as f:
 
-    coordinates, bounds = load_wpd(path=path)
+        efficiency = pickle.load(f)
 
-    efficiency, x_max, y_max = create_function(coordinates=coordinates, bounds=bounds)
-    with open("interpolator.pickle", "wb") as f:
-        pickle.dump(efficiency, f)
-
-    plot_wpd(efficiency=efficiency, x_max=x_max, y_max=y_max)
+    validate(efficiency_formula=efficiency, parquet_path=parquet_path)
+    
