@@ -1,0 +1,150 @@
+{
+  "format": "vpApp-tab",
+  "version": 1,
+  "name": "Tab 1",
+  "graphs": [
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "speed",
+            "label": "speed",
+            "color": "#1f77b4",
+            "rolling": 11,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 3.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "power",
+            "label": "power",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "acceleration",
+            "label": "acceleration",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "SME_TRQSPD_Speed",
+            "label": "SME_TRQSPD_Speed",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 3.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ]
+  ],
+  "links": [
+    {
+      "axis": "x",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    }
+  ]
+}

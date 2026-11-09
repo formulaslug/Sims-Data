@@ -1,0 +1,642 @@
+{
+  "format": "vpApp-tab",
+  "version": 1,
+  "name": "Temperatures",
+  "graphs": [
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD0_TEMPS_CELL0",
+            "label": "BATT_MOD0_TEMPS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL1",
+            "label": "BATT_MOD0_TEMPS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL2",
+            "label": "BATT_MOD0_TEMPS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL3",
+            "label": "BATT_MOD0_TEMPS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL4",
+            "label": "BATT_MOD0_TEMPS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL5",
+            "label": "BATT_MOD0_TEMPS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL6",
+            "label": "BATT_MOD0_TEMPS_CELL6",
+            "color": "#e377c2",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL7",
+            "label": "BATT_MOD0_TEMPS_CELL7",
+            "color": "#7f7f7f",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL8",
+            "label": "BATT_MOD0_TEMPS_CELL8",
+            "color": "#bcbd22",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL9",
+            "label": "BATT_MOD0_TEMPS_CELL9",
+            "color": "#17becf",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL10",
+            "label": "BATT_MOD0_TEMPS_CELL10",
+            "color": "#aec7e8",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_TEMPS_CELL11",
+            "label": "BATT_MOD0_TEMPS_CELL11",
+            "color": "#ffbb78",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Temperature (C)",
+        "title": "Module 0",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD1_TEMPS_CELL0",
+            "label": "BATT_MOD1_TEMPS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL1",
+            "label": "BATT_MOD1_TEMPS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL2",
+            "label": "BATT_MOD1_TEMPS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL3",
+            "label": "BATT_MOD1_TEMPS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL4",
+            "label": "BATT_MOD1_TEMPS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL5",
+            "label": "BATT_MOD1_TEMPS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL6",
+            "label": "BATT_MOD1_TEMPS_CELL6",
+            "color": "#e377c2",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL7",
+            "label": "BATT_MOD1_TEMPS_CELL7",
+            "color": "#7f7f7f",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL8",
+            "label": "BATT_MOD1_TEMPS_CELL8",
+            "color": "#bcbd22",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL9",
+            "label": "BATT_MOD1_TEMPS_CELL9",
+            "color": "#17becf",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL10",
+            "label": "BATT_MOD1_TEMPS_CELL10",
+            "color": "#aec7e8",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_TEMPS_CELL11",
+            "label": "BATT_MOD1_TEMPS_CELL11",
+            "color": "#ffbb78",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "Module 1",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": false,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD2_TEMPS_CELL0",
+            "label": "BATT_MOD2_TEMPS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL1",
+            "label": "BATT_MOD2_TEMPS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL2",
+            "label": "BATT_MOD2_TEMPS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL3",
+            "label": "BATT_MOD2_TEMPS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL4",
+            "label": "BATT_MOD2_TEMPS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL5",
+            "label": "BATT_MOD2_TEMPS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL6",
+            "label": "BATT_MOD2_TEMPS_CELL6",
+            "color": "#e377c2",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL7",
+            "label": "BATT_MOD2_TEMPS_CELL7",
+            "color": "#7f7f7f",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL8",
+            "label": "BATT_MOD2_TEMPS_CELL8",
+            "color": "#bcbd22",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL9",
+            "label": "BATT_MOD2_TEMPS_CELL9",
+            "color": "#17becf",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL10",
+            "label": "BATT_MOD2_TEMPS_CELL10",
+            "color": "#aec7e8",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_TEMPS_CELL11",
+            "label": "BATT_MOD2_TEMPS_CELL11",
+            "color": "#ffbb78",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Temperature (C)",
+        "title": "Module 2",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD3_TEMPS_CELL0",
+            "label": "BATT_MOD3_TEMPS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL1",
+            "label": "BATT_MOD3_TEMPS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL2",
+            "label": "BATT_MOD3_TEMPS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL3",
+            "label": "BATT_MOD3_TEMPS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL4",
+            "label": "BATT_MOD3_TEMPS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL5",
+            "label": "BATT_MOD3_TEMPS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL6",
+            "label": "BATT_MOD3_TEMPS_CELL6",
+            "color": "#e377c2",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL7",
+            "label": "BATT_MOD3_TEMPS_CELL7",
+            "color": "#7f7f7f",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL8",
+            "label": "BATT_MOD3_TEMPS_CELL8",
+            "color": "#bcbd22",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL9",
+            "label": "BATT_MOD3_TEMPS_CELL9",
+            "color": "#17becf",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL10",
+            "label": "BATT_MOD3_TEMPS_CELL10",
+            "color": "#aec7e8",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_TEMPS_CELL11",
+            "label": "BATT_MOD3_TEMPS_CELL11",
+            "color": "#ffbb78",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "Module 3",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": false,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD4_TEMPS_CELL0",
+            "label": "BATT_MOD4_TEMPS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL1",
+            "label": "BATT_MOD4_TEMPS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL2",
+            "label": "BATT_MOD4_TEMPS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL3",
+            "label": "BATT_MOD4_TEMPS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL4",
+            "label": "BATT_MOD4_TEMPS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL5",
+            "label": "BATT_MOD4_TEMPS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL6",
+            "label": "BATT_MOD4_TEMPS_CELL6",
+            "color": "#e377c2",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL7",
+            "label": "BATT_MOD4_TEMPS_CELL7",
+            "color": "#7f7f7f",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL8",
+            "label": "BATT_MOD4_TEMPS_CELL8",
+            "color": "#bcbd22",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL9",
+            "label": "BATT_MOD4_TEMPS_CELL9",
+            "color": "#17becf",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL10",
+            "label": "BATT_MOD4_TEMPS_CELL10",
+            "color": "#aec7e8",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_TEMPS_CELL11",
+            "label": "BATT_MOD4_TEMPS_CELL11",
+            "color": "#ffbb78",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Temperature (C)",
+        "title": "Module 4",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_TRAY_TEMPS_SENTRALITY_BUSBAR",
+            "label": "BATT_TRAY_TEMPS_SENTRALITY_BUSBAR",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_TRAY_TEMPS_PACK_FUSE",
+            "label": "BATT_TRAY_TEMPS_PACK_FUSE",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_TRAY_TEMPS_COWLING",
+            "label": "BATT_TRAY_TEMPS_COWLING",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": 34.0,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ]
+  ],
+  "links": [
+    {
+      "axis": "x",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "axis": "y",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          0
+        ]
+      ]
+    }
+  ]
+}

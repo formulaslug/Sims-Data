@@ -1,0 +1,91 @@
+{
+  "format": "vpApp-tab",
+  "version": 1,
+  "name": "Test Tab1",
+  "graphs": [
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD0_VOLTS_CELL0",
+            "label": "BATT_MOD0_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL0",
+            "label": "BATT_MOD0_VOLTS_CELL0_smoothed",
+            "color": "#ff7f0e",
+            "rolling": 51,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "line",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "SME_TEMP_BusCurrent",
+            "label": "SME_TEMP_BusCurrent",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": "*-1"
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "x_min": null,
+        "x_max": null,
+        "y_min": null,
+        "y_max": null,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ]
+  ],
+  "links": [
+    {
+      "axis": "x",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    }
+  ]
+}

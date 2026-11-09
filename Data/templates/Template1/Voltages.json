@@ -1,0 +1,382 @@
+{
+  "format": "vpApp-tab",
+  "version": 1,
+  "name": "Voltages",
+  "graphs": [
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD0_VOLTS_CELL0",
+            "label": "BATT_MOD0_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL1",
+            "label": "BATT_MOD0_VOLTS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL2",
+            "label": "BATT_MOD0_VOLTS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL3",
+            "label": "BATT_MOD0_VOLTS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL4",
+            "label": "BATT_MOD0_VOLTS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD0_VOLTS_CELL5",
+            "label": "BATT_MOD0_VOLTS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Voltage (V)",
+        "title": "Module 0",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": true,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD1_VOLTS_CELL0",
+            "label": "BATT_MOD1_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_VOLTS_CELL1",
+            "label": "BATT_MOD1_VOLTS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_VOLTS_CELL2",
+            "label": "BATT_MOD1_VOLTS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_VOLTS_CELL3",
+            "label": "BATT_MOD1_VOLTS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_VOLTS_CELL4",
+            "label": "BATT_MOD1_VOLTS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD1_VOLTS_CELL5",
+            "label": "BATT_MOD1_VOLTS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "Module 1",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": false,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD2_VOLTS_CELL0",
+            "label": "BATT_MOD2_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_VOLTS_CELL1",
+            "label": "BATT_MOD2_VOLTS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_VOLTS_CELL2",
+            "label": "BATT_MOD2_VOLTS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_VOLTS_CELL3",
+            "label": "BATT_MOD2_VOLTS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_VOLTS_CELL4",
+            "label": "BATT_MOD2_VOLTS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD2_VOLTS_CELL5",
+            "label": "BATT_MOD2_VOLTS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Voltage (V)",
+        "title": "Module 2",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": false,
+        "show_ylabel": true,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD3_VOLTS_CELL0",
+            "label": "BATT_MOD3_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_VOLTS_CELL1",
+            "label": "BATT_MOD3_VOLTS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_VOLTS_CELL2",
+            "label": "BATT_MOD3_VOLTS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_VOLTS_CELL3",
+            "label": "BATT_MOD3_VOLTS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_VOLTS_CELL4",
+            "label": "BATT_MOD3_VOLTS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD3_VOLTS_CELL5",
+            "label": "BATT_MOD3_VOLTS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "",
+        "title": "Module 3",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": true,
+        "show_ylabel": false,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ],
+    [
+      {
+        "x": "Time",
+        "lines": [
+          {
+            "column": "BATT_MOD4_VOLTS_CELL0",
+            "label": "BATT_MOD4_VOLTS_CELL0",
+            "color": "#1f77b4",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_VOLTS_CELL1",
+            "label": "BATT_MOD4_VOLTS_CELL1",
+            "color": "#ff7f0e",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_VOLTS_CELL2",
+            "label": "BATT_MOD4_VOLTS_CELL2",
+            "color": "#2ca02c",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_VOLTS_CELL3",
+            "label": "BATT_MOD4_VOLTS_CELL3",
+            "color": "#d62728",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_VOLTS_CELL4",
+            "label": "BATT_MOD4_VOLTS_CELL4",
+            "color": "#9467bd",
+            "rolling": 1,
+            "expr": ""
+          },
+          {
+            "column": "BATT_MOD4_VOLTS_CELL5",
+            "label": "BATT_MOD4_VOLTS_CELL5",
+            "color": "#8c564b",
+            "rolling": 1,
+            "expr": ""
+          }
+        ],
+        "xlabel": "Time (s)",
+        "ylabel": "Voltage (V)",
+        "title": "Module 4",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": false,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      },
+      {
+        "x": null,
+        "lines": [],
+        "xlabel": "",
+        "ylabel": "",
+        "title": "",
+        "kind": "scatter",
+        "marker_size": 1.0,
+        "z": null,
+        "zlabel": "",
+        "legend": true,
+        "show_xlabel": true,
+        "show_ylabel": true,
+        "projection": "perspective",
+        "x_expr": "",
+        "z_expr": ""
+      }
+    ]
+  ],
+  "links": [
+    {
+      "axis": "x",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          0
+        ]
+      ]
+    },
+    {
+      "axis": "y",
+      "graphs": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          0
+        ]
+      ]
+    }
+  ]
+}
