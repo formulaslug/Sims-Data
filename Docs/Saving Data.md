@@ -1,4 +1,5 @@
 # How to save data!
+## [Deprecated Post FS-3]
 
 1. In the google drive, under ```<car>/TestingData/<date>```, copy the raw .fsdaq files so we preserve a copy of the raw data. To format the date, do ```MMDDYYYY``` so Aug 10, 2025 is ```08102025```. If you don't have internet, make a copy of all the files to your desktop to upload later.
 

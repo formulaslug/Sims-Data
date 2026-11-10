@@ -1,5 +1,5 @@
 # All about the .fsdaq binary format
-
+## [Deprecated Post FS-3]
 1. [History](#history)
 1. [How it works](#hiw)
 1. [Misc Details](#md) 
