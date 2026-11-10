@@ -16,7 +16,7 @@ $$\frac{\frac{Q\substack{anode}}{\cancel{V\substack{anode}}}}{\frac{Q\substack{c
 - $Q\substack{anode}$ is the charge in the anode
 - $V\substack{anode}$ is the volume of the anode
 
-so we just get $\frac{Q_a}{Q_c}$ and since $Q_a + Q_c = Q\substack{total}$ or $6Ah$ we can effectively say it is $\frac{SOC}{1-SOC}$ so with that we have 
+so we just get $\frac{Q_a}{Q_c}$ and since $Q_a + Q_c = Q\substack{total}$ or $2.6Ah$ we can effectively say it is $\frac{SOC}{1-SOC}$ so with that we have 
 $$V = V_0 + \frac{RT}{F}*ln(\frac{SOC}{1-SOC})$$
 
 ### Assumption 2: The cell never goes below about 0.001M in either direction
