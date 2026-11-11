@@ -62,9 +62,13 @@ The main interface is used by navigating to ```Sims-Data/FullVehicleSim/``` and 
 
 This will output a file called ```simulation_output.parquet``` which can be analyzed for how the car performed in the simulation.
 
+![excalidraw_stepStateModel.png](<refs/excalidraw_stepStateModel.png>)
+
 <h3 id="sbsinter"> Step by Step Interface </h3>
 
-The second interface is via the function ```dynamicStepState``` which can be imported from ```engine.py```. This function takes a 1d array of data that is the simulation inputs concatenated with the previous state of the vehicle and returns a new state. The value of each column can be found in [paramLoader.py](paramLoader.py) as each of the variables that begin with var. To use this, first choose a starting state for each of the variables following ```varSteerAngle```. 
+The second interface is via the function ```dynamicStepState``` which can be imported from ```engine.py```. This function takes a 1d array of data that is the simulation inputs concatenated with the previous state of the vehicle and returns a new state. The value of each column can be found in [paramLoader.py](paramLoader.py) as each of the variables that begin with var. To use this, first choose a starting state for each of the variables following ```varSteerAngle```.
+
+![excalidraw_dynamicStepStateModel.png](<refs/excalidraw_dynamicStepStateModel.png>)
 
 A critical part of setting this up is importing the full vehicle sim as a library properly. The following steps should be followed:
 
