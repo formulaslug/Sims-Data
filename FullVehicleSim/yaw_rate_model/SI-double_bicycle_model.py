@@ -68,7 +68,7 @@ class VehicleParameters:
     C_alpha_front: float = field(default_factory=lambda: unit(180000.0, "N/rad"))
     C_alpha_rear: float = field(default_factory=lambda: unit(180000.0, "N/rad"))
     mu: float = 1.733
-    longitudinal_inertia: float = 0.0
+    longitudinal_inertia: float = field(default_factory=lambda: unit(0.0, "kg*m**2"))
 
     # Additional spec sheet info (for reference)
     # Wheel rates: Front 30.647 N/mm, Rear 35.025 N/mm
