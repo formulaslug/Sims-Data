@@ -6,7 +6,7 @@ Based on Rajamani's bicycle model.w
 """
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple, List
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -49,7 +49,7 @@ class VehicleParameters:
     """Vehicle parameters from 2025 FSAE Design Spec Sheet (Car #216)"""
 
     # Geometry (meters) - from 2025 FSAE Design EV Spec Sheet
-    wheelbase: float = 1.589989  # 1589.989 mm
+    wheelbase: float = field(default_factory=lambda: unit(1.589989, "m"))  # 1589.989 mm
     Lf: float = 0.8535  # Calculated from 46.32% front weight distribution
     Lr: float = 0.7365  # Calculated from weight distribution
     track_width_front: float = 1.234008  # 1234.008 mm
