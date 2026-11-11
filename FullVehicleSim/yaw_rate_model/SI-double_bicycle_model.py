@@ -57,16 +57,16 @@ class VehicleParameters:
     track_width: float = field(default_factory=lambda: unit(1.234008, "m"))  # Using front track for compatibility
 
     # Mass properties (with driver)
-    mass: float = 300.0  # Vehicle + driver (from Formula Slug FS-4 specs)
-    mass_without_driver: float = 232.0
-    cg_height: float = 0.3048  # 304.8 mm
-    yaw_inertia: float = 658.09  # Not in spec sheet, using previous value
-
+    mass: float = field(default_factory=lambda: unit(300.0, "kg"))  # Vehicle + driver (from Formula Slug FS-4 specs)
+    mass_without_driver: float = field(default_factory=lambda: unit(232.0, "kg"))
+    cg_height: float = field(default_factory=lambda: unit(0.3048, "m"))  # 304.8 mm
+    yaw_inertia: float = field(default_factory=lambda: unit(658.09, "kg*m**2"))  # Not in spec sheet, using previous value
+    
     # Tire model (stiffness values not in spec sheet, using estimates)
     # Tires: Front - Hoosier 16.0x6.0-10 LC0, Rear - Hoosier 16.0x7.5-10 LC0
-    C_alpha: float = 180000.0  # Cornering stiffness estimate
-    C_alpha_front: float = 180000.0
-    C_alpha_rear: float = 180000.0
+    C_alpha: float = field(default_factory=lambda: unit(180000.0, "N/rad"))  # Cornering stiffness estimate
+    C_alpha_front: float = field(default_factory=lambda: unit(180000.0, "N/rad"))
+    C_alpha_rear: float = field(default_factory=lambda: unit(180000.0, "N/rad"))
     mu: float = 1.733
     longitudinal_inertia: float = 0.0
 
