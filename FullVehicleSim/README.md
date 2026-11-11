@@ -54,11 +54,11 @@ time,throttle,brakePressureFront,brakePressureRear,brakePedalTravel,steerAngle
 
 <h2 id="interfaces"> Simulation Interfaces </h2>
 
-There are two primary simulation interfaces (for which there is an additional variation of the second for ease of use).
+There are two primary simulation interfaces.
 
 <h3 id="minter"> Main Interface </h3>
 
-The main interface is used by navigating to ```Sims-Data/FullVehicleSim/``` and running the sim as ```python main.py -c <control_inputs_file>``` where the control input files are typically stored in ```SimulationControlInputs/```. Doing so, will run the simulation (which should take less than 30 sec to run <30 min of car simulation plus however long it takes the libraries to load). The main interface handles repeated calls to ```stepState``` in ```engine.py``` which updates a world array 1 step at a time via the 
+The main interface is used by navigating to ```Sims-Data/FullVehicleSim/``` and running the sim as ```python main.py -c <control_inputs_file>``` where the control input files are typically stored in ```SimulationControlInputs/```. Doing so, will run the simulation (which should take less than 30 sec to run <30 min of car simulation plus however long it takes the libraries to load). The main interface handles repeated calls to ```stepState``` in ```engine.py``` which updates a world array 1 step at a time.
 
 This will output a file called ```simulation_output.parquet``` which can be analyzed for how the car performed in the simulation.
 
