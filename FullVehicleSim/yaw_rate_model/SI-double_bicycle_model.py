@@ -50,11 +50,11 @@ class VehicleParameters:
 
     # Geometry (meters) - from 2025 FSAE Design EV Spec Sheet
     wheelbase: float = field(default_factory=lambda: unit(1.589989, "m"))  # 1589.989 mm
-    Lf: float = 0.8535  # Calculated from 46.32% front weight distribution
-    Lr: float = 0.7365  # Calculated from weight distribution
-    track_width_front: float = 1.234008  # 1234.008 mm
-    track_width_rear: float = 1.186  # 1186 m
-    track_width: float = 1.234008  # Using front track for compatibility
+    Lf: float = field(default_factory=lambda: unit(0.8535, "m"))  # Calculated from 46.32% front weight distribution
+    Lr: float = field(default_factory=lambda: unit(0.7365, "m"))  # Calculated from weight distribution
+    track_width_front: float = field(default_factory=lambda: unit(1.234008, "m"))  # 1234.008 mm
+    track_width_rear: float = field(default_factory=lambda: unit(1.186, "m"))  # 1186 m
+    track_width: float = field(default_factory=lambda: unit(1.234008, "m"))  # Using front track for compatibility
 
     # Mass properties (with driver)
     mass: float = 300.0  # Vehicle + driver (from Formula Slug FS-4 specs)
