@@ -10,8 +10,38 @@ from dataclasses import dataclass
 from typing import Tuple, List
 import matplotlib.pyplot as plt
 from pathlib import Path
+import unyt as u
 
 HERE = Path(__file__).parent
+
+# --- Unit checking ---
+CHECK_UNITS = True   # True: values include units and are checked (debugging). False: plain floats (full speed)
+
+def unit(value, units):
+    """Attaches units to a value, or returns a plain SI float when CHECK_UNITS is off."""
+    quantity = value * u.Unit(units)
+    return quantity if CHECK_UNITS else float(quantity.in_mks().v)
+
+RAD = u.rad if CHECK_UNITS else 1.0   # used to add or remove radians in rotational math
+
+# The state array is [v_y, r]. These are the units of each slot
+STATE_UNITS      = [u.Unit("m/s"),    u.Unit("rad/s")]      # [lateral velocity, yaw rate]
+DERIVATIVE_UNITS = [u.Unit("m/s**2"), u.Unit("rad/s**2")]   # [dv_y/dt, dr/dt], what dynamics() returns
+
+# attach_units() turns plain numbers into unit values (like get() in the full sim).
+# strip_units() converts each value to its expected unit, then returns plain numbers (like put()).
+if CHECK_UNITS:
+    def attach_units(values, units):
+        return [u.unyt_quantity(v, unit) for v, unit in zip(values, units)]
+
+    def strip_units(values, units):
+        return np.array([v.to_value(unit) for v, unit in zip(values, units)])
+else:
+    def attach_units(values, units):
+        return values
+
+    def strip_units(values, units):
+        return np.array(values)
 
 
 @dataclass
