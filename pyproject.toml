@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SD"
-dynamic = ["version"]
+version = "0.1.0"
 dependencies = [
   "matplotlib",
   "polars",
@@ -14,5 +14,10 @@ dependencies = [
 ]
 readme = {file = "README.md", content-type = "text/markdown"}
 
-[tool.setuptools.package-dir]
-data = "Data/FSLib"
+[tool.setuptools.packages.find]
+include = ["FullVehicleSim*", "Data.FSLib*"]
+
+[tool.setuptools.package-data]
+"FullVehicleSim" = ["params.json5"]
+"FullVehicleSim.Electrical" = ["HisteresisCellModel/trained_voltage_kernel.csv"]
+"FullVehicleSim.Mech" = ["brakeThermalTransfer.csv"]

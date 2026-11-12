@@ -1,14 +1,16 @@
-from Mech import tireState as tire
-from paramLoader import Parameters, Magic
-from Mech.tireLoad import calcLoadTransfer
-from Mech.steering import calcSlipAngle
 import numpy as np
 
+from ..paramLoader import Magic, Parameters
+from .steering import calcSlipAngle
+from .tireLoad import calcLoadTransfer
+from .tireState import Tire
+
+
 def calcTraction(tireLoad:tuple[float,float,float,float], slipAngle:tuple[float,float], slipRatio:float, speed, surfaceTemperature, tirePressure):
-    frontLeft = tire.Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40)
-    frontRight = tire.Tire(tireLoad[1] , 0.15, slipAngle[0], speed, 80, 40)
-    backLeft = tire.Tire(tireLoad[2] , 0.15, slipAngle[1], speed, 80, 40)
-    backRight = tire.Tire(tireLoad[3] , 0.15, slipAngle[1], speed, 80, 40)
+    frontLeft = Tire(tireLoad[0] , 0.15, slipAngle[0], speed, 80, 40)
+    frontRight = Tire(tireLoad[1] , 0.15, slipAngle[0], speed, 80, 40)
+    backLeft = Tire(tireLoad[2] , 0.15, slipAngle[1], speed, 80, 40)
+    backRight = Tire(tireLoad[3] , 0.15, slipAngle[1], speed, 80, 40)
     return [(frontLeft.getLongForce(), frontLeft.getLateralForce() * 0.6),
         (frontRight.getLongForce() * 0.6, frontRight.getLateralForce() * 0.6),
         (backLeft.getLongForce() * 0.6, backLeft.getLateralForce() * 0.6),
@@ -68,5 +70,5 @@ def maxTraction(initAcceleration:float, heading:np.ndarray, initYawRate:float, v
             latTraction += y
         return np.sqrt(longTraction**2 + latTraction**2)
     
-        #tempTire = tire.Tire(500 , 0.15, 0, self.speed, 80, 40, Parameters, Magic)
+        #tempTire = Tire(500 , 0.15, 0, self.speed, 80, 40, Parameters, Magic)
         #return  ((tempTire.getLongForce()/500 * self.weight * 0.7477)/1.6547084)/(1.0-(0.247718 * tempTire.getLongForce()/500 / 1.6547084))

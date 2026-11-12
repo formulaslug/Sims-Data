@@ -1,6 +1,8 @@
 # Steering model
 import numpy as np
-from paramLoader import *
+
+from ..paramLoader import *
+
 
 def calcSlipAngle(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     """

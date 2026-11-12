@@ -5,6 +5,8 @@
 # Code imported from F# code
 
 import numpy as np
+
+
 class CellChargeOutOfBounds(Exception):
     pass
 
