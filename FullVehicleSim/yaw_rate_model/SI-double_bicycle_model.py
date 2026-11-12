@@ -20,13 +20,19 @@ CHECK_UNITS = True   # True: values include units and are checked (debugging). F
 def unit(value, units):
     """Attaches units to a value, or returns a plain SI float when CHECK_UNITS is off."""
     quantity = value * u.Unit(units)
-    return quantity if CHECK_UNITS else float(quantity.in_mks().v)
+    if CHECK_UNITS:
+        return quantity
+    si = quantity.in_mks().v
+    return float(si) if np.ndim(si) == 0 else si
 
 RAD = u.rad if CHECK_UNITS else 1.0   # used to add or remove radians in rotational math
 
 # The state array is [v_y, r]. These are the units of each slot
 STATE_UNITS      = [u.Unit("m/s"),    u.Unit("rad/s")]      # [lateral velocity, yaw rate]
 DERIVATIVE_UNITS = [u.Unit("m/s**2"), u.Unit("rad/s**2")]   # [dv_y/dt, dr/dt], what dynamics() returns
+
+# Custom unit handling
+u.define_unit("gee", 9.80665 * u.m / u.s**2)
 
 # attach_units() turns plain numbers into unit values (like get() in the full sim).
 # strip_units() converts each value to its expected unit, then returns plain numbers (like put()).
@@ -42,6 +48,10 @@ else:
 
     def strip_units(values, units):
         return np.array(values)
+
+def with_units(value, units):
+    """For printing/plotting: gives a unit value in either mode (attaches units only if missing)."""
+    return value if isinstance(value, u.unyt_array) else value * u.Unit(units)
 
 
 @dataclass
