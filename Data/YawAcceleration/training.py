@@ -3,22 +3,23 @@ import numpy as np
 from scipy.integrate import cumulative_simpson
 
 from Data.FSLib.AnalysisFunctions import read, simpleTimeCol
+from FullVehicleSim.paramLoader import Magic, Parameters
 
 
 def normalizePressureLong(tirePressure):
     # Only long because lat doesn't use it
-    lambda_pressurescalarlong = 0.501448392868042
+    lambda_pressurescalarlong = Magic["lambda_pressurescalarlong"]
 
     return (tirePressure - lambda_pressurescalarlong * tirePressure) / (lambda_pressurescalarlong * tirePressure)
 
 def normalizeLoadLong(normalForce):
-    lambda_loadscalarlong = 1.1716148853302002
+    lambda_loadscalarlong = Magic["lambda_loadscalarlong"]
 
     return (normalForce - lambda_loadscalarlong * normalForce) / (lambda_loadscalarlong * normalForce)
 
 def calculateLongCompositeLongFrictionScalingFactor(velocityX):
-    unloaded_radius = 1.7333 # was unloaded-radius
-    friction_coeff_long = 1.7333 # was friction-coeff-long
+    unloaded_radius = Parameters["unloaded-radius"]
+    friction_coeff_long = Parameters["friction-coeff-long"]
 
     sqrt_term = np.sqrt(9.81 * unloaded_radius)
     velocity_ratio = abs(velocityX) / sqrt_term
@@ -28,11 +29,11 @@ def calculateLongCompositeLongFrictionScalingFactor(velocityX):
     return friction_coeff_long / (denominator + eps)
 
 def getLongFrictionCoefficient(normalForce, velocityX, tirePressure):
-    p_dx1 = 0.642947793006897
-    p_dx2 = 0.9363532066345215
-    p_dx3 = 0
-    p_px3 = -0.9542407989501953
-    p_px4 = -0.9245550036430359
+    p_dx1 = Magic["p_dx1"]
+    p_dx2 = Magic["p_dx2"]
+    p_dx3 = Magic["p_dx3"]
+    p_px3 = Magic["p_px3"]
+    p_px4 = Magic["p_px4"]
     camber = 0
 
     term1 = (p_dx1 + p_dx2 * normalizeLoadLong(normalForce))
@@ -44,17 +45,17 @@ def getLongFrictionCoefficient(normalForce, velocityX, tirePressure):
     return term1 * term2 * term3
 
 def getMaxLongFriction(normalForce, velocityX, tirePressure):
-    zeta_1 = 0.6045444011688232
+    zeta_1 = Magic["zeta_1"]
 
     return getLongFrictionCoefficient(normalForce, velocityX, tirePressure) * normalForce * zeta_1
 
 def getStiffnessFactorLong(normalForce, velocityX, tirePressure):
-    p_px1 = 0.013196180574595928
-    p_px2 = 0.8705743551254272
-    p_kx1 = 21.55539894104004
-    p_kx2 = 13.510042190551758
-    p_kx3 = -0.5750095248222351
-    shape_factor = 0.696268618106842 # var is "shape-factor"
+    p_px1 = Magic["p_px1"]
+    p_px2 = Magic["p_px2"]
+    p_kx1 = Magic["p_kx1"]
+    p_kx2 = Magic["p_kx2"]
+    p_kx3 = Magic["p_kx3"]
+    shape_factor = Magic["shape-factor"]
     
     Cx = shape_factor
     Dx = getMaxLongFriction(normalForce, velocityX, tirePressure)    
@@ -70,22 +71,35 @@ def getStiffnessFactorLong(normalForce, velocityX, tirePressure):
     eps = 1e-8
     return Kx / (denominator + eps)
 
-def calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, tireNormalForces = np.array([100, 100, 100, 100]), tirePressures = np.array([12, 12, 12, 12])):
-    # tire forces defined as FL, FR, BL, BR
-    velocityX = np.cos(bodySlip) * speed
-    frontCorneringStiffness = getStiffnessFactorLong(np.sum(tireNormalForces[:2], axis=0), velocityX, np.sum(tirePressures[:2], axis=0))
-    rearCorneringStiffness = getStiffnessFactorLong(np.sum(tireNormalForces[2:], axis=0), velocityX, np.sum(tirePressures[2:], axis=0))
-    wheelBase = 1.65471
-    frontAxleDistanceToCOM = 0.853506
-    rearAxleDistanceToCOM = wheelBase - frontAxleDistanceToCOM
-    MOI = 658.088580080000
+def calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX, tireNormalForces = None, tirePressures = None):
+    tireNormalForces = np.array([55*9.81] * 4) if tireNormalForces == None else tireNormalForces 
+    tirePressures = np.array([12] * 4) if tirePressures == None else tirePressures 
+    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2]), velocityX, np.mean(tirePressures[:2]))
+    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:]), velocityX, np.mean(tirePressures[2:]))
+    frontAxleDistanceToCOM = Parameters["a"]
+    rearAxleDistanceToCOM = Parameters["wheelBase"] - Parameters["a"]
+    MOI = Parameters["polarMoment"]
 
     component1 = (frontCorneringStiffness * frontAxleDistanceToCOM - rearCorneringStiffness * rearAxleDistanceToCOM) * bodySlip
     component2 = yawRate / speed * (frontCorneringStiffness * frontAxleDistanceToCOM**2 + rearCorneringStiffness * rearAxleDistanceToCOM**2)
     component3 = -frontCorneringStiffness * frontAxleDistanceToCOM * steeringAngle
     return (component1 + component2 + component3) / MOI
 
-def calcBodySlipAcceleration()
+def calcBodySlipAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX, tireNormalForces = None, tirePressures = None):
+    tireNormalForces = np.array([55*9.81] * 4) if tireNormalForces == None else tireNormalForces 
+    tirePressures = np.array([12] * 4) if tirePressures == None else tirePressures 
+    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2]), velocityX, np.mean(tirePressures[:2]))
+    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:]), velocityX, np.mean(tirePressures[2:]))
+    frontAxleDistanceToCOM = Parameters["a"]
+    rearAxleDistanceToCOM = Parameters["wheelBase"] - Parameters["a"]
+    mass = Parameters["Mass"]
+
+    component1 = (frontCorneringStiffness + rearCorneringStiffness) * bodySlip
+    component2 = yawRate / speed * frontCorneringStiffness * frontAxleDistanceToCOM - rearCorneringStiffness * rearAxleDistanceToCOM
+    component3 = -frontCorneringStiffness * steeringAngle
+    component4 = mass * speed
+    bodySlipAcceleration = ((component1 + component2 + component3) / component4) - yawRate
+    return bodySlipAcceleration
 
 df = read("FS-3/08172025/08172025_20_Endurance1P1.parquet", fs2or3=True)
 df = df.insert_column(0, simpleTimeCol(df))
@@ -128,3 +142,6 @@ ax.set_xlabel("Speed")
 ax.set_ylabel("Steering Angle")
 ax.set_zlabel("Yaw acceleration")
 fig.show()
+
+
+df = read("FS-3/08172025/08172025_20_Endurance1P1.parquet")
