@@ -1,3 +1,0 @@
-# IMU Calibration Docs
-
-## TODO

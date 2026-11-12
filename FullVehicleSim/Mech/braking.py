@@ -1,18 +1,11 @@
 import numpy as np
-import polars as pl
-from Mech import brakepadFrictionModel
-from paramLoader import *
+
+from ..paramLoader import *
+from .brakepadFrictionModel import calcFrictionCoeff
 
 # Docs:
 # https://docs.google.com/document/d/1oGsGDnY0DEKWpE3S6481A9yZ0F9qUEwWkSXJwTSz4E4/edit?tab=t.2rmbsj26c7w
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
-
-try:
-    brakeConvectionData = pl.read_csv("Mech/brakeThermalTransfer.csv")
-except Exception as e:
-    print("Error loading brake thermal transfer data from Mech/brakeThermalTransfer.csv:", e)
-    raise
-brakeAirSpeedData, brakeCoeffData = brakeConvectionData["airSpeed"].to_numpy(), brakeConvectionData["coeff"].to_numpy()
 
 def brakeTransferCoeff(speed:float) -> float:
     # Interpolate the heat transfer coefficient based on air speed
@@ -38,8 +31,8 @@ def calcBrakeForce(worldArray:np.ndarray, step:int) -> tuple[float,float]:
 
     # Calculate Brake Force
     # Factor of 2 for 2 brakes on front and 2 on rear
-    frontBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varFrontBrakeTemperature]) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
-    rearBrakeForce:float = brakepadFrictionModel.calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
+    frontBrakeForce:float = calcFrictionCoeff(worldArray[step-1, varFrontBrakeTemperature]) * frontBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
+    rearBrakeForce:float = calcFrictionCoeff(worldArray[step-1, varRearBrakeTemperature]) * rearBrakeForce * 2 * Parameters["brakeDiscRadius"] / Parameters["wheelRadius"]
     return frontBrakeForce, rearBrakeForce
 
 def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:

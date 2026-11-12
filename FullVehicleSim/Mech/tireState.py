@@ -2,7 +2,7 @@
 # copy pasted from dumping in July 21
 import math
 
-from paramLoader import Magic, Parameters
+from ..paramLoader import Magic, Parameters
 
 
 class Tire:

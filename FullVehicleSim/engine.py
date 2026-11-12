@@ -1,5 +1,6 @@
 import numpy as np
-from Electrical.powertrain import (
+
+from .Electrical.powertrain import (
     calcCurrent,
     calcMaxMotorTorque,
     calcMaxPower,
@@ -7,12 +8,11 @@ from Electrical.powertrain import (
     calcMotorForce,
     calcVoltage,
 )
-from Mech.aero import calcDownForce, calcDrag
-from Mech.braking import calcBrakeCooling, calcBrakeForce, calcBrakeHeating
-from Mech.general import calcResistiveForces
-from Mech.steering import calcSlipAngle
-from paramLoader import *
-from scipy.integrate import RK45
+from .Mech.aero import calcDownForce, calcDrag
+from .Mech.braking import calcBrakeCooling, calcBrakeForce, calcBrakeHeating
+from .Mech.general import calcResistiveForces
+from .Mech.steering import calcSlipAngle
+from .paramLoader import *
 
 
 # Vibe coded but it looks about right so idk.

@@ -1,2 +1,23 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "SD"
+version = "0.1.0"
+dependencies = [
+  "matplotlib",
+  "polars",
+  "numpy",
+  "scipy",
+  "json5",
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+[tool.setuptools.packages.find]
+include = ["FullVehicleSim*", "Data.FSLib*"]
+
+[tool.setuptools.package-data]
+"FullVehicleSim" = ["params.json5"]
+"FullVehicleSim.Electrical" = ["HisteresisCellModel/trained_voltage_kernel.csv"]
+"FullVehicleSim.Mech" = ["brakeThermalTransfer.csv"]

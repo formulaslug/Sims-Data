@@ -1,10 +1,11 @@
 import numpy as np
-from Mech.aero import calcDrag
-from Mech.braking import calcBrakeForce
-from Mech.steering import calcSlipAngle, calcYawRate
-from Mech.tireLoad import calcLoadTransfer
-from Mech.traction import calcCorneringStiffness
-from paramLoader import *
+
+from ..paramLoader import *
+from .aero import calcDrag
+from .braking import calcBrakeForce
+from .steering import calcSlipAngle, calcYawRate
+from .tireLoad import calcLoadTransfer
+from .traction import calcCorneringStiffness
 
 
 def calcResistiveForces(worldArray:np.ndarray, step:int):

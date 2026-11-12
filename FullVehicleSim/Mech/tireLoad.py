@@ -1,4 +1,4 @@
-from paramLoader import *  # noqa: N999
+from ..paramLoader import *  # noqa: N999
 
 
 def calcLoadTransfer(accelerationX, accelerationY, yawVelocity:float) -> tuple[float, float, float, float]:

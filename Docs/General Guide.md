@@ -28,7 +28,6 @@ plt.show()
 
 plt.scatter(dfFiltered[lat], dfFiltered[long]) # Scatter plot to see how big the gaps between measurements are and where points off the track may be located.
 plt.show()
-
 ```
 
 <h2 id ="filetypes"> File Types </h2>
@@ -48,12 +47,9 @@ plt.show()
 
 <h2 id ="folders"> Folders </h2>
 
-1. ```FS-2/``` and ```FS-3/``` contain data from these two cars. They have subfolders with more specific bits of data.
-1. ```DataDecoding&CorrectionScipts/``` contains
-1. AEMData Templates contains stuff to flash the dash with the latest program (Nathaniel: "I think" Date: 2025-01-20 )
-1. Nathaniel_IMU_Data is from Nathaniel's personal IMU to log data that can be used to learn how to characterize and model the error in IMUs.
-1. Parquet. This folder is for the Daq files after being converted into CSVs and then Parquets. CSVs are too large to store on their own so we store them as Parquets which are compressed but still accessible by pandas and polars.
-1. Temp: Folder for temporarily holding CSVs before making them into parquets
-1. Tire Data: Data bought from the TTC (Tire Testing Consortiom) in fall of 2024 for fs-2's tires. Missing lots of data and not as useful as we hoped.
-1. TireDataCSV is the tire data but in CSVs 
-1. Remaining files are all python or readme etc. for different data analysis purposes.
+1. ```FS-2/```, ```FS-3/```, and ```FS-4/``` contain data from these two cars. They have subfolders with more specific bits of data.
+1. ```DataDecoding&CorrectionScipts/``` contains now obsolete data processing tools for getting data off of ```FS-3```
+1. ```FSLib``` contains various library files roughly formatted into a module that can be imported and used for speeding up data parsing.
+1. ```Suspension``` contains dedicated suspension parsing data including shock data for the shocks on ```FS-3``` and ```FS-4```, downforce validation data, and related graphs.
+1. ```SensorFrequencyAnalysis``` contains information on quantifying ```FS-3s``` sensor frequencies based on data and frequency analysis using ffts.
+1.

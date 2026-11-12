@@ -1,23 +1,41 @@
-import json5  # noqa: N999
+from pathlib import Path  # noqa: N999
+
+import json5
 import numpy as np
 import polars as pl
 
+HERE = Path(__file__).parent
+
 Magic: dict
 Parameters: dict
-with open('params.json5', 'r') as file:
+with open(HERE / 'params.json5', 'r') as file:
     params = json5.load(file)
-    Magic = params["Magic"] #type: ignore
-    Parameters = params["Parameters"] #type: ignore
+    Magic = params["Magic"]
+    Parameters = params["Parameters"]
     del params
 
-savedHisteresisKernel = pl.read_csv("Electrical/HisteresisCellModel/trained_voltage_kernel.csv").to_numpy()
+
+try:
+    savedHysteresisKernel = pl.read_csv(HERE / "Electrical/HisteresisCellModel/trained_voltage_kernel.csv")
+except Exception as e:
+    print("Error loading battery hysteresis kernel data from Electrical/HisteresisCellModel/trained_voltage_kernel.csv:", e)
+    raise
+savedHysteresisKernel = savedHysteresisKernel.to_numpy()
 kernelStepSize = Magic["cellModel_KernelStepSize"]
-newKernelLen = int(savedHisteresisKernel.shape[0] * Parameters["stepsPerSecond"] * kernelStepSize)
-histeresisKernel = np.interp(
-    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, newKernelLen, endpoint=False),
-    np.linspace(0, savedHisteresisKernel.shape[0] * kernelStepSize, savedHisteresisKernel.shape[0], endpoint=False),
-    savedHisteresisKernel[:, 1]
+newKernelLen = int(savedHysteresisKernel.shape[0] * Parameters["stepsPerSecond"] * kernelStepSize)
+hysteresisKernel = np.interp(
+    np.linspace(0, savedHysteresisKernel.shape[0] * kernelStepSize, newKernelLen, endpoint=False),
+    np.linspace(0, savedHysteresisKernel.shape[0] * kernelStepSize, savedHysteresisKernel.shape[0], endpoint=False),
+    savedHysteresisKernel[:, 1]
 )
+
+try:
+    brakeConvectionData = pl.read_csv(HERE / "Mech/brakeThermalTransfer.csv")
+except Exception as e:
+    print("Error loading brake thermal transfer data from Mech/brakeThermalTransfer.csv:", e)
+    raise
+brakeAirSpeedData, brakeCoeffData = brakeConvectionData["airSpeed"].to_numpy(), brakeConvectionData["coeff"].to_numpy()
+
  
 ## IMPORTANT: Do not name any other variable that starts with "var" in this file, as it will be included in the variable schema.
 # Variable definitions - maintain original order for compatibility

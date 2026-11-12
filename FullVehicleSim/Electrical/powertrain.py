@@ -1,5 +1,7 @@
 import numpy as np
-from paramLoader import *
+
+from ..paramLoader import *
+
 
 def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, maxPower:float, maxTractionTorqueAtWheel:float):
         '''
@@ -65,7 +67,7 @@ def calcVoltage(worldArray:np.ndarray, step:int) -> float:
         log_term = np.log(numer / denom)
 
         return V0 + (C2 * (R * T_K / F) * log_term)
-    h = np.dot(histeresisKernel, histCurr[::-1])
+    h = np.dot(hysteresisKernel, histCurr[::-1])
     voltage = ocv_from_soc(worldArray[step-1, varCharge]) - R0 * worldArray[step-1, varCurrent] + bias + h  ## TODO: Implement adjusted for battery temperature
     return voltage * Parameters["seriesCells"]
     # return 120.0

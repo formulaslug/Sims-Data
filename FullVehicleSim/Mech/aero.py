@@ -1,5 +1,6 @@
 import numpy as np
-from paramLoader import *
+
+from ..paramLoader import *
 
 
 def calcDrag(worldArray:np.ndarray, step:int) -> float:
