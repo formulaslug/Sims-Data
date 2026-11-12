@@ -2,7 +2,7 @@
 Double Bicycle Yaw Rate Model for Formula Slug
 
 2DOF model (lateral velocity + yaw rate) for basic vehicle dynamics.
-Based on Rajamani's bicycle model.w
+Based on Rajamani's bicycle model.
 """
 
 import numpy as np
@@ -63,7 +63,7 @@ class VehicleParameters:
     Lf: float = field(default_factory=lambda: unit(0.8535, "m"))  # Calculated from 46.32% front weight distribution
     Lr: float = field(default_factory=lambda: unit(0.7365, "m"))  # Calculated from weight distribution
     track_width_front: float = field(default_factory=lambda: unit(1.234008, "m"))  # 1234.008 mm
-    track_width_rear: float = field(default_factory=lambda: unit(1.186, "m"))  # 1186 m
+    track_width_rear: float = field(default_factory=lambda: unit(1.186, "m"))  # 1186 mm
     track_width: float = field(default_factory=lambda: unit(1.234008, "m"))  # Using front track for compatibility
 
     # Mass properties (with driver)
@@ -86,7 +86,7 @@ class VehicleParameters:
     # Natural frequency: Front 3.55 Hz, Rear 3.53 Hz
 
     def __post_init__(self):
-        tolerance = 0.0001
+        tolerance = unit(0.0001, "m")
         wheelbase_check = self.Lf + self.Lr
         assert abs(wheelbase_check - self.wheelbase) < tolerance, \
             f"Wheelbase math is wrong: {self.Lf} + {self.Lr} = {wheelbase_check} != {self.wheelbase}"
@@ -281,7 +281,7 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
     fig, axes = plt.subplots(3, 1, figsize=(12, 9))
     fig.suptitle(title, fontsize=14, fontweight='bold')
 
-    axes[0].plot(time, np.rad2deg(steering), 'b-', linewidth=2)
+    axes[0].plot(time, (np.array(steering) * u.Unit("rad")).to_value("deg"), 'b-', linewidth=2)
     axes[0].set_ylabel('Steering Angle (°)', fontsize=11)
     axes[0].grid(True, alpha=0.3)
     axes[0].set_title('Steering Input')
@@ -292,7 +292,7 @@ def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
     axes[1].legend()
     axes[1].set_title('Lateral Velocity')
 
-    axes[2].plot(time, np.rad2deg(states[:, 1]), 'r-', linewidth=2, label='Yaw Rate')
+    axes[2].plot(time, (states[:, 1] * u.Unit("rad/s")).to_value("deg/s"), 'r-', linewidth=2, label='Yaw Rate')
     axes[2].set_ylabel('Yaw Rate (°/s)', fontsize=11)
     axes[2].set_xlabel('Time (s)', fontsize=11)
     axes[2].grid(True, alpha=0.3)
@@ -389,7 +389,7 @@ if __name__ == "__main__":
     duration = unit(4.0, "s")
     num_steps = int(round(float(duration / dt)))
 
-    freq = 0.5
+    freq = unit(0.5, "Hz")
     amplitude = unit(10.0, "deg")
     t = np.linspace(0 * duration, duration, num_steps)
     steering_dlc = amplitude * np.sin(2 * np.pi * freq * t)
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     max_v_y = with_units(np.max(np.abs(states_sim[:, 0])), "m/s")
     max_r = with_units(np.max(np.abs(states_sim[:, 1])), "rad/s")
     print(f"\nSpeed: {speed:.1f} ({speed.to('km/hr'):.1f})")
-    print(f"Frequency: {with_units(freq, 'Hz'):.1f} (±{with_units(amplitude, 'rad').to("deg"):.0f} amplitude)")
+    print(f"Frequency: {with_units(freq, 'Hz'):.1f} (±{with_units(amplitude, 'rad').to('deg'):.0f} amplitude)")
     print(f"Results:")
     print(f"  Max lateral velocity: {max_v_y:.3f}")
     print(f"  Max yaw rate: {max_r.to('deg/s'):.2f}")
