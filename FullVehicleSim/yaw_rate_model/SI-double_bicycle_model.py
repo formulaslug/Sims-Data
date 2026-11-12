@@ -15,7 +15,7 @@ import unyt as u
 HERE = Path(__file__).parent
 
 # --- Unit checking ---
-CHECK_UNITS = True   # True: values include units and are checked (debugging). False: plain floats (full speed)
+CHECK_UNITS = False   # True: values include units and are checked (debugging). False: plain floats (full speed)
 
 def unit(value, units):
     """Attaches units to a value, or returns a plain SI float when CHECK_UNITS is off."""
@@ -98,7 +98,7 @@ class VehicleParameters:
 @dataclass
 class TireModel:
     stiffness: float
-    max_slip_angle: float = 0.3
+    max_slip_angle: float = field(default_factory=lambda: unit(0.3, "rad"))
     saturation_method: str = "linear"
     friction_coeff: float = 1.733  # Peak friction coefficient
 
@@ -113,7 +113,7 @@ class TireModel:
             F_max = self.friction_coeff * vertical_load
             return F_max * np.tanh(F_linear / F_max)
 
-        return 0.0
+        return unit(0.0, "N")
 
 
 class DoubleBicycleModel:
@@ -216,57 +216,57 @@ class DoubleBicycleModel:
         self.input_history = []
 
 
-def validate_against_telemetry(csv_path: str, model: DoubleBicycleModel,
-                              sample_window: int = 1000) -> dict:
-    """Load telemetry and extract stats for model comparison"""
-    try:
-        import pandas as pd
-    except ImportError:
-        print("Pandas required. Install with: pip install pandas")
-        return {}
+# def validate_against_telemetry(csv_path: str, model: DoubleBicycleModel,
+#                               sample_window: int = 1000) -> dict:
+#     """Load telemetry and extract stats for model comparison"""
+#     try:
+#         import pandas as pd
+#     except ImportError:
+#         print("Pandas required. Install with: pip install pandas")
+#         return {}
 
-    try:
-        df = pd.read_csv(csv_path, low_memory=False)
-    except Exception as e:
-        print(f"Failed to load {csv_path}: {e}")
-        return {}
+#     try:
+#         df = pd.read_csv(csv_path, low_memory=False)
+#     except Exception as e:
+#         print(f"Failed to load {csv_path}: {e}")
+#         return {}
 
-    results = {
-        'samples_loaded': len(df),
-        'columns_found': [],
-        'validation_data': {}
-    }
+#     results = {
+#         'samples_loaded': len(df),
+#         'columns_found': [],
+#         'validation_data': {}
+#     }
 
-    if 'VDM_Z_AXIS_YAW_RATE' in df.columns:
-        results['columns_found'].append('yaw_rate')
-        yaw_telem = df['VDM_Z_AXIS_YAW_RATE'].dropna()
+#     if 'VDM_Z_AXIS_YAW_RATE' in df.columns:
+#         results['columns_found'].append('yaw_rate')
+#         yaw_telem = df['VDM_Z_AXIS_YAW_RATE'].dropna()
 
-        if len(yaw_telem) > 0:
-            results['validation_data']['yaw_rate_min'] = yaw_telem.min()
-            results['validation_data']['yaw_rate_max'] = yaw_telem.max()
-            results['validation_data']['yaw_rate_mean'] = yaw_telem.mean()
-            results['validation_data']['yaw_rate_std'] = yaw_telem.std()
+#         if len(yaw_telem) > 0:
+#             results['validation_data']['yaw_rate_min'] = yaw_telem.min()
+#             results['validation_data']['yaw_rate_max'] = yaw_telem.max()
+#             results['validation_data']['yaw_rate_mean'] = yaw_telem.mean()
+#             results['validation_data']['yaw_rate_std'] = yaw_telem.std()
 
-    if 'VDM_Y_AXIS_ACCELERATION' in df.columns:
-        results['columns_found'].append('lateral_accel')
-        lat_accel = df['VDM_Y_AXIS_ACCELERATION'].dropna()
+#     if 'VDM_Y_AXIS_ACCELERATION' in df.columns:
+#         results['columns_found'].append('lateral_accel')
+#         lat_accel = df['VDM_Y_AXIS_ACCELERATION'].dropna()
 
-        if len(lat_accel) > 0:
-            results['validation_data']['lat_accel_min'] = lat_accel.min()
-            results['validation_data']['lat_accel_max'] = lat_accel.max()
-            results['validation_data']['lat_accel_mean'] = lat_accel.mean()
-            results['validation_data']['lat_accel_max_g'] = lat_accel.max() / 9.81
+#         if len(lat_accel) > 0:
+#             results['validation_data']['lat_accel_min'] = lat_accel.min()
+#             results['validation_data']['lat_accel_max'] = lat_accel.max()
+#             results['validation_data']['lat_accel_mean'] = lat_accel.mean()
+#             results['validation_data']['lat_accel_max_g'] = lat_accel.max() / 9.81
 
-    if 'SME_TRQSPD_Speed' in df.columns:
-        results['columns_found'].append('speed')
-        speed = df['SME_TRQSPD_Speed'].dropna()
+#     if 'SME_TRQSPD_Speed' in df.columns:
+#         results['columns_found'].append('speed')
+#         speed = df['SME_TRQSPD_Speed'].dropna()
 
-        if len(speed) > 0:
-            results['validation_data']['speed_min'] = speed.min()
-            results['validation_data']['speed_max'] = speed.max()
-            results['validation_data']['speed_mean'] = speed.mean()
+#         if len(speed) > 0:
+#             results['validation_data']['speed_min'] = speed.min()
+#             results['validation_data']['speed_max'] = speed.max()
+#             results['validation_data']['speed_mean'] = speed.mean()
 
-    return results
+#     return results
 
 
 def plot_response(model: DoubleBicycleModel, title: str = "Model Response"):
@@ -308,35 +308,40 @@ if __name__ == "__main__":
 
     params = VehicleParameters()
     print("Vehicle Parameters:")
-    print(f"  Wheelbase: {params.wheelbase:.3f} m (Lf={params.Lf:.3f}, Lr={params.Lr:.3f})")
-    print(f"  Track width: {params.track_width:.3f} m")
-    print(f"  Mass: {params.mass:.1f} kg")
-    print(f"  Yaw inertia: {params.yaw_inertia:.1f} kg·m²")
-    print(f"  Tire stiffness: {params.C_alpha:.0f} N/rad")
+    print(f"  Wheelbase: {with_units(params.wheelbase, 'm'):.3f} "
+          f"(Lf={with_units(params.Lf, 'm'):.3f}, Lr={with_units(params.Lr, 'm'):.3f})")
+    print(f"  Track width: {with_units(params.track_width, 'm'):.3f}")
+    print(f"  Mass: {with_units(params.mass, 'kg'):.1f}")
+    print(f"  Yaw inertia: {with_units(params.yaw_inertia, 'kg*m**2'):.1f}")
+    print(f"  Tire stiffness: {with_units(params.C_alpha, 'N/rad'):.0f}")
 
     model = DoubleBicycleModel(params, tire_model="linear")
 
     # Test 1: Step steer
     print("\nTEST 1: Step Steer")
-    v_x = 10.0
-    duration = 3.0
-    dt = 0.01
-    num_steps = int(duration / dt)
+    v_x = unit(10.0, "m/s")
+    duration = unit(3.0, "s")
+    dt = unit(0.01, "s")
+    num_steps = int(round(float(duration / dt)))
+    n_delay = int(round(float(unit(0.2, "s") / dt)))
 
     steering_step = np.concatenate([
-        np.zeros(int(0.2 / dt)),
-        np.full(num_steps - int(0.2 / dt), np.deg2rad(5.7))
+        np.zeros(n_delay),
+        np.full(num_steps - n_delay, 5.7)
     ])
-    steering_step = steering_step[:num_steps]
+    steering_step = unit(steering_step[:num_steps], "deg")
 
     time_sim, states_sim = model.simulate(v_x, steering_step, dt=dt, method="rk4")
 
-    print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
-    print(f"Duration: {duration:.2f} s")
+    speed = with_units(v_x, "m/s")
+    v_y_end = with_units(states_sim[-1, 0], "m/s")
+    r_end = with_units(states_sim[-1, 1], "rad/s")
+    print(f"\nSpeed: {speed:.1f} ({speed.to('km/hr'):.1f})")
+    print(f"Duration: {with_units(duration, 's'):.2f}")
     print(f"Results at end:")
-    print(f"  Lateral velocity: {states_sim[-1, 0]:.3f} m/s")
-    print(f"  Yaw rate: {np.rad2deg(states_sim[-1, 1]):.2f} °/s")
-    print(f"  G-force: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
+    print(f"  Lateral velocity: {v_y_end:.3f}")
+    print(f"  Yaw rate: {r_end.to('deg/s'):.2f}")
+    print(f"  G-force: {(speed * r_end / u.rad).to('gee'):.3f}")
 
     fig1 = plot_response(model, "Test 1: Step Steering")
     fig1.savefig(HERE / "test1_step_steer.png", dpi=150)
@@ -345,24 +350,33 @@ if __name__ == "__main__":
     # Test 2: Ramp steer
     print("\nTEST 2: Ramp Steer")
     model.reset()
-    v_x = 8.0
-    duration = 5.0
-    num_steps = int(duration / dt)
+    v_x = unit(8.0, "m/s")
+    duration = unit(5.0, "s")
+    num_steps = int(round(float(duration / dt)))
+    ramp_time = unit(1.0, "s")
+    max_steer = unit(10.0, "deg")
+    max_steer_deg = with_units(max_steer, "rad").to_value("deg")
+    n_ramp = int(round(float(ramp_time / dt)))
 
     steering_ramp = np.concatenate([
-        np.linspace(0, np.deg2rad(10), int(1.0 / dt)),
-        np.full(num_steps - int(1.0 / dt), np.deg2rad(10))
+        np.linspace(0, max_steer_deg, n_ramp),
+        np.full(num_steps - n_ramp, max_steer_deg)
     ])
-    steering_ramp = steering_ramp[:num_steps]
+    steering_ramp = unit(steering_ramp[:num_steps], "deg")
 
     time_sim, states_sim = model.simulate(v_x, steering_ramp, dt=dt, method="rk4")
 
-    print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
-    print(f"Ramp rate: {np.rad2deg(10):.1f}°/s")
+    
+    speed = with_units(v_x, "m/s")
+    ramp_rate = with_units(max_steer, "rad") / with_units(ramp_time, "s")
+    v_y_end = with_units(states_sim[-1, 0], "m/s")
+    r_end = with_units(states_sim[-1, 1], "rad/s")
+    print(f"\nSpeed: {speed:.1f} ({speed.to('km/hr'):.1f})")
+    print(f"Ramp rate: {ramp_rate.to('deg/s'):.1f}")
     print(f"Results at end:")
-    print(f"  Lateral velocity: {states_sim[-1, 0]:.3f} m/s")
-    print(f"  Yaw rate: {np.rad2deg(states_sim[-1, 1]):.2f} °/s")
-    print(f"  Steady-state G: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
+    print(f"  Lateral velocity: {v_y_end:.3f}")
+    print(f"  Yaw rate: {r_end.to('deg/s'):.2f}")
+    print(f"  Steady-state G: {(speed * r_end / u.rad).to('gee'):.3f}")
 
     fig2 = plot_response(model, "Test 2: Ramp Steering")
     fig2.savefig(HERE / "test2_ramp_steer.png", dpi=150)
@@ -371,21 +385,26 @@ if __name__ == "__main__":
     # Test 3: Lane change
     print("\nTEST 3: Double Lane Change")
     model.reset()
-    v_x = 10.0
-    duration = 4.0
-    num_steps = int(duration / dt)
+    v_x = unit(10.0, "m/s")
+    duration = unit(4.0, "s")
+    num_steps = int(round(float(duration / dt)))
 
     freq = 0.5
-    steering_dlc = np.deg2rad(10) * np.sin(2 * np.pi * freq * np.linspace(0, duration, num_steps))
+    amplitude = unit(10.0, "deg")
+    t = np.linspace(0 * duration, duration, num_steps)
+    steering_dlc = amplitude * np.sin(2 * np.pi * freq * t)
 
     time_sim, states_sim = model.simulate(v_x, steering_dlc, dt=dt, method="rk4")
 
-    print(f"\nSpeed: {v_x:.1f} m/s ({v_x*3.6:.1f} km/h)")
-    print(f"Frequency: {freq:.1f} Hz (±10° amplitude)")
+    speed = with_units(v_x, "m/s")
+    max_v_y = with_units(np.max(np.abs(states_sim[:, 0])), "m/s")
+    max_r = with_units(np.max(np.abs(states_sim[:, 1])), "rad/s")
+    print(f"\nSpeed: {speed:.1f} ({speed.to('km/hr'):.1f})")
+    print(f"Frequency: {with_units(freq, 'Hz'):.1f} (±{with_units(amplitude, 'rad').to("deg"):.0f} amplitude)")
     print(f"Results:")
-    print(f"  Max lateral velocity: {np.max(np.abs(states_sim[:, 0])):.3f} m/s")
-    print(f"  Max yaw rate: {np.rad2deg(np.max(np.abs(states_sim[:, 1]))):.2f} °/s")
-    print(f"  Max G-force: {v_x * np.max(np.abs(states_sim[:, 1])) / 9.81:.3f}g")
+    print(f"  Max lateral velocity: {max_v_y:.3f}")
+    print(f"  Max yaw rate: {max_r.to('deg/s'):.2f}")
+    print(f"  Max G-force: {(speed * max_r / u.rad).to('gee'):.3f}")
 
     fig3 = plot_response(model, "Test 3: Double Lane Change")
     fig3.savefig(HERE / "test3_double_lanechange.png", dpi=150)
