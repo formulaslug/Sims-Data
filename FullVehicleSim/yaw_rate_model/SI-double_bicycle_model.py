@@ -15,7 +15,7 @@ import unyt as u
 HERE = Path(__file__).parent
 
 # --- Unit checking ---
-CHECK_UNITS = False   # True: values include units and are checked (debugging). False: plain floats (full speed)
+CHECK_UNITS = True   # True: values include units and are checked (debugging). False: plain floats (full speed)
 
 def unit(value, units):
     """Attaches units to a value, or returns a plain SI float when CHECK_UNITS is off."""
@@ -124,19 +124,19 @@ class DoubleBicycleModel:
         self.tire_front = TireModel(params.C_alpha_front, saturation_method=tire_model, friction_coeff=params.mu)
         self.tire_rear = TireModel(params.C_alpha_rear, saturation_method=tire_model, friction_coeff=params.mu)
 
-        self.state = np.array([0.0 * u.m/u.s, 0.0 * u.rad/u.s])
-        self.time_history = [0.0 * u.s]
-        self.state_history = [self.state.copy()]
+        self.state = np.array([0.0, 0.0])
+        self.time_history = []
+        self.state_history = []
         self.input_history = []
     
-    def get_slip_angles(self, v_y: float, r: float, v_x: float, delta: float) \
-            -> Tuple[float, float]:
+    def get_slip_angles(self, v_y: u.unyt_quantity, r: u.unyt_quantity, v_x: u.unyt_quantity, delta: u.unyt_quantity) \
+            -> Tuple[u.unyt_quantity, u.unyt_quantity]:
         """Calculate front and rear slip angles"""
-        if abs(v_x) < 0.1:
-            return delta, 0.0
+        if abs(v_x) < unit(0.1, "m/s"):
+            return delta, 0.0 * RAD
 
-        alpha_f = delta - np.arctan2(v_y + self.params.Lf * r, v_x)
-        alpha_r = -np.arctan2(v_y - self.params.Lr * r, v_x)
+        alpha_f = delta - np.arctan2(v_y + self.params.Lf * r / RAD, v_x) * RAD
+        alpha_r = -np.arctan2(v_y - self.params.Lr * r / RAD, v_x) * RAD
 
         return alpha_f, alpha_r
     
@@ -144,9 +144,9 @@ class DoubleBicycleModel:
                  state: u.unyt_quantity, 
                  v_x: u.unyt_quantity,
                  delta: u.unyt_quantity,
-                 ax: u.unyt_quantity = u.unyt_quantity(0.0, "m/s**2")) -> np.ndarray:
+                 ax: u.unyt_quantity = unit(0.0, "m/s**2")) -> np.ndarray:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
-        v_y, r = state
+        v_y, r = attach_units(state, STATE_UNITS)
 
         alpha_f, alpha_r = self.get_slip_angles(v_y, r, v_x, delta)
 
@@ -154,8 +154,9 @@ class DoubleBicycleModel:
         # Front axle load: weight farther back (at distance Lr from front)
         # Rear axle load: weight farther forward (at distance Lf from rear)
 
-        Fz_f = self.params.mass * 9.81 * self.params.Lr / self.params.wheelbase / 2.0
-        Fz_r = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
+        g = unit(9.81, "m/s**2")
+        Fz_f = self.params.mass * g * self.params.Lr / self.params.wheelbase / 2.0
+        Fz_r = self.params.mass * g * self.params.Lf / self.params.wheelbase / 2.0
 
         Fy_f = self.tire_front.lateral_force(alpha_f, Fz_f)
         Fy_r = self.tire_rear.lateral_force(alpha_r, Fz_r)
@@ -165,16 +166,16 @@ class DoubleBicycleModel:
         Fy_r_total = 2.0 * Fy_r
 
         # Lateral and yaw accelerations
-        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / self.params.mass + v_x * r
+        a_y = (Fy_f_total * np.cos(delta) + Fy_r_total) / self.params.mass + v_x * r / RAD
         dv_y = a_y
 
         M_yaw = self.params.Lf * Fy_f_total - self.params.Lr * Fy_r_total
-        dr = M_yaw / self.params.yaw_inertia
+        dr = M_yaw / self.params.yaw_inertia * RAD
 
-        return np.array([dv_y, dr])
+        return strip_units([dv_y, dr], DERIVATIVE_UNITS)
     
     def integrate_step(self, v_x: u.unyt_quantity, delta: u.unyt_quantity, dt: u.unyt_quantity,
-                      ax: u.unyt_quantity = u.unyt_quantity(0.0, "m/s**2"), method: str = "rk4") -> None:
+                      ax: u.unyt_quantity = unit(0.0, "m/s**2"), method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
             k1 = self.dynamics(self.state, v_x, delta, ax)
@@ -196,25 +197,29 @@ class DoubleBicycleModel:
             raise ValueError(f"Unknown integration method: {method}")
     
     def simulate(self, v_x: u.unyt_quantity, steering_inputs: List[u.unyt_quantity],
-                dt: u.unyt_quantity = u.unyt_quantity(0.01, "s"), method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
+                dt: u.unyt_quantity = unit(0.01, "s"), method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
         """Run simulation with given steering input sequence"""
-        self.state = np.array([0.0 * u.m / u.s, 0.0 * u.rad / u.s])
-        self.time_history = [0.0 * u.s]
+
+        dt_s = float(with_units(dt, "s").to_value("s"))
+        v_x_si = float(with_units(v_x, "m/s").to_value("m/s"))
+        
+        self.state = np.array([0.0, 0.0])
+        self.time_history = [0.0]
         self.state_history = [self.state.copy()]
-        self.input_history = [((0.0 * u.rad), v_x)]
+        self.input_history = [(0.0, v_x_si)]
 
         for i, delta in enumerate(steering_inputs):
-            t = (i + 1) * dt
-            self.integrate_step(v_x, delta, dt, ax= 0.0 * u.m / u.s**2, method=method)
+            t = (i + 1) * dt_s
+            self.integrate_step(v_x, delta, dt_s, ax=unit(0.0, "m/s**2"), method=method)
 
             self.time_history.append(t)
             self.state_history.append(self.state.copy())
-            self.input_history.append((delta, v_x))
+            self.input_history.append((float(with_units(delta, "rad").to_value("rad")), v_x_si))
 
         return np.array(self.time_history), np.array(self.state_history)
 
     def reset(self):
-        self.state = np.array([0.0 * u.m / u.s, 0.0 * u.rad / u.s])
+        self.state = np.array([0.0, 0.0])
         self.time_history = []
         self.state_history = []
         self.input_history = []
