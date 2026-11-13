@@ -9,7 +9,9 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Tuple, List
 import matplotlib.pyplot as plt
+from pathlib import Path
 
+HERE = Path(__file__).parent
 
 @dataclass
 class VehicleParameters:
@@ -296,7 +298,7 @@ if __name__ == "__main__":
     print(f"  G-force: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
 
     fig1 = plot_response(model, "Test 1: Step Steering")
-    fig1.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test1_step_steer.png', dpi=150)
+    fig1.savefig(HERE / "test1_step_steer.png", dpi=150)
     print("Saved to test1_step_steer.png")
 
     # Test 2: Ramp steer
@@ -322,7 +324,7 @@ if __name__ == "__main__":
     print(f"  Steady-state G: {v_x * states_sim[-1, 1] / 9.81:.3f}g")
 
     fig2 = plot_response(model, "Test 2: Ramp Steering")
-    fig2.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test2_ramp_steer.png', dpi=150)
+    fig2.savefig(HERE / "test2_ramp_steer.png", dpi=150)
     print("Saved to test2_ramp_steer.png")
 
     # Test 3: Lane change
@@ -345,75 +347,75 @@ if __name__ == "__main__":
     print(f"  Max G-force: {v_x * np.max(np.abs(states_sim[:, 1])) / 9.81:.3f}g")
 
     fig3 = plot_response(model, "Test 3: Double Lane Change")
-    fig3.savefig('/Users/brianlee/vscode_projects/formula_slug/fs_yawratemodel/test3_double_lanechange.png', dpi=150)
+    fig3.savefig(HERE / "test3_double_lanechange.png", dpi=150)
     print("Saved to test3_double_lanechange.png")
 
     print("\n--- Done! ---")
 
-    # Telemetry validation
-    print("\nTELEMETRY VALIDATION")
+    # # Telemetry validation
+    # print("\nTELEMETRY VALIDATION")
 
-    try:
-        import pandas as pd
+    # try:
+    #     import pandas as pd
 
-        print("\nLoading telemetry from 08102025Endurance1_FirstHalf.csv...")
-        telemetry_file = '/Users/brianlee/vscode_projects/formula_slug/workshops/data_for_dwshop/08102025Endurance1_FirstHalf.csv'
+    #     print("\nLoading telemetry from 08102025Endurance1_FirstHalf.csv...")
+    #     telemetry_file = '/Users/brianlee/vscode_projects/formula_slug/workshops/data_for_dwshop/08102025Endurance1_FirstHalf.csv'
     
-        df = pd.read_csv(telemetry_file, low_memory=False)
-        print(f"Loaded {len(df)} samples")
+    #     df = pd.read_csv(telemetry_file, low_memory=False)
+    #     print(f"Loaded {len(df)} samples")
 
-        columns_needed = [
-            'VDM_X_AXIS_ACCELERATION',
-            'VDM_Y_AXIS_ACCELERATION',
-            'VDM_Z_AXIS_YAW_RATE',
-            'SME_TRQSPD_Speed',
-            'TPERIPH_FL_DATA_WHEELSPEED',
-            'TPERIPH_FR_DATA_WHEELSPEED',
-            'TPERIPH_BL_DATA_WHEELSPEED',
-            'TPERIPH_BR_DATA_WHEELSPEED',
-        ]
+    #     columns_needed = [
+    #         'VDM_X_AXIS_ACCELERATION',
+    #         'VDM_Y_AXIS_ACCELERATION',
+    #         'VDM_Z_AXIS_YAW_RATE',
+    #         'SME_TRQSPD_Speed',
+    #         'TPERIPH_FL_DATA_WHEELSPEED',
+    #         'TPERIPH_FR_DATA_WHEELSPEED',
+    #         'TPERIPH_BL_DATA_WHEELSPEED',
+    #         'TPERIPH_BR_DATA_WHEELSPEED',
+    #     ]
 
-        available_cols = [col for col in columns_needed if col in df.columns]
-        print(f"Found {len(available_cols)}/{len(columns_needed)} expected columns")
+    #     available_cols = [col for col in columns_needed if col in df.columns]
+    #     print(f"Found {len(available_cols)}/{len(columns_needed)} expected columns")
 
-        if 'VDM_Z_AXIS_YAW_RATE' not in df.columns:
-            print("  x VDM_Z_AXIS_YAW_RATE not found")
-        else:
-            print("  + VDM_Z_AXIS_YAW_RATE found")
+    #     if 'VDM_Z_AXIS_YAW_RATE' not in df.columns:
+    #         print("  x VDM_Z_AXIS_YAW_RATE not found")
+    #     else:
+    #         print("  + VDM_Z_AXIS_YAW_RATE found")
 
-        if 'VDM_Y_AXIS_ACCELERATION' not in df.columns:
-            print("  x VDM_Y_AXIS_ACCELERATION not found")
-        else:
-            print("  + VDM_Y_AXIS_ACCELERATION found")
+    #     if 'VDM_Y_AXIS_ACCELERATION' not in df.columns:
+    #         print("  x VDM_Y_AXIS_ACCELERATION not found")
+    #     else:
+    #         print("  + VDM_Y_AXIS_ACCELERATION found")
 
-        if 'SME_TRQSPD_Speed' not in df.columns:
-            print("  x SME_TRQSPD_Speed not found")
-        else:
-            print("  + SME_TRQSPD_Speed found")
+    #     if 'SME_TRQSPD_Speed' not in df.columns:
+    #         print("  x SME_TRQSPD_Speed not found")
+    #     else:
+    #         print("  + SME_TRQSPD_Speed found")
 
-        if 'VDM_Z_AXIS_YAW_RATE' in df.columns:
-            valid_yaw = df[df['VDM_Z_AXIS_YAW_RATE'].notna()]['VDM_Z_AXIS_YAW_RATE']
+    #     if 'VDM_Z_AXIS_YAW_RATE' in df.columns:
+    #         valid_yaw = df[df['VDM_Z_AXIS_YAW_RATE'].notna()]['VDM_Z_AXIS_YAW_RATE']
 
-            if len(valid_yaw) > 0:
-                print(f"\nYaw rate statistics from telemetry:")
-                print(f"  Min: {valid_yaw.min():.1f} °/s ({np.deg2rad(valid_yaw.min()):.3f} rad/s)")
-                print(f"  Max: {valid_yaw.max():.1f} °/s ({np.deg2rad(valid_yaw.max()):.3f} rad/s)")
-                print(f"  Mean: {valid_yaw.mean():.1f} °/s ({np.deg2rad(valid_yaw.mean()):.3f} rad/s)")
-                print(f"  Std: {valid_yaw.std():.1f} °/s ({np.deg2rad(valid_yaw.std()):.3f} rad/s)")
+    #         if len(valid_yaw) > 0:
+    #             print(f"\nYaw rate statistics from telemetry:")
+    #             print(f"  Min: {valid_yaw.min():.1f} °/s ({np.deg2rad(valid_yaw.min()):.3f} rad/s)")
+    #             print(f"  Max: {valid_yaw.max():.1f} °/s ({np.deg2rad(valid_yaw.max()):.3f} rad/s)")
+    #             print(f"  Mean: {valid_yaw.mean():.1f} °/s ({np.deg2rad(valid_yaw.mean()):.3f} rad/s)")
+    #             print(f"  Std: {valid_yaw.std():.1f} °/s ({np.deg2rad(valid_yaw.std()):.3f} rad/s)")
 
-                high_yaw_mask = np.abs(valid_yaw) > 10.0  # 10 °/s threshold for turning
-                if high_yaw_mask.any():
-                    high_idx = np.where(high_yaw_mask)[0][0]
-                    print(f"\nFound turning maneuver at sample {high_idx}")
-                    yaw_val = valid_yaw.iloc[high_idx]
-                    print(f"  Yaw rate: {yaw_val:.1f} °/s ({np.deg2rad(yaw_val):.3f} rad/s)")
+    #             high_yaw_mask = np.abs(valid_yaw) > 10.0  # 10 °/s threshold for turning
+    #             if high_yaw_mask.any():
+    #                 high_idx = np.where(high_yaw_mask)[0][0]
+    #                 print(f"\nFound turning maneuver at sample {high_idx}")
+    #                 yaw_val = valid_yaw.iloc[high_idx]
+    #                 print(f"  Yaw rate: {yaw_val:.1f} °/s ({np.deg2rad(yaw_val):.3f} rad/s)")
 
-        print("\nTelemetry validation framework ready")
+    #     print("\nTelemetry validation framework ready")
 
-    except ImportError:
-        print("Pandas not installed - can't load CSV")
-        print("Install with: pip install pandas")
-    except Exception as e:
-        print(f"Error loading telemetry: {e}")
+    # except ImportError:
+    #     print("Pandas not installed - can't load CSV")
+    #     print("Install with: pip install pandas")
+    # except Exception as e:
+    #     print(f"Error loading telemetry: {e}")
 
     plt.show()
