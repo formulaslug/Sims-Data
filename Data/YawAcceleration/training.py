@@ -72,10 +72,10 @@ def getStiffnessFactorLong(normalForce, velocityX, tirePressure):
     return Kx / (denominator + eps)
 
 def calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX, tireNormalForces = None, tirePressures = None):
-    tireNormalForces = np.array([55*9.81] * 4) if tireNormalForces == None else tireNormalForces 
-    tirePressures = np.array([12] * 4) if tirePressures == None else tirePressures 
-    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2]), velocityX, np.mean(tirePressures[:2]))
-    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:]), velocityX, np.mean(tirePressures[2:]))
+    tireNormalForces = np.array([55*9.81] * 4) if type(tireNormalForces) is None else tireNormalForces 
+    tirePressures = np.array([12] * 4) if type(tirePressures) is None else tirePressures 
+    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2], axis=0), velocityX, np.mean(tirePressures[:2], axis=0))
+    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:], axis=0), velocityX, np.mean(tirePressures[2:], axis=0))
     frontAxleDistanceToCOM = Parameters["a"]
     rearAxleDistanceToCOM = Parameters["wheelBase"] - Parameters["a"]
     MOI = Parameters["polarMoment"]
@@ -85,11 +85,11 @@ def calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX, tire
     component3 = -frontCorneringStiffness * frontAxleDistanceToCOM * steeringAngle
     return (component1 + component2 + component3) / MOI
 
-def calcBodySlipAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX, tireNormalForces = None, tirePressures = None):
-    tireNormalForces = np.array([55*9.81] * 4) if tireNormalForces == None else tireNormalForces 
-    tirePressures = np.array([12] * 4) if tirePressures == None else tirePressures 
-    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2]), velocityX, np.mean(tirePressures[:2]))
-    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:]), velocityX, np.mean(tirePressures[2:]))
+def calcBodySlipVelocity(yawRate, bodySlip, speed, steeringAngle, velocityX, tireNormalForces = None, tirePressures = None):
+    tireNormalForces = np.array([55*9.81] * 4) if type(tireNormalForces) is None else tireNormalForces 
+    tirePressures = np.array([12] * 4) if type(tirePressures) is None else tirePressures 
+    frontCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[:2], axis=0), velocityX, np.mean(tirePressures[:2], axis=0))
+    rearCorneringStiffness = getStiffnessFactorLong(np.mean(tireNormalForces[2:], axis=0), velocityX, np.mean(tirePressures[2:], axis=0))
     frontAxleDistanceToCOM = Parameters["a"]
     rearAxleDistanceToCOM = Parameters["wheelBase"] - Parameters["a"]
     mass = Parameters["Mass"]
@@ -98,50 +98,60 @@ def calcBodySlipAcceleration(yawRate, bodySlip, speed, steeringAngle, velocityX,
     component2 = yawRate / speed * frontCorneringStiffness * frontAxleDistanceToCOM - rearCorneringStiffness * rearAxleDistanceToCOM
     component3 = -frontCorneringStiffness * steeringAngle
     component4 = mass * speed
-    bodySlipAcceleration = ((component1 + component2 + component3) / component4) - yawRate
-    return bodySlipAcceleration
+    bodySlipVelocity = ((component1 + component2 + component3) / component4) - yawRate
+    return bodySlipVelocity
 
 df = read("FS-3/08172025/08172025_20_Endurance1P1.parquet", fs2or3=True)
 df = df.insert_column(0, simpleTimeCol(df))
 t = df["Time"]
 
-[x for x in df.columns if "STEER" in x]
+[x for x in df.columns if "VDM" in x]
 
 yawRate = (df["VDM_Z_AXIS_YAW_RATE"] - 2.3) / 360 * 2 * np.pi
 speed = df["VDM_GPS_SPEED"]
-
-
-yaw_integrated = cumulative_simpson((df['VDM_Z_AXIS_YAW_RATE'] - 2.87), t)
-plt.plot(t, df["VDM_GPS_TRUE_COURSE"])
-plt.plot(t[:-1], (yaw_integrated + 110)%360)
-plt.show()
-
-plt.plot(t, df["VDM_Z_AXIS_YAW_RATE"])
-plt.show()
+yaw_integrated = cumulative_simpson((df['VDM_Z_AXIS_YAW_RATE'] - 2.87), x=t)
 
 a = 50
 n = a**2
 
-yawRate = np.ones(n) * 5/360*2*np.pi
 bodySlip = np.ones(n) * 5/360*2*np.pi
-speedA = np.linspace(0, 30, a)
+speed = np.ones(n) * 1
+yawRateA = np.linspace(-60/360*2*np.pi, 60/360*2*np.pi, a) 
 steeringAngleB = np.linspace(-40/360*2*np.pi, 40/360*2*np.pi, a)
 tireNormalForces = np.ones((4, n)) * 280 * 9.81 / 4
 tirePressures = np.ones((4, n)) * 12
 
-speed, steeringAngle = np.meshgrid(speedA, steeringAngleB)
-speed = speed.reshape(n)
+yawRate, steeringAngle = np.meshgrid(yawRateA, steeringAngleB)
+yawRate = yawRate.reshape(n)
 steeringAngle = steeringAngle.reshape(n)
 
-yaw_acceleration = calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, tireNormalForces, tirePressures)
+yaw_acceleration = calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, speed, tireNormalForces, tirePressures)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection="3d")
-ax.scatter(speed, steeringAngle, yaw_acceleration, s=0.2)
-ax.set_xlabel("Speed")
+ax.scatter(yawRate, steeringAngle, yaw_acceleration, s=0.2)
+ax.set_xlabel("yawRate")
 ax.set_ylabel("Steering Angle")
 ax.set_zlabel("Yaw acceleration")
 fig.show()
 
+bodySlip = np.ones(n) * 5/360*2*np.pi
+steeringAngle = np.zeros(n)
+yawRateA = np.linspace(-60/360*2*np.pi, 60/360*2*np.pi, a) 
+speedA = np.linspace(-15, 15, a)
+tireNormalForces = np.ones((4, n)) * 280 * 9.81 / 4
+tirePressures = np.ones((4, n)) * 12
 
-df = read("FS-3/08172025/08172025_20_Endurance1P1.parquet")
+yawRate, speed = np.meshgrid(yawRateA, speedA)
+yawRate = yawRate.reshape(n)
+speed = speed.reshape(n)
+
+yaw_acceleration = calcYawAcceleration(yawRate, bodySlip, speed, steeringAngle, speed, tireNormalForces, tirePressures)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection="3d")
+ax.scatter(yawRate, speed, yaw_acceleration, s=0.2)
+ax.set_xlabel("yawRate")
+ax.set_ylabel("Speed")
+ax.set_zlabel("Yaw acceleration")
+fig.show()

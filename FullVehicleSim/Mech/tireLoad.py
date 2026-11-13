@@ -1,15 +1,22 @@
 from ..paramLoader import *  # noqa: N999
 
 
-def calcLoadTransfer(accelerationX, accelerationY, yawVelocity:float) -> tuple[float, float, float, float]:
+def calcLoadTransfer(accelerationX:float, accelerationY:float, yawVelocity:float) -> tuple[float, float, float, float]:
     # TODO: add weight transfer for torsional compliancy
-    #frontAxleLoad = params["Mass"] * 9.81 * (params["wheelBase"] - params["frontWeightDist"])/params["wheelBase"] - params["CoG-height"]/params["wheelBase"] * params["Mass"] * accelerationX
-    #rearAxleLoad = params["Mass"] * 9.81 * (params["wheelBase"] - params["frontWeightDist"])/params["wheelBase"] - params["CoG-height"]/params["wheelBase"] * params["Mass"] * accelerationX
     #res = [params["Mass"]*9.8/4, params["Mass"]*9.8/4,params["Mass"]*9.8/4,params["Mass"]*9.8/4] # FL, FR, BL, BR
-    frontAxleLoad:float = Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] - Parameters["CoG-height"]/Parameters["wheelBase"] * Parameters["Mass"] * accelerationX
-    rearAxleLoad:float = Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] + Parameters["CoG-height"]/Parameters["wheelBase"] * Parameters["Mass"] * accelerationX
-
-    return (frontAxleLoad/2, frontAxleLoad/2, rearAxleLoad/2, rearAxleLoad/2) # FL, FR, BL, BR
+    frontLeftAxleLoad:float = (Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] # Static Load
+                                - Parameters["CoG-height"] / Parameters["wheelBase"] * Parameters["Mass"] * accelerationX # Longitudinal Load Transfer
+                                + Parameters["Cog-height"] / Parameters["frontWheelBase"] * Parameters["Mass"] * accelerationY) # Lateral Load Transfer
+    frontRightAxleLoad:float = (Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] # Static Load
+                                - Parameters["CoG-height"]/Parameters["wheelBase"] * Parameters["Mass"] * accelerationX # Longitudinal Load Transfer
+                                - Parameters["Cog-height"] / Parameters["frontWheelBase"] * Parameters["Mass"] * accelerationY) # Lateral Load Transfer
+    backLeftAxleLoad:float = (Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] # Static Load
+                            + Parameters["CoG-height"]/Parameters["wheelBase"] * Parameters["Mass"] * accelerationX # Longitudinal Load Transfer
+                            + Parameters["Cog-height"] / Parameters["frontWheelBase"] * Parameters["Mass"] * accelerationY) # Lateral Load Transfer
+    backRightAxleLoad:float = (Parameters["Mass"] * 9.81 * (Parameters["wheelBase"] - Parameters["a"])/Parameters["wheelBase"] # Static Load
+                            + Parameters["CoG-height"]/Parameters["wheelBase"] * Parameters["Mass"] * accelerationX # Longitudinal Load Transfer
+                            - Parameters["Cog-height"] / Parameters["frontWheelBase"] * Parameters["Mass"] * accelerationY) # Lateral Load Transfer
+    return (frontLeftAxleLoad, frontRightAxleLoad, backLeftAxleLoad, backRightAxleLoad) # FL, FR, BL, BR
 
 def calcWeightTransfer():
     # Caleb should do this.

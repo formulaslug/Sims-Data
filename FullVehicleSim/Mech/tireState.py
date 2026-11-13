@@ -30,7 +30,7 @@ class Tire:
 
 
     def getLateralForce(self):
-        Alphas = Magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX)
+        # Alphas = Magic["lambda_alphastar"] * self.slipAngle * math.copysign(1, self.velocityX)
         Byk = Magic["r_by1"]# + self.magic["r_by4"] * math.sin(self.camber) ** 2) * math.cos(math.atan(self.magic["r_by2"] * (Alphas - self.magic["r_by3"]))) * self.magic["lambda_yk"]
         Cyk = Magic["r_cy1"]
         Eyk = Magic["r_ey1"] + Magic["r_ey2"] * self.normDeltaLoadLat
@@ -43,8 +43,8 @@ class Tire:
         Gykappazero =  math.cos(Cyk * math.atan(BykShyk - Eyk * (BykShyk - math.atan(BykShyk))))
 
 
-        Dvyk = Parameters["friction-coeff-lat"] * self.normalForce * (Magic["r_vy1"] + Magic["r_vy2"] * self.normDeltaLoadLat + Magic["r_vy3"] * math.sin(self.camber)) * math.cos(math.atan(Magic["r_vy4"] * math.sin(Alphas)))  * Magic["zeta_2"]
-        Svyk = Dvyk * math.sin(Magic["r_vy5"] * math.atan(Magic["r_vy6"] * self.slipRatio)) * Magic["lambda_vyk"]
+        # Dvyk = Parameters["friction-coeff-lat"] * self.normalForce * (Magic["r_vy1"] + Magic["r_vy2"] * self.normDeltaLoadLat + Magic["r_vy3"] * math.sin(self.camber)) * math.cos(math.atan(Magic["r_vy4"] * math.sin(Alphas)))  * Magic["zeta_2"]
+        # Svyk = Dvyk * math.sin(Magic["r_vy5"] * math.atan(Magic["r_vy6"] * self.slipRatio)) * Magic["lambda_vyk"]
 
         #print(Byk, Cyk, Eyk, Shyk)
 

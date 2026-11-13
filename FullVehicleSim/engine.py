@@ -11,7 +11,8 @@ from .Electrical.powertrain import (
 from .Mech.aero import calcDownForce, calcDrag
 from .Mech.braking import calcBrakeCooling, calcBrakeForce, calcBrakeHeating
 from .Mech.general import calcResistiveForces
-from .Mech.steering import calcSlipAngle
+from .Mech.steering import calcBodySlipVelocity, calcYawAcceleration
+from .Mech.tireLoad import calcLoadTransfer
 from .paramLoader import *
 
 
@@ -76,18 +77,24 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varMotorForce] = calcMotorForce(arr[varMotorTorque]) # Newtons, Longitudinal force at the wheel from the motor
     arr[varNetForce] = arr[varMotorForce] + arr[varResistiveForces] # Newtons
     
-    arr[varAcceleration] = arr[varNetForce] / Parameters["Mass"] # m/s^2
+    arr[varAccelerationX] = arr[varNetForce] / Parameters["Mass"] # m/s^2
     
     arr[varCurrent] = calcCurrent(arr[varPower], arr[varVoltage]) # Amps. clamps for current limit. pack current.
 
     arr[varCharge] = worldArray[step-1, varCharge] - worldArray[step, varCurrent] * delta / 3600.0 / Parameters["parallelCells"] / Parameters["cellCapacity_Ah"]
     arr[varPosX:varPosZ+1] = worldArray[step-1, varPosX:varPosZ+1] + worldArray[step-1, varVelX:varVelZ+1] * delta
     arr[varSpeed] = max(0, worldArray[step-1, varSpeed] + arr[varAcceleration] * delta) # Sometimes braking falls a tad below 0 so we just correct that because otherwise everything breaks
-    arr[varYawRate] = worldArray[step-1, varYawRate]
-    if worldArray[step, varSteerAngle] == 0:
-        arr[varYawRate] = 0
+    
+    arr[varFLWheelLoad:varBRWheelLoad+1] = calcLoadTransfer(worldArray[step-1, varAccelerationX], worldArray[step-1, varAccelerationY], worldArray[step-1, varYawRate])
+    arr[varYawAcceleration] = calcYawAcceleration(worldArray[step-1, varYawRate], worldArray[step-1, varBodySlipAngle], arr[varSpeed], arr[varSteerAngle], worldArray[step-1, varVelX], arr[varFLWheelLoad:varBRWheelLoad+1], np.array([12, 12, 12, 12]))
+    arr[varYawRate] = worldArray[step-1, varYawRate] + arr[varYawAcceleration] * delta
+    arr[varHeadingX:varHeadingZ+1] = [0,0,0]
+    arr[varBodySlipVelocity] = calcBodySlipVelocity()
+    arr[varBodySlipAngle] = worldArray[step-1, varBodySlipAngle] + arr[varBodySlipVelocity] * delta
+
     arr[varVelX:varVelZ+1] = arr[varSpeed] * worldArray[step-1, varHeadingX:varHeadingZ+1]
-    arr[varHeadingX:varHeadingZ+1] = calculateHeading(worldArray, step)
+    arr[varAccelerationY] = arr[varYawRate] * arr[varVelX]
+    arr[varAccelerationZ] = worldArray[step-1, varAccelerationZ]
 
     arr[varDrag] = calcDrag(worldArray, step)
     

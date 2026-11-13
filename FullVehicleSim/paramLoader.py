@@ -83,8 +83,18 @@ varRearBrakeCooling = 39
 varFrontSlipAngle = 40
 varRearSlipAngle = 41
 varMaxMotorTorque = 42
-varAcceleration = 43
-varWheelRPM = 44
+varAccelerationX = 43
+varAccelerationY = 44
+varAccelerationZ = 45
+varWheelRPM = 46
+varYawAcceleration = 47
+varBodySlipAngle = 48
+varBodySlipVelocity = 49
+varFLWheelLoad = 50
+varFRWheelLoad = 51
+varBLWheelLoad = 52
+varBRWheelLoad = 53
+
 
 # Automatically generate schema from defined variables
 def generate_variable_schema() -> dict[int, str]:
