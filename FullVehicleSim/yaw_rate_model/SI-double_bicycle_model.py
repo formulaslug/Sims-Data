@@ -124,9 +124,9 @@ class DoubleBicycleModel:
         self.tire_front = TireModel(params.C_alpha_front, saturation_method=tire_model, friction_coeff=params.mu)
         self.tire_rear = TireModel(params.C_alpha_rear, saturation_method=tire_model, friction_coeff=params.mu)
 
-        self.state = np.array([0.0, 0.0])
-        self.time_history = []
-        self.state_history = []
+        self.state = np.array([0.0 * u.m/u.s, 0.0 * u.rad/u.s])
+        self.time_history = [0.0 * u.s]
+        self.state_history = [self.state.copy()]
         self.input_history = []
     
     def get_slip_angles(self, v_y: float, r: float, v_x: float, delta: float) \
@@ -140,8 +140,11 @@ class DoubleBicycleModel:
 
         return alpha_f, alpha_r
     
-    def dynamics(self, state: np.ndarray, v_x: float, delta: float,
-                 ax: float = 0.0) -> np.ndarray:
+    def dynamics(self, 
+                 state: u.unyt_quantity, 
+                 v_x: u.unyt_quantity,
+                 delta: u.unyt_quantity,
+                 ax: u.unyt_quantity = u.unyt_quantity(0.0, "m/s**2")) -> np.ndarray:
         """Compute state derivatives [dv_y/dt, dr/dt]"""
         v_y, r = state
 
@@ -150,6 +153,7 @@ class DoubleBicycleModel:
         # Static weight distribution (no load transfer)
         # Front axle load: weight farther back (at distance Lr from front)
         # Rear axle load: weight farther forward (at distance Lf from rear)
+
         Fz_f = self.params.mass * 9.81 * self.params.Lr / self.params.wheelbase / 2.0
         Fz_r = self.params.mass * 9.81 * self.params.Lf / self.params.wheelbase / 2.0
 
@@ -169,8 +173,8 @@ class DoubleBicycleModel:
 
         return np.array([dv_y, dr])
     
-    def integrate_step(self, v_x: float, delta: float, dt: float,
-                      ax: float = 0.0, method: str = "rk4") -> None:
+    def integrate_step(self, v_x: u.unyt_quantity, delta: u.unyt_quantity, dt: u.unyt_quantity,
+                      ax: u.unyt_quantity = u.unyt_quantity(0.0, "m/s**2"), method: str = "rk4") -> None:
         """Integrate one timestep using euler, rk2, or rk4"""
         if method == "euler":
             k1 = self.dynamics(self.state, v_x, delta, ax)
@@ -191,17 +195,17 @@ class DoubleBicycleModel:
         else:
             raise ValueError(f"Unknown integration method: {method}")
     
-    def simulate(self, v_x: float, steering_inputs: List[float],
-                dt: float = 0.01, method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
+    def simulate(self, v_x: u.unyt_quantity, steering_inputs: List[u.unyt_quantity],
+                dt: u.unyt_quantity = u.unyt_quantity(0.01, "s"), method: str = "rk4") -> Tuple[np.ndarray, np.ndarray]:
         """Run simulation with given steering input sequence"""
-        self.state = np.array([0.0, 0.0])
-        self.time_history = [0.0]
+        self.state = np.array([0.0 * u.m / u.s, 0.0 * u.rad / u.s])
+        self.time_history = [0.0 * u.s]
         self.state_history = [self.state.copy()]
-        self.input_history = [(0.0, v_x)]
+        self.input_history = [((0.0 * u.rad), v_x)]
 
         for i, delta in enumerate(steering_inputs):
             t = (i + 1) * dt
-            self.integrate_step(v_x, delta, dt, ax=0.0, method=method)
+            self.integrate_step(v_x, delta, dt, ax= 0.0 * u.m / u.s**2, method=method)
 
             self.time_history.append(t)
             self.state_history.append(self.state.copy())
@@ -210,7 +214,7 @@ class DoubleBicycleModel:
         return np.array(self.time_history), np.array(self.state_history)
 
     def reset(self):
-        self.state = np.array([0.0, 0.0])
+        self.state = np.array([0.0 * u.m / u.s, 0.0 * u.rad / u.s])
         self.time_history = []
         self.state_history = []
         self.input_history = []
