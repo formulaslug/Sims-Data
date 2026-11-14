@@ -18,6 +18,6 @@ readme = {file = "README.md", content-type = "text/markdown"}
 include = ["FullVehicleSim*", "Data.FSLib*"]
 
 [tool.setuptools.package-data]
-"FullVehicleSim" = ["params.json5"]
+"FullVehicleSim" = ["params.json5", "TireModel/LateralFits/H43070LC0_16x6.0-10_6in.json", "TireModel/LateralFits/H43075LC0_16x7.5-10_7in.json"]
 "FullVehicleSim.Electrical" = ["HisteresisCellModel/trained_voltage_kernel.csv"]
 "FullVehicleSim.Mech" = ["brakeThermalTransfer.csv"]
