@@ -3,8 +3,10 @@ import time
 
 import matplotlib.pyplot as plt
 import polars as pl
-from engine import *
 from paramLoader import *
+
+from FullVehicleSim.engine import stepState, worldToBody
+from FullVehicleSim.Mech.steering import getStaticNormalForces
 
 if __name__ == "__main__":
     ## Argument Parsing. Should wind up like:
@@ -78,12 +80,19 @@ if __name__ == "__main__":
     worldArray[1:, varBrakePressureRear] = controlInputs[:,2]
     worldArray[1:, varBrakePedalTravel] = controlInputs[:,3]
     worldArray[1:, varSteerAngle] = controlInputs[:,4]
-    worldArray[0,varCharge] = Parameters["vehicleSOC"]
-    worldArray[0,varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
-    worldArray[0,varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
+    worldArray[0, varCharge] = Parameters["vehicleSOC"]
+    worldArray[0, varFrontBrakeTemperature] = Parameters["initialBrakeTemperature"]
+    worldArray[0, varRearBrakeTemperature] = Parameters["initialBrakeTemperature"]
     worldArray[0, varHeadingX:varHeadingZ+1] = Parameters["initHeading"]
     worldArray[0, varPosX:varPosZ+1] = Parameters["initPosition"]
     worldArray[0, varVelX:varVelZ+1] = Parameters["initVelocity"]
+    # Body-frame initial state derived from the world-frame initial heading/velocity
+    initYaw = np.arctan2(Parameters["initHeading"][1], Parameters["initHeading"][0])
+    worldArray[0, varYawAngle] = initYaw
+    worldArray[0, varHeadingX:varHeadingZ+1] = [np.cos(initYaw), np.sin(initYaw), 0.0]
+    worldArray[0, varLongitudinalVelocity:varLateralVelocity+1] = worldToBody(np.array(Parameters["initVelocity"][:2]), initYaw)
+    worldArray[0, varSpeed] = np.linalg.norm(Parameters["initVelocity"])
+    worldArray[0, varFLWheelLoad:varBRWheelLoad+1] = getStaticNormalForces() # Newtons
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     start = time.time()

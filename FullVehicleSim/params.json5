@@ -33,16 +33,17 @@
         "maxTorque": 180, // Nm, max torque at the motor.
         "friction-coeff-lat": 1.7333,
         "friction-coeff-long": 1.7333,
-        "unloaded-radius": 1.7333,
-        "p_0": 82000,
+        "unloaded-radius": 0.216,
+        "p_0": 82000, // Pa, nominal tire pressure of the Magic Formula fit
+        "tirePressure": 82700, // Pa, operating tire pressure (must be same units as p_0)
         "load_0": 300,
 
         "Mass": 280, // kg
         "wheelBase": 1.65471, // m
         "a": 0.853506, // m
         "frontWeightDist": 46.46,
-        "CoG-height": 0.999628,
-        "CoG-distanceToRollAxis": 0.999628,
+        "CoG-height": 0.234,
+        "CoG-distanceToRollAxis": 0.234,
         "polarMoment": 658.088580080000,
         "frontTrackWidth": 1.325, // m
         "rearTrackWidth": 1.335, // m
@@ -52,6 +53,7 @@
         "rollCamberSteerCoefficient": 0,
         "casterLength": 0,
         "frontToe": 0,
+        "steeringRatio": 6.49, // steering wheel angle / road wheel angle. Control input steerAngle is the steering WHEEL angle
 
         "brakeSpecificHeatCapacity": 450,
         "brakeThermalConductivity": 50,
@@ -67,6 +69,9 @@
 
         "GasConstant": 8.31446261815324,
         "FaradaysConstant": 96485.33212,
+
+        "lowSpeedThreshold": 2.5, // m/s, V_low in Pacejka Eq. 7.25 & 8.128. Below it the slip-angle limit and low-speed damping act. (Pacejka's examples use 2.5-5 m/s)
+        "lowSpeedDampingCoeff": 2400, // N*s/m per axle, k_Vlow0 in Pacejka Eq. 8.128 (p. 397). ~0.5 of critical damping of the tyre "spring" at standstill
     },
     "Magic": {
 
@@ -135,7 +140,7 @@
         "p_ky1": -15.324000358581543,
         "p_ky2": 1.715000033378601,
         "p_ky3": 0.3695000112056732,
-        "p_ky4": -6.697000026702881,
+        "p_ky4": 2, // trained to -6.697000026702881 but wildly wrong
         "p_ky5": 0.0,
         "p_py1": -0.6255000233650208,
         "p_py2": -0.06522999703884125,
@@ -148,6 +153,7 @@
         "lambda_ey": -0.25506287813186646,
         "lambda_kyalpha": 1.0,
         "lambda_nominalload": 1.0,
+        "lambda_muV": 0.0, // Pacejka Eq. 4.E7 (p. 179): friction decay with slip speed. 0 = off (Pacejka default, dry); >0 for e.g. wet
         "lambda_coeffscalary": 0.6159840226173401,
         "lambda_loadscalarlat": 0.48696190118789673,
         "lambda_pressurescalarlat": 0.5687988996505737,
