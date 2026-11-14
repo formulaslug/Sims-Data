@@ -1,12 +1,12 @@
-import polars as pl
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
 from scipy.optimize import curve_fit
 
 # time,throttle,brakePressureFront,brakePressureRear,steerAngle
 
 df = pl.read_parquet("../fs-data/FS-3/03162026/2_steeper_regen_curve.parquet")
-df = df.fill_null(strategy="forward").fill_null(strategy="backward")
+df = df.interpolate().fill_null(strategy="forward").fill_null(strategy="backward")
 df = df.with_columns(
     (pl.col("Time_ms")*0.001 - pl.col("Time_ms").min() * 0.001).alias("time"),
     ((df["TMAIN_DATA_STEERING"]-10.5)/180*np.pi).alias("steerAngle"),
@@ -27,7 +27,7 @@ plt.show()
 
 dfT = df.filter(pl.col("time") < 50).filter(pl.col("time") > 48)
 dfT = df
-plt.scatter(dfT["VDM_GPS_Latitude"], -1*dfT["VDM_GPS_Longitude"], c=dfT["TMAIN_DATA_STEERING"], cmap="viridis", s=0.5)
+plt.scatter(dfT["VDM_GPS_Latitude"], -1*dfT["VDM_GPS_Longitude"], c=(dfT["TMAIN_DATA_STEERING"]-10.5)/180*np.pi, cmap="viridis", s=0.5)
 plt.colorbar(label="Steering Angle")
 plt.axis("scaled")
 plt.ylabel("Latitude")

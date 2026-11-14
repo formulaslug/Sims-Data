@@ -14,6 +14,14 @@ with open(HERE / 'params.json5', 'r') as file:
     Parameters = params["Parameters"]
     del params
 
+# Per-axle tyre fits (Pacejka pure lateral Magic Formula), produced by TireModel/fitPureLateral.py
+TireFront: dict
+TireRear: dict
+with open(HERE / Parameters["frontTireFit"], 'r') as file:
+    TireFront = json5.load(file)
+with open(HERE / Parameters["rearTireFit"], 'r') as file:
+    TireRear = json5.load(file)
+
 
 try:
     savedHysteresisKernel = pl.read_csv(HERE / "Electrical/HisteresisCellModel/trained_voltage_kernel.csv")

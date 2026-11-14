@@ -31,7 +31,10 @@
         "wheelRadius": 0.216, // m
         "gearRatio": 3.41667, // 41/12
         "maxTorque": 180, // Nm, max torque at the motor.
-        "friction-coeff-lat": 1.7333,
+        "friction-coeff-lat": 1.7333, // no longer used by the lateral model; peak friction now comes from the tyre fits below
+        "frontTireFit": "TireModel/LateralFits/H43070LC0_16x6.0-10_6in.json", // Hoosier 16.0x6.0-10 LC0, made by TireModel/fitPureLateral.py
+        "rearTireFit": "TireModel/LateralFits/H43075LC0_16x7.5-10_7in.json",  // Hoosier 16.0x7.5-10 LC0
+        "tireFrictionScaling": 0.6, // lambda_muy (Pacejka p. 178): TTC belt friction -> track friction. Calibrated against logged lateral accel
         "friction-coeff-long": 1.7333,
         "unloaded-radius": 0.216,
         "p_0": 82000, // Pa, nominal tire pressure of the Magic Formula fit
@@ -53,7 +56,7 @@
         "rollCamberSteerCoefficient": 0,
         "casterLength": 0,
         "frontToe": 0,
-        "steeringRatio": 6.49, // steering wheel angle / road wheel angle. Control input steerAngle is the steering WHEEL angle
+        "steeringRatio": 3.81, // steering wheel angle / road wheel angle (measured, FS-3). Control input steerAngle is the steering WHEEL angle
 
         "brakeSpecificHeatCapacity": 450,
         "brakeThermalConductivity": 50,
@@ -71,7 +74,7 @@
         "FaradaysConstant": 96485.33212,
 
         "lowSpeedThreshold": 2.5, // m/s, V_low in Pacejka Eq. 7.25 & 8.128. Below it the slip-angle limit and low-speed damping act. (Pacejka's examples use 2.5-5 m/s)
-        "lowSpeedDampingCoeff": 2400, // N*s/m per axle, k_Vlow0 in Pacejka Eq. 8.128 (p. 397). ~0.5 of critical damping of the tyre "spring" at standstill
+        "lowSpeedDampingCoeff": 5600, // N*s/m per axle, k_Vlow0 in Pacejka Eq. 8.128 (p. 397). ~0.5 of critical damping of the tyre "spring" (C_axle/sigma ~ 220 kN/m on ~140 kg) at standstill
     },
     "Magic": {
 

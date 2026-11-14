@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 import numpy as np
 
-from ..paramLoader import Magic, Parameters
+from ..paramLoader import Magic, Parameters, TireFront, TireRear
 
 # References (page numbers are the printed book pages):
 #   [Pacejka] H. B. Pacejka, Tire and Vehicle Dynamics, 3rd ed., Butterworth-Heinemann (2012).
@@ -61,49 +61,88 @@ def getMaxLongFriction(normalForce, slipSpeed, tirePressure):
 
     return getLongFrictionCoefficient(normalForce, slipSpeed, tirePressure) * normalForce * zeta_1
 
-def getCorneringStiffness(normalForce, tirePressure, camber=0):
-    # [Pacejka] Eq. 4.E25, p. 180: K_ya = dFy/da at a = 0 (= C_Fa when camber = 0). Returned positive, N/rad, one tyre.
-    # K_ya = p_Ky1*Fz0' * (1 + p_py1*dpi) * (1 - p_Ky3*|gamma*|)
-    #        * sin(p_Ky4 * atan((Fz/Fz0') / ((p_Ky2 + p_Ky5*gamma*^2) * (1 + p_py2*dpi)))) * zeta_3 * lambda_Kya
-    # Pacejka notes p_Ky4 ~ 2 (p. 180).
-    p_ky1 = Magic["p_ky1"]
-    p_ky2 = Magic["p_ky2"]
-    p_ky3 = Magic["p_ky3"]
-    p_ky4 = Magic["p_ky4"]
-    p_ky5 = Magic["p_ky5"]
-    p_py1 = Magic["p_py1"]
-    p_py2 = Magic["p_py2"]
-    lambda_kyalpha = Magic["lambda_kyalpha"]
-    nominalLoad = Magic["lambda_nominalload"] * Parameters["load_0"]
+def calcDegressiveFrictionScalingFactor(compositeFrictionScaling):
+    # [Pacejka] Eq. 4.E8, p. 179: lambda'_mu = A_mu * lambda*_mu / (1 + (A_mu - 1) * lambda*_mu), A_mu = 10 suggested.
+    # Used on the vertical shift S_Vy so it doesn't vanish as fast as the peak force when friction drops.
+    A_mu = 10.0
+    return A_mu * compositeFrictionScaling / (1.0 + (A_mu - 1.0) * compositeFrictionScaling)
 
-    camberTerm = np.sin(camber) # [Pacejka] Eq. 4.E4, p. 177: gamma* = sin(gamma)
-    pressureTerm = normalizePressureLat(tirePressure)
-    loadRatio = normalForce / nominalLoad
-    denominator = (p_ky2 + p_ky5 * camberTerm ** 2) * (1.0 + p_py2 * pressureTerm)
+def getCorneringStiffness(normalForce, tirePressure, tireFit:dict, camber=0.0):
+    """
+    [Pacejka] Eq. 4.E25, p. 180: K_ya = dFy/da at a = 0 (= C_Fa when camber = 0). Positive, N/rad, ONE tyre.
+    K_ya = p_Ky1*Fz0' * (1 + p_py1*dpi) * (1 - p_Ky3*|gamma*|)
+           * sin(p_Ky4 * atan((Fz/Fz0') / ((p_Ky2 + p_Ky5*gamma*^2) * (1 + p_py2*dpi)))) * zeta_3 * lambda_Kya
+    Not scaled by the friction factors: "the slip stiffnesses are not affected through these changes" (p. 179).
 
-    stiffness = (p_ky1 * nominalLoad
-                 * (1.0 + p_py1 * pressureTerm)
-                 * (1.0 - p_ky3 * np.abs(camberTerm))
-                 * np.sin(p_ky4 * np.arctan(loadRatio / denominator))
-                 * lambda_kyalpha)
-    return np.abs(stiffness)
+    :param tireFit: TireFront / TireRear from paramLoader (made by TireModel/fitPureLateral.py)
+    """
+    nominalLoad = tireFit["nominalLoad"]
+    dpi = (tirePressure - tireFit["nominalPressure"]) / tireFit["nominalPressure"] # 4.E2b
+    camberTerm = np.sin(camber) # 4.E4: gamma* = sin(gamma)
+    denominator = (tireFit["p_ky2"] + tireFit.get("p_ky5", 0.0) * camberTerm ** 2) * (1.0 + tireFit["p_py2"] * dpi)
+
+    stiffness = (tireFit["p_ky1"] * nominalLoad
+                 * (1.0 + tireFit["p_py1"] * dpi)
+                 * (1.0 - tireFit.get("p_ky3", 0.0) * np.abs(camberTerm))
+                 * np.sin(tireFit["p_ky4"] * np.arctan(normalForce / nominalLoad / denominator)))
+    return abs(float(stiffness))
+
+def getPeakLateralForce(normalForce, tirePressure, tireFit:dict, slipSpeed=0.0):
+    """
+    Peak factor D_y of ONE tyre, [Pacejka] Eqs. 4.E22-4.E23, p. 179 (camber 0):
+        D_y = mu_y * Fz,  mu_y = (p_Dy1 + p_Dy2*dfz) * (1 + p_py3*dpi + p_py4*dpi^2) * lambda*_muy
+    lambda*_muy (Eq. 4.E7) = tireFrictionScaling (TTC belt -> track) with the slip-speed decay.
+    """
+    nominalLoad = tireFit["nominalLoad"]
+    dfz = (normalForce - nominalLoad) / nominalLoad # 4.E2a
+    dpi = (tirePressure - tireFit["nominalPressure"]) / tireFit["nominalPressure"] # 4.E2b
+    frictionScaling = calcCompositeFrictionScalingFactor(slipSpeed, Parameters["tireFrictionScaling"])
+    mu = (tireFit["p_dy1"] + tireFit["p_dy2"] * dfz) * (1.0 + tireFit["p_py3"] * dpi + tireFit["p_py4"] * dpi ** 2) * frictionScaling
+    return max(mu * normalForce, 0.0)
+
+def calcMagicFormulaLateralForce(slipAngle, normalForce, tirePressure, tireFit:dict, slipSpeed=0.0):
+    """
+    Pure-slip Magic Formula lateral force of ONE tyre, [Pacejka] Eqs. 4.E19-4.E29, pp. 179-180 (camber 0),
+    in PACEJKA's sign (Fy = +K*alpha). Driven by the transient slip angle as in [Pacejka] Eq. 7.22, p. 335.
+
+    Only the odd (antisymmetric) part is used: 0.5*(F(a) - F(-a)). That drops the conicity / ply-steer
+    offsets S_Hy, S_Vy, which on a real car largely cancel left vs right; keeping them with a single fit
+    for both sides would push the car sideways on a straight.
+    """
+    if normalForce <= 0.0:
+        return 0.0
+    nominalLoad = tireFit["nominalLoad"]
+    dfz = (normalForce - nominalLoad) / nominalLoad
+    Cy = tireFit["p_cy1"] # 4.E21
+    Dy = getPeakLateralForce(normalForce, tirePressure, tireFit, slipSpeed) # 4.E22
+    Ky = getCorneringStiffness(normalForce, tirePressure, tireFit) # 4.E25
+    By = Ky / (Cy * Dy + 1e-6) # 4.E26 (+ epsilon as Pacejka suggests, p. 177)
+    frictionScaling = calcCompositeFrictionScalingFactor(slipSpeed, Parameters["tireFrictionScaling"])
+    SHy = tireFit["p_hy1"] + tireFit["p_hy2"] * dfz # 4.E27 (camber 0)
+    SVy = normalForce * (tireFit["p_vy1"] + tireFit["p_vy2"] * dfz) * calcDegressiveFrictionScalingFactor(frictionScaling) # 4.E29 (camber 0)
+
+    def magicFormula(alpha):
+        alphaY = np.tan(alpha) + SHy # 4.E3 (alpha* = tan(alpha)), 4.E20
+        Ey = min((tireFit["p_ey1"] + tireFit["p_ey2"] * dfz) * (1.0 - tireFit["p_ey3"] * np.sign(alphaY)), 1.0) # 4.E24 (<= 1)
+        BA = By * alphaY
+        return Dy * np.sin(Cy * np.arctan(BA - Ey * (BA - np.arctan(BA)))) + SVy # 4.E19
+
+    return 0.5 * (magicFormula(slipAngle) - magicFormula(-slipAngle))
 
 def getAxleCorneringStiffness(tireNormalForces, tirePressures):
     # Sum of the two tyres on each axle -> (front, rear). Single-track lumping, [Pacejka] Section 1.3, p. 22.
-    front = getCorneringStiffness(tireNormalForces[0], tirePressures[0]) + getCorneringStiffness(tireNormalForces[1], tirePressures[1])
-    rear = getCorneringStiffness(tireNormalForces[2], tirePressures[2]) + getCorneringStiffness(tireNormalForces[3], tirePressures[3])
+    front = getCorneringStiffness(tireNormalForces[0], tirePressures[0], TireFront) + getCorneringStiffness(tireNormalForces[1], tirePressures[1], TireFront)
+    rear = getCorneringStiffness(tireNormalForces[2], tirePressures[2], TireRear) + getCorneringStiffness(tireNormalForces[3], tirePressures[3], TireRear)
     return front, rear
 
-def getMaxLateralForce(axleNormalForce, slipSpeed=0.0):
-    # Peak lateral force Dy = mu_y * Fz ([Pacejka] Eq. 4.E22, p. 179), with a constant mu_y from params
-    # scaled by the slip-speed friction decay of Eq. 4.E7 (p. 179).
-    frictionCoeffLat = Parameters["friction-coeff-lat"]
+def getAxlePeakLateralForce(tireNormalForces, tirePressures, tireFit:dict, slipSpeed=0.0):
+    # D_y of the two tyres on one axle. tireNormalForces/tirePressures: [left, right]
+    return (getPeakLateralForce(tireNormalForces[0], tirePressures[0], tireFit, slipSpeed)
+            + getPeakLateralForce(tireNormalForces[1], tirePressures[1], tireFit, slipSpeed))
 
-    return frictionCoeffLat * calcCompositeFrictionScalingFactor(slipSpeed) * axleNormalForce
-
-def getPeakSlipAngle(axleNormalForce, axleCorneringStiffness, slipSpeed=0.0):
+def getPeakSlipAngle(axlePeakForce, axleCorneringStiffness):
     # [Pacejka] p. 336 (below Eq. 7.25): slip angle where the peak force occurs, a_sl ~ 3 * Dy / C_Fa
-    return 3.0 * getMaxLateralForce(axleNormalForce, slipSpeed) / axleCorneringStiffness
+    return 3.0 * axlePeakForce / max(axleCorneringStiffness, 1.0)
 
 def calcLowSpeedDampingCoefficient(velocityX):
     """
@@ -123,7 +162,7 @@ def calcDampedTransientSlipAngle(transientSlipAngle, lateralSlipVelocity, veloci
     be employed for the lateral transient slip"), applied as in Eq. 8.127, p. 397:
         a'_damped = a' - (k_Vlow / C_Fa) * Vsy          (Pacejka sign)
         a'_damped = a' + (k_Vlow / C_Fa) * Vsy          (this file's sign)
-    So Fy = -C*a'_damped = -C*a' - k_Vlow*Vsy: a viscous force opposing contact-patch sliding.
+    In the linear range Fy = -C*a'_damped = -C*a' - k_Vlow*Vsy: a viscous force opposing contact-patch sliding.
 
     Without it the tyre is a pure spring at standstill and the car oscillates "practically undamped" (p. 336).
     Only used to compute the force; the a' state itself is still integrated with Eq. 7.18.
@@ -132,12 +171,16 @@ def calcDampedTransientSlipAngle(transientSlipAngle, lateralSlipVelocity, veloci
 
     return transientSlipAngle + dampingCoeff / max(axleCorneringStiffness, 1.0) * lateralSlipVelocity
 
-def calcLateralTireForce(transientSlipAngle, axleCorneringStiffness, axleNormalForce, slipSpeed=0.0):
-    # [Pacejka] Eq. 7.14, p. 333: Fy = C_Fa * a' (linear), saturated at the peak force Dy.
-    # (Section 7.2.2, p. 335: for the nonlinear range feed a' into the Magic Formula, Eq. 7.22, instead.)
-    maxForce = getMaxLateralForce(axleNormalForce, slipSpeed)
+def calcAxleLateralForce(transientSlipAngle, tireNormalForces, tirePressures, tireFit:dict, slipSpeed=0.0):
+    """
+    Lateral force of one axle (two tyres, each on its own load, so lateral load transfer reduces axle grip
+    through the tyres' load sensitivity). Magic Formula driven by the transient slip angle, [Pacejka] Eq. 7.22, p. 335.
+    Sign: this file's a' is -a'_Pacejka, so Fy = F_MF(-a').
 
-    return np.clip(-axleCorneringStiffness * transientSlipAngle, -maxForce, maxForce)
+    :param tireNormalForces, tirePressures: [left, right] of the axle
+    """
+    return (calcMagicFormulaLateralForce(-transientSlipAngle, tireNormalForces[0], tirePressures[0], tireFit, slipSpeed)
+            + calcMagicFormulaLateralForce(-transientSlipAngle, tireNormalForces[1], tirePressures[1], tireFit, slipSpeed))
 
 def calcFrontLateralSlipVelocity(lateralVelocity, yawRate, steeringAngle, velocityX):
     # Lateral slip velocity of the front contact patch in the wheel frame: Vsy1 ~ Vy + a*r - Vx*delta
@@ -270,8 +313,6 @@ def calcLateralDynamicsRates(velocityX, lateralVelocity, yawRate, steeringAngle,
     if tirePressures is None:
         tirePressures = getDefaultTirePressures()
 
-    frontNormalForce = tireNormalForces[0] + tireNormalForces[1]
-    rearNormalForce = tireNormalForces[2] + tireNormalForces[3]
     frontStiffness, rearStiffness = getAxleCorneringStiffness(tireNormalForces, tirePressures)
 
     frontSlipVelocity = calcFrontLateralSlipVelocity(lateralVelocity, yawRate, steeringAngle, velocityX)
@@ -280,13 +321,13 @@ def calcLateralDynamicsRates(velocityX, lateralVelocity, yawRate, steeringAngle,
     frontSlipSpeed = abs(frontSlipVelocity)
     rearSlipSpeed = abs(rearSlipVelocity)
 
-    frontPeak = getPeakSlipAngle(frontNormalForce, max(frontStiffness, 1.0), frontSlipSpeed)
-    rearPeak = getPeakSlipAngle(rearNormalForce, max(rearStiffness, 1.0), rearSlipSpeed)
+    frontPeak = getPeakSlipAngle(getAxlePeakLateralForce(tireNormalForces[0:2], tirePressures[0:2], TireFront, frontSlipSpeed), frontStiffness)
+    rearPeak = getPeakSlipAngle(getAxlePeakLateralForce(tireNormalForces[2:4], tirePressures[2:4], TireRear, rearSlipSpeed), rearStiffness)
 
     frontDampedSlipAngle = calcDampedTransientSlipAngle(frontSlipAngle, frontSlipVelocity, velocityX, frontStiffness)
     rearDampedSlipAngle = calcDampedTransientSlipAngle(rearSlipAngle, rearSlipVelocity, velocityX, rearStiffness)
-    frontForce = calcLateralTireForce(frontDampedSlipAngle, frontStiffness, frontNormalForce, frontSlipSpeed)
-    rearForce = calcLateralTireForce(rearDampedSlipAngle, rearStiffness, rearNormalForce, rearSlipSpeed)
+    frontForce = calcAxleLateralForce(frontDampedSlipAngle, tireNormalForces[0:2], tirePressures[0:2], TireFront, frontSlipSpeed)
+    rearForce = calcAxleLateralForce(rearDampedSlipAngle, tireNormalForces[2:4], tirePressures[2:4], TireRear, rearSlipSpeed)
 
     lateralAcceleration = calcLateralAcceleration(frontForce, rearForce, steeringAngle)
     lateralVelocityRate = calcLateralVelocityRate(lateralAcceleration, velocityX, yawRate)
