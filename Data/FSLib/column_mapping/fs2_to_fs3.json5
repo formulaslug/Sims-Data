@@ -1,0 +1,312 @@
+// FS-2 -> FS-3 column mapping (issue #80, DBC Column Mapping Roadmap, Decisions 2 and 3).
+// First link of the chain FS-2 -> FS-3 -> FS-4 (global). read() applies it in memory to FS-2 logs,
+// then applies fs3_to_fs4.json5 to the result.
+//
+// How a column is resolved, in this order:
+//   1. reserved (global_schema.reserved) and filler (global_schema.filler_patterns) columns are
+//      handled by the global schema, not here. Filler covers every UNUSED_* signal in the FS-2 DBCs.
+//   2. `drop`                  -> column is discarded.
+//   3. `unchanged`             -> name is the same on FS-3; carried as is.
+//   4. `renames` / `rules`     -> renamed to an FS-3 name, with an optional transform.
+//   5. `removed` / `removed_rules` / `removed_messages` / `non_dbc`
+//                              -> moved to legacy.fs2.<key>, never deleted.
+//   Any column that matches none of these is an error in the coverage test, and a warning in read().
+//
+// Keys:
+//   * A key is the bare signal name, which is how FS-2 parquets name their columns.
+//   * When the same signal name is defined in more than one FS-2 message (only in ChargeStationCAN.dbc:
+//     MESSAGE, DestinationNodeID, COMMAND_SPECIFIER, NA, and every charger signal shared by nodes
+//     0x10 and 0x11), the key is MESSAGE.SIGNAL. A parquet column with such a bare name cannot be told
+//     apart; read() sends it to legacy.fs2.<name> with a warning. No FS-2 log in fs-data has one.
+//
+// Rename values:
+//   "FS3_NAME"                                  plain rename
+//   {to: "FS3_NAME", scale: k, offset: c}       rename and convert: new = old * k + c, where old is
+//                                               the decoded physical value in FS-2 units
+//   {to: "GLOBAL_NAME", global: true}           the signal has no FS-3 equivalent but does have an FS-4
+//                                               one. The target must be a global_schema column, and
+//                                               fs3_to_fs4 leaves it untouched (it is already global).
+//
+// Removed entries keep the data under legacy.fs2.<key>. An entry may name a `candidate`: the FS-3 or
+// global column it probably corresponds to, held back because the match is a guess or the units cannot
+// be converted yet. Promoting a candidate means moving that one entry into `renames`.
+//
+// Template rules: {placeholder} in `from` and `to` is replaced by every value in `vars`; with more
+// than one placeholder, every combination is generated. `--expand` prints the expanded list.
+//
+// Checked against real FS-2 parquets in fs-data (2026-11-12):
+//   * Columns hold decoded physical values (GLV_Voltage ~14 V, TS_Voltage ~112 V), so transforms work
+//     on physical units.
+//   * Pedal_Travel and APPS_Travel_* are fractions 0..1, so Pedal_Travel needs x100 to reach FS-3 %.
+//   * TS_Current (FS-2) and ACC_POWER_CURRENT (FS-3) are both positive while discharging.
+//   * VDM_GPS_Latitude/Longitude are float32 degrees on FS-2 (SIG_VALTYPE_ 1 in aemCAN.dbc; logs read
+//     38.576, -121.732). FS-3 decodes int * 1e-7 to degrees too, so no transform is needed here.
+//   * TELEM_* values are raw counts (SUSTRAVEL up to 17190, STEER up to 48170), not mm/rpm/deg.
+//   * Steering_Sensor is a constant -90 (raw 0, sensor absent) in 99 of the 102 logs that have it.
+{
+  format_version: 1,
+  from: {
+    car: "FS-2",
+    dbcs: [
+      {path: "fs-2/mainCANbus.dbc", sha256: "58e92f2217b6a82b21f9f45fb690d013bdc193c855427744afbf236402d2adb9", commit: "4f73376fb6e4bc0663f3db4a7b4d22f41085e063", commit_date: "2024-11-18"},
+      {path: "fs-2/aemCAN.dbc", sha256: "0e5a55cf6d0d5503a74c0498f44a3e0bafa62952a73c66e887d480dc7ee1f0c3", commit: "104c07869ee0c15cb9b70334cb6eb1679455b7ba", commit_date: "2024-11-09"},
+      {path: "fs-2/ChargeStationCAN.dbc", sha256: "352d567d61c7bcf4bcdfe0f7001b28c12024aa4109745546350b1c1082efc10a", commit: "80b2c815347b2927f31b78b77e1ba0e5cd9dbb74", commit_date: "2024-07-31"},
+    ],
+  },
+  to: {
+    car: "FS-3",
+    dbcs: [
+      {path: "fs-3/CANbus.dbc", sha256: "652f62aaba174d68fe8dee57d881fd8f45b0a44b3a5d2a8b9514ae8a80326108", commit: "4df137cee51e27738df7805e39eaedbd6d723855", commit_date: "2026-02-14"},
+    ],
+  },
+  created: "2026-11-12",
+
+  // Discarded on read. Filler (UNUSED_*, IGNORE*, ERR) that the global filler_patterns miss because
+  // the pattern is on the message name, not the signal name.
+  drop: ["IGNORE.NA", "IGNORE_0.NA", "IGNORE_1.NA"],
+
+  // Same name, same meaning, same unit on FS-3.
+  unchanged: [
+    // SME_RPDO_Throttle_Demand (0x186)
+    "SME_THROTL_PowerReady", "SME_THROTL_MBB_Alive", "SME_THROTL_Reverse", "SME_THROTL_Forward",
+    "SME_THROTL_MaxSpeed", "SME_THROTL_TorqueDemand",
+    // SME_RPDO_Max_Currents (0x286)
+    "SME_CURRLIM_ChargeCurrentLim", "SME_CURRLIM_DischargeCurrentLim",
+    // SME_TPDO_Torque_speed (0x482). Key_switch_* keeps FS-2/FS-3 casing; fs3_to_fs4 fixes it.
+    "SME_TRQSPD_SOC_Low_Traction", "SME_TRQSPD_SOC_Low_Hydraulic", "SME_TRQSPD_Reverse", "SME_TRQSPD_Forward",
+    "SME_TRQSPD_Park_Brake", "SME_TRQSPD_Pedal_Brake", "SME_TRQSPD_Controller_Overtermp",
+    "SME_TRQSPD_Key_switch_overvolt", "SME_TRQSPD_Key_switch_undervolt", "SME_TRQSPD_Running",
+    "SME_TRQSPD_Traction", "SME_TRQSPD_Hydraulic", "SME_TRQSPD_Powering_Enabled", "SME_TRQSPD_Powering_Ready",
+    "SME_TRQSPD_contactor_closed", "SME_TRQSPD_Precharging", "SME_TRQSPD_Speed", "SME_TRQSPD_MotorFlags",
+    "SME_TRQSPD_Torque",
+    // SME_TPDO_Temperature (0x682)
+    "SME_TEMP_FaultLevel", "SME_TEMP_FaultCode", "SME_TEMP_DC_Bus_V", "SME_TEMP_ControllerTemperature",
+    "SME_TEMP_MotorTemperature", "SME_TEMP_BusCurrent",
+    // AEM VDM (aemCAN.dbc). Same signals on FS-3; extended IDs differ, names do not.
+    "VDM_GPS_Latitude", "VDM_GPS_Longitude",
+    "VDM_GPS_SPEED", "VDM_GPS_ALTITUDE", "VDM_GPS_TRUE_COURSE", "VDM_GPS_SATELLITES_IN_USE", "VDM_GPS_VALID1",
+    "VDM_GPS_VALID2", "VDM_UTC_DATE_YEAR", "VDM_UTC_DATE_MONTH", "VDM_UTC_DATE_DAY",
+    "VDM_UTC_TIME_HOURS", "VDM_UTC_TIME_MINUTES", "VDM_UTC_TIME_SECONDS",
+    "VDM_X_AXIS_ACCELERATION", "VDM_Y_AXIS_ACCELERATION", "VDM_Z_AXIS_ACCELERATION",
+    "VDM_X_AXIS_YAW_RATE", "VDM_Y_AXIS_YAW_RATE", "VDM_Z_AXIS_YAW_RATE",
+  ],
+
+  renames: {
+    // TPDO_ACC_BOARD_State (0x183) -> ACC_TPDO_STATUS (0x188) / ACC_TPDO_POWER (0x288)
+    "GLV_Voltage": {to: "ACC_STATUS_GLV_VOLTAGE", scale: 1000}, // V -> mV
+    "TS_Voltage": "ACC_POWER_PACK_VOLTAGE",
+    "TS_Current": "ACC_POWER_CURRENT",
+    "BMS_Fault": "ACC_STATUS_BMS_FAULT",
+    "BMS_Balancing": "ACC_STATUS_BALANCING",
+    "Precharge_Done": "ACC_STATUS_PRECHARGE_DONE",
+    "Charging": "ACC_STATUS_CHARGING",
+    // FS-3 has no pack summary message; FS-4 BATT_TPDO_CELL_STATS does.
+    "Max_Cell_Temp": {to: "BATT_STAT_HIGH_CELL_TEMP", global: true},
+    "Avg_Cell_Temp": {to: "BATT_STAT_AVG_CELL_TEMP", global: true},
+
+    // TPDO_BSPD_BOARD_Brake (0x284)
+    "IMD_Fault": "ACC_STATUS_IMD_FAULT",
+    "BSPD_Fault": {to: "VCU_BSPD_FAULT", global: true}, // FS-3 has no BSPD signal
+
+    // TPDO_ETC_BOARD_State (0x1A1) -> ETC_TPDO_STATUS (0x189)
+    "Pedal_Travel": {to: "ETC_STATUS_PEDAL_TRAVEL", scale: 100}, // fraction 0..1 -> %
+
+    // ChargeStationCAN, charger node 0x10 -> FS-3 SMPC (same CAN IDs). Decision 3d.
+    // SMPC_0x10_CHARGE_STATUS (0x190) -> SMPC_TPDO_STATUS
+    "SMPC_0x10_CHARGE_STATUS.CHARGE_CURRENT_MA": "SMPC_STATUS_CURRENT_MA",
+    "SMPC_0x10_CHARGE_STATUS.CHARGE_VOLTAGE_MV": "SMPC_STATUS_VOLTAGE_MV",
+    "SMPC_0x10_CHARGE_STATUS.J1772_DISCONNECTING": "SMPC_STATUS_J1772_DISCONN",
+    "SMPC_0x10_CHARGE_STATUS.REQUEST_EXCLUSIVE": "SMPC_STATUS_REQUEST_EXCLUSIVE",
+    "SMPC_0x10_CHARGE_STATUS.CHARGER_UNPLUGGED": "SMPC_STATUS_CHARGER_UNPLUGGED",
+    "SMPC_0x10_CHARGE_STATUS.CHARGING": "SMPC_STATUS_CHARGING",
+    "SMPC_0x10_CHARGE_STATUS.INTERNAL_FAULT": "SMPC_STATUS_INTERNAL_FAULT",
+    "SMPC_0x10_CHARGE_STATUS.UNDERVOLTAGE_FAULT": "SMPC_STATUS_UNDERVOLTAGE_FAULT",
+    "SMPC_0x10_CHARGE_STATUS.OVERVOLTAGE_FAULT": "SMPC_STATUS_OVERVOLTAGE_FAULT",
+    "SMPC_0x10_CHARGE_STATUS.OVERCURRENT_FAULT": "SMPC_STATUS_OVERCURRENT_FAULT",
+    "SMPC_0x10_CHARGE_STATUS.OVERTEMP_FAULT": "SMPC_STATUS_OVERTEMP_FAULT",
+    "SMPC_0x10_CHARGE_STATUS.CHARGE_COMPLETE": "SMPC_STATUS_CHARGE_COMPLETE",
+    "SMPC_0x10_CHARGE_STATUS.READY": "SMPC_STATUS_READY",
+    // SMPC_0x10_MAX_CHARGE_VOLTAGE_CURRENT (0x290) -> SMPC_TPDO_MAX_VOLTAGE_CURRENT
+    "SMPC_0x10_MAX_CHARGE_VOLTAGE_CURRENT.INPUT_CURRENT_LIMIT": "SMPC_MAX2_INPUT_CURR_LIM",
+    "SMPC_0x10_MAX_CHARGE_VOLTAGE_CURRENT.EVSE_CURRENT": "SMPC_MAX2_EVSE_CURRENT",
+    "SMPC_0x10_MAX_CHARGE_VOLTAGE_CURRENT.MAX_CHARGE_CURRENT_MA": "SMPC_MAX2_MAX_CURRENT_MA",
+    "SMPC_0x10_MAX_CHARGE_VOLTAGE_CURRENT.MAX_CHARGE_VOLTAGE_MV": "SMPC_MAX2_MAX_VOLTAGE_MV",
+    // SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT (0x390) -> SMPC_TPDO_INPUT_AC
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.MAX_CHARGER_TEMP_C": "SMPC_INPUT_MAX_CHARGER_TEMP_C",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.AC_INPUT_FREQUENCY_HZ": "SMPC_INPUT_AC_INPUT_FREQUENCY_HZ",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.AC_INPUT_CURRENT_MA": "SMPC_INPUT_AC_INPUT_CURRENT_MA",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.J1772_TRIGGERED": "SMPC_INPUT_J1772_TRIGGERED",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.J1772_DISCONNECTED": "SMPC_INPUT_J1772_DISCONNECTED",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.J1772_CONNECTED": "SMPC_INPUT_J1772_CONNECTED",
+    "SMPC_0x10_INPUT_AC_VOLTAGE_CURRENT.AC_INPUT_VOLTAGE": "SMPC_INPUT_AC_INPUT_VOLTAGE",
+    // SMPC_0x10_SERIAL_PART_NUM (0x490) -> SMPC_TPDO_SERIAL_PART_NUM
+    "SMPC_0x10_SERIAL_PART_NUM.FIRMWARE_VER": "SMPC_SER_FIRMWARE_VER",
+    "SMPC_0x10_SERIAL_PART_NUM.SERIAL_NUMBER": "SMPC_SER_SERIAL_NUMBER",
+    "SMPC_0x10_SERIAL_PART_NUM.PART_NUMBER": "SMPC_SER_PART_NUMBER",
+    // CHARGE_CONTROL_RPDO (0x206) -> SMPC_RPDO_CONTROL
+    "PACK_VOLTAGE": "SMPC_CONTROL_PACK_VOLTAGE",
+    "EVSE_OVERRIDE": "SMPC_CONTROL_EVSE_OVERRIDE",
+    "CURRENT_10X_MULTIPLIER": "SMPC_CONTROL_CURRENT_10X_MULT",
+    "ENABLE": "SMPC_CONTROL_ENABLE",
+    "CHARGE_CONTROL_RPDO.DestinationNodeID": "SMPC_CONTROL_DEST_NODE_ID",
+    // MAX_ALLOWED_VOLTAGE_CURRENT_RPDO (0x306) -> SMPC_RPDO_MAX_VOLTAGE_CURRENT
+    "MAX_ALLOWED_INPUT_CURRENT_EVSE_OVERRIDE": "SMPC_MAX_INPUT_EVSE_OVERRIDE",
+    "MAX_ALLOWED_CHG_CURRENT": "SMPC_MAX_CHRG_CURRENT",
+    "MAX_ALLOWED_CHG_VOLTAGE": "SMPC_MAX_CHRG_VOLTAGE",
+    "MAX_ALLOWED_VOLTAGE_CURRENT_RPDO.DestinationNodeID": "SMPC_MAX_DEST_NODE_ID",
+    // LSS_COMMAND (0x7E5) / LSS_RESPONSE (0x7E4)
+    "MODE": "COMMAND_MODE",
+    "LSS_COMMAND.COMMAND_SPECIFIER": "COMMAND_COMMAND_SPECIFIER",
+    "LSS_RESPONSE.COMMAND_SPECIFIER": "RESPONSE_COMMAND_SPECIFIER",
+  },
+
+  rules: [],
+
+  // Moved to legacy.fs2.<key>.
+  removed: {
+    // TPDO_ACC_BOARD_State
+    "Fans_On": {reason: "On/off fan flag. FS-3 has none; FS-4 BATT_STATUS_FAN_PWM_DUTY is a duty cycle, not a flag."},
+    "Shutdown_Closed": {candidate: "ACC_STATUS_SHUTDOWN_STATE", reason: "Unclear which point of the shutdown circuit FS-2 measured."},
+
+    // TPDO_BSPD_BOARD_Brake
+    "Brake_Sensor_F": {candidate: "TMAIN_DATA_BRAKES_F", reason: "FS-2 is percent, FS-3 is psi; needs the sensor calibration."},
+    "Brake_Sensor_R": {candidate: "TMAIN_DATA_BRAKES_R", reason: "FS-2 is percent, FS-3 is psi; needs the sensor calibration."},
+    "Steering_Sensor": {candidate: "TMAIN_DATA_STEERING", reason: "Both deg, but zero and sign are unverified, and it is a constant -90 (raw 0, sensor absent) in 99 of 102 logs. Mapping would put a fake -90 deg into steering."},
+    "Brakes_On": {candidate: "ETC_STATUS_BRAKELIGHT", reason: "Likely the brake light state, but BSPD board, not ETC; unconfirmed."},
+
+    // TPDO_ETC_BOARD_State
+    "TS_Ready": {candidate: "ETC_STATUS_TS_ACTIVE", reason: "Likely the same 'TS is up' flag (FS-4 notes TS_ACTIVE was renamed VCU_ETC_BATT_PRECHARGE_DONE); unconfirmed."},
+    "Motor_On": {candidate: "VCU_ETC_MOTOR_ENABLED", reason: "Global name (no FS-3 equivalent). Unconfirmed that FS-2 cleared it on implausibility like FS-4 does."},
+    "RTDS_Queue": {candidate: "ETC_STATUS_RTDS", reason: "Ready-to-drive sound cue; unconfirmed."},
+    "Cockpit_Switch": {candidate: "ETC_STATUS_RTD_BUTTON", reason: "Possibly the RTD button; unconfirmed."},
+    "CAN_Flag": {reason: "Meaning unknown. ETC_STATUS_CAN_REGEN is a weak guess."},
+    "Brakes": {candidate: "ETC_STATUS_BRAKE_PEDAL_TRAVEL", reason: "FS-2 fraction 0..1 of an unknown brake input; FS-3 unit 'thouPerCent' is unconfirmed."},
+    "APPS_1": {candidate: "ETC_STATUS_HE1", reason: "FS-2 is a normalized fraction, FS-3 is sensor mV; not convertible."},
+    "APPS_2": {candidate: "ETC_STATUS_HE2", reason: "FS-2 is a normalized fraction, FS-3 is sensor mV; not convertible."},
+    "APPS_Travel_1": {reason: "Per-sensor travel. FS-3 only logs the combined ETC_STATUS_PEDAL_TRAVEL."},
+    "APPS_Travel_2": {reason: "Per-sensor travel. FS-3 only logs the combined ETC_STATUS_PEDAL_TRAVEL."},
+
+    // TPDO_TELEM_STEERBRAKE (0x1A4). Raw counts, see header.
+    "TELEM_STEERBRAKE_STEER": {candidate: "TMAIN_DATA_STEERING", reason: "Raw counts; FS-3 is deg."},
+    "TELEM_STEERBRAKE_BRAKEF": {candidate: "TMAIN_DATA_BRAKES_F", reason: "Raw counts; FS-3 is psi."},
+    "TELEM_STEERBRAKE_BRAKER": {candidate: "TMAIN_DATA_BRAKES_R", reason: "Raw counts; FS-3 is psi."},
+
+    // NMT_ACC_HEARTBEAT (0x703). Roadmap: NMT removed.
+    "Status": {reason: "CANopen heartbeat of the ACC board."},
+  },
+
+  removed_rules: [
+    // TPDO_TELEM_FL/FR/BL/BR. Raw counts; FS-3 TPERIPH_* is rpm / mm / %.
+    {from: "TELEM_{c}_WHEELSPEED", candidate: "TPERIPH_{c}_DATA_WHEELSPEED", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is rpm."},
+    {from: "TELEM_{c}_SUSTRAVEL", candidate: "TPERIPH_{c}_DATA_SUSTRAVEL", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is mm."},
+    {from: "TELEM_{c}_STRAIN", candidate: "TPERIPH_{c}_DATA_STRAIN", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is %."},
+    // TPDO_ACC_BOARD_Volt_0..3 / Temp_0..3. Decision 3c: different pack (4 segments x 7), held in legacy.
+    {from: "Seg{i}_VOLT_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "Decision 3c: FS-2 pack layout differs."},
+    {from: "Seg{i}_TEMP_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "Decision 3c: FS-2 pack layout differs."},
+  ],
+
+  // Every non-filler signal of these messages goes to legacy. qualify: true keeps the message name in the
+  // legacy column (legacy.fs2.MESSAGE.SIGNAL) because the signal names repeat across messages.
+  removed_messages: {
+    // Roadmap: BMSA removed.
+    "BMSA_RPDO_CONTROL": {qualify: false},
+    "BMSA_RPDO_CONT_PRECHG": {qualify: false},
+    "BMSA_TPDO_STATUS": {qualify: false},
+    "BMSA_TPDO_POWER": {qualify: false},
+    "BMSA_TPDO_PACK_INFO": {qualify: false},
+    "BMSA_TPDO_VOLTAGE": {qualify: false},
+    "BMSA_RPDO_ISOLATION": {qualify: false},
+    "BMSA_RPDO_TARGET": {qualify: false},
+    // Roadmap: NMT removed. Charge-station NMT master and response.
+    "NMT": {qualify: true},
+    "NMT_RESPONSE": {qualify: true},
+    // Decision 3d: charger node 0x11 goes to legacy.
+    "SMPC_0x11_CHARGE_STATUS": {qualify: true},
+    "SMPC_0x11_MAX_CHARGE_VOLTAGE_CURRENT": {qualify: true},
+    "SMPC_0x11_INPUT_AC_VOLTAGE_CURRENT": {qualify: true},
+    "SMPC_0x11_SERIAL_PART_NUM": {qualify: true},
+  },
+
+  // Logged columns that no FS-2 DBC defines. All go to legacy.fs2.<name>.
+  //   origin "aem":     channel from the AEM dash/logger itself
+  //   origin "derived": column computed and added to the parquet after decoding
+  non_dbc: {
+    // Logger time and laps. :Time is seconds from log start; a later change could map it to Time_ms (x1000).
+    ":Time": {origin: "aem"},
+    ":Lap": {origin: "aem"},
+    ":LapTime": {origin: "aem"},
+    "Seconds": {origin: "aem"},
+    // AEM internal inputs and status
+    "Battery Volts (Internal)": {origin: "aem"},
+    "Speed Input": {origin: "aem"},
+    "Odometer:Modifier.1": {origin: "aem"},
+    "Fans:Value": {origin: "aem"},
+    "Precharge:Value": {origin: "aem"},
+    "Shutdown:Value": {origin: "aem"},
+    "Status:Value": {origin: "aem"},
+    // AEM internal GPS. A different receiver from the VDM, so not mapped to VDM_GPS_*.
+    "GPSi_Status": {origin: "aem"},
+    "GPSi_Valid": {origin: "aem"},
+    "GPSi_hAcc": {origin: "aem"},
+    "GPSi_hAcc:Sensor": {origin: "aem"},
+    "GPSi_vAcc": {origin: "aem"},
+    "GPSi_vAcc:Sensor": {origin: "aem"},
+    "GPSi_CNoAverage": {origin: "aem"},
+    "GPSi_CNoMax": {origin: "aem"},
+    "GPSi_Course": {origin: "aem"},
+    "GPSi_DayUTC": {origin: "aem"},
+    "GPSi_HoursUTC": {origin: "aem"},
+    "GPSi_Latitude": {origin: "aem"},
+    "GPSi_Longitude": {origin: "aem"},
+    "GPSi_MinutesUTC": {origin: "aem"},
+    "GPSi_MonthUTC": {origin: "aem"},
+    "GPSi_NumHighCNo": {origin: "aem"},
+    "GPSi_SatelliteCount": {origin: "aem"},
+    "GPSi_SatellitesInUse": {origin: "aem"},
+    "GPSi_SecondsUTC": {origin: "aem"},
+    "GPSi_Speed": {origin: "aem"},
+    "GPSi_YearUTC": {origin: "aem"},
+    "GPSi_Altitude": {origin: "aem"},
+    "GPSi_Altitude:Sensor": {origin: "aem"},
+    // Added after decoding
+    "SlipRatio": {origin: "derived"},
+    "Brake Ratio": {origin: "derived"},
+    "SpeedFromMotorRPM": {origin: "derived"},
+  },
+
+  // FS-3 signals with no FS-2 source. Informational, for the coverage test and the changelog.
+  added: [
+    "ACC_POWER_SOC",
+    "ACC_SEG0_TEMPS_CELL0", "ACC_SEG0_TEMPS_CELL1", "ACC_SEG0_TEMPS_CELL2", "ACC_SEG0_TEMPS_CELL3", "ACC_SEG0_TEMPS_CELL4", "ACC_SEG0_TEMPS_CELL5",
+    "ACC_SEG0_VOLTS_CELL0", "ACC_SEG0_VOLTS_CELL1", "ACC_SEG0_VOLTS_CELL2", "ACC_SEG0_VOLTS_CELL3", "ACC_SEG0_VOLTS_CELL4", "ACC_SEG0_VOLTS_CELL5",
+    "ACC_SEG1_TEMPS_CELL0", "ACC_SEG1_TEMPS_CELL1", "ACC_SEG1_TEMPS_CELL2", "ACC_SEG1_TEMPS_CELL3", "ACC_SEG1_TEMPS_CELL4", "ACC_SEG1_TEMPS_CELL5",
+    "ACC_SEG1_VOLTS_CELL0", "ACC_SEG1_VOLTS_CELL1", "ACC_SEG1_VOLTS_CELL2", "ACC_SEG1_VOLTS_CELL3", "ACC_SEG1_VOLTS_CELL4", "ACC_SEG1_VOLTS_CELL5",
+    "ACC_SEG2_TEMPS_CELL0", "ACC_SEG2_TEMPS_CELL1", "ACC_SEG2_TEMPS_CELL2", "ACC_SEG2_TEMPS_CELL3", "ACC_SEG2_TEMPS_CELL4", "ACC_SEG2_TEMPS_CELL5",
+    "ACC_SEG2_VOLTS_CELL0", "ACC_SEG2_VOLTS_CELL1", "ACC_SEG2_VOLTS_CELL2", "ACC_SEG2_VOLTS_CELL3", "ACC_SEG2_VOLTS_CELL4", "ACC_SEG2_VOLTS_CELL5",
+    "ACC_SEG3_TEMPS_CELL0", "ACC_SEG3_TEMPS_CELL1", "ACC_SEG3_TEMPS_CELL2", "ACC_SEG3_TEMPS_CELL3", "ACC_SEG3_TEMPS_CELL4", "ACC_SEG3_TEMPS_CELL5",
+    "ACC_SEG3_VOLTS_CELL0", "ACC_SEG3_VOLTS_CELL1", "ACC_SEG3_VOLTS_CELL2", "ACC_SEG3_VOLTS_CELL3", "ACC_SEG3_VOLTS_CELL4", "ACC_SEG3_VOLTS_CELL5",
+    "ACC_SEG4_TEMPS_CELL0", "ACC_SEG4_TEMPS_CELL1", "ACC_SEG4_TEMPS_CELL2", "ACC_SEG4_TEMPS_CELL3", "ACC_SEG4_TEMPS_CELL4", "ACC_SEG4_TEMPS_CELL5",
+    "ACC_SEG4_VOLTS_CELL0", "ACC_SEG4_VOLTS_CELL1", "ACC_SEG4_VOLTS_CELL2", "ACC_SEG4_VOLTS_CELL3", "ACC_SEG4_VOLTS_CELL4", "ACC_SEG4_VOLTS_CELL5",
+    "ACC_STATUS_CELL_FAULT_INDEX", "ACC_STATUS_CELL_TOO_HIGH", "ACC_STATUS_CELL_TOO_LOW", "ACC_STATUS_PRECHARGING", "ACC_STATUS_SHUTDOWN_STATE", "ACC_STATUS_TEMP_TOO_HIGH",
+    "ACC_STATUS_TEMP_TOO_HIGH_CRG", "ACC_STATUS_TEMP_TOO_LOW",
+    "ACC_TRAY_TEMPS_BOLTED_CONNECTION", "ACC_TRAY_TEMPS_BUSBAR", "ACC_TRAY_TEMPS_COWLING", "ACC_TRAY_TEMPS_INTAKE", "ACC_TRAY_TEMPS_PACK_FUSE",
+    "ETC_STATUS_BRAKELIGHT", "ETC_STATUS_BRAKE_PEDAL_TRAVEL", "ETC_STATUS_BRAKE_SENSE_VOLTAGE", "ETC_STATUS_CAN_REGEN", "ETC_STATUS_HE1", "ETC_STATUS_HE2",
+    "ETC_STATUS_IMPLAUSIBILITY", "ETC_STATUS_REVERSE", "ETC_STATUS_RTD", "ETC_STATUS_RTDS", "ETC_STATUS_RTD_BUTTON", "ETC_STATUS_TS_ACTIVE",
+    "IZZE_BRAKETEMP_S1_CH1", "IZZE_BRAKETEMP_S1_CH10", "IZZE_BRAKETEMP_S1_CH11", "IZZE_BRAKETEMP_S1_CH12", "IZZE_BRAKETEMP_S1_CH13", "IZZE_BRAKETEMP_S1_CH14",
+    "IZZE_BRAKETEMP_S1_CH15", "IZZE_BRAKETEMP_S1_CH16", "IZZE_BRAKETEMP_S1_CH2", "IZZE_BRAKETEMP_S1_CH3", "IZZE_BRAKETEMP_S1_CH4", "IZZE_BRAKETEMP_S1_CH5",
+    "IZZE_BRAKETEMP_S1_CH6", "IZZE_BRAKETEMP_S1_CH7", "IZZE_BRAKETEMP_S1_CH8", "IZZE_BRAKETEMP_S1_CH9", "IZZE_BRAKETEMP_S1_STEMP",
+    "PDB_POWER_A_CURRENT_ACC", "PDB_POWER_A_CURRENT_BPS", "PDB_POWER_A_CURRENT_BSPD", "PDB_POWER_A_CURRENT_ETC", "PDB_POWER_A_CURRENT_SHUTDOWN", "PDB_POWER_A_CURRENT_TRACTIVE",
+    "PDB_POWER_A_GLV_VOLTAGE",
+    "PDB_POWER_B_CURRENT_DASH", "PDB_POWER_B_CURRENT_EXTRA_1", "PDB_POWER_B_CURRENT_EXTRA_2", "PDB_POWER_B_CURRENT_PDB", "PDB_POWER_B_CURRENT_RTML", "PDB_POWER_B_CURRENT_TELEMETRY",
+    "TMAIN_DATA_BRAKES_F", "TMAIN_DATA_BRAKES_R", "TMAIN_DATA_STEERING",
+    "TPERIPH_BL_DATA_SIDE_TIRE_TEMP", "TPERIPH_BL_DATA_STRAIN", "TPERIPH_BL_DATA_SUSTRAVEL", "TPERIPH_BL_DATA_WHEELSPEED", "TPERIPH_BL_TIRETEMP_1", "TPERIPH_BL_TIRETEMP_2",
+    "TPERIPH_BL_TIRETEMP_3", "TPERIPH_BL_TIRETEMP_4", "TPERIPH_BL_TIRETEMP_5", "TPERIPH_BL_TIRETEMP_6", "TPERIPH_BL_TIRETEMP_7", "TPERIPH_BL_TIRETEMP_8",
+    "TPERIPH_BR_DATA_SIDE_TIRE_TEMP", "TPERIPH_BR_DATA_STRAIN", "TPERIPH_BR_DATA_SUSTRAVEL", "TPERIPH_BR_DATA_WHEELSPEED", "TPERIPH_BR_TIRETEMP_1", "TPERIPH_BR_TIRETEMP_2",
+    "TPERIPH_BR_TIRETEMP_3", "TPERIPH_BR_TIRETEMP_4", "TPERIPH_BR_TIRETEMP_5", "TPERIPH_BR_TIRETEMP_6", "TPERIPH_BR_TIRETEMP_7", "TPERIPH_BR_TIRETEMP_8",
+    "TPERIPH_FL_DATA_SIDE_TIRE_TEMP", "TPERIPH_FL_DATA_STRAIN", "TPERIPH_FL_DATA_SUSTRAVEL", "TPERIPH_FL_DATA_WHEELSPEED", "TPERIPH_FL_TIRETEMP_1", "TPERIPH_FL_TIRETEMP_2",
+    "TPERIPH_FL_TIRETEMP_3", "TPERIPH_FL_TIRETEMP_4", "TPERIPH_FL_TIRETEMP_5", "TPERIPH_FL_TIRETEMP_6", "TPERIPH_FL_TIRETEMP_7", "TPERIPH_FL_TIRETEMP_8",
+    "TPERIPH_FR_DATA_SIDE_TIRE_TEMP", "TPERIPH_FR_DATA_STRAIN", "TPERIPH_FR_DATA_SUSTRAVEL", "TPERIPH_FR_DATA_WHEELSPEED", "TPERIPH_FR_TIRETEMP_1", "TPERIPH_FR_TIRETEMP_2",
+    "TPERIPH_FR_TIRETEMP_3", "TPERIPH_FR_TIRETEMP_4", "TPERIPH_FR_TIRETEMP_5", "TPERIPH_FR_TIRETEMP_6", "TPERIPH_FR_TIRETEMP_7", "TPERIPH_FR_TIRETEMP_8",
+    "VDM_RESERVED_BYTE",
+  ],
+}
