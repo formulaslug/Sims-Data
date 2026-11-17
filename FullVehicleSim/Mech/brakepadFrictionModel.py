@@ -127,4 +127,4 @@ def calcFrictionCoeff(brake_temperature:float) -> float:
     :return: Friction coefficient
     :rtype: float
     """
-    return float(interpolator(brake_temperature))
+    return float(interpolator((brake_temperature - 32.0) * 5/9))

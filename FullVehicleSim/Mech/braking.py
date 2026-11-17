@@ -8,8 +8,9 @@ from .brakepadFrictionModel import calcFrictionCoeff
 # The goal of these functions are to calculate the net force on the brakes, applied reverse to heading
 
 def brakeTransferCoeff(speed:float) -> float:
+    return 1.16 * (10.45 - speed + (10 * (speed**0.5)))
     # Interpolate the heat transfer coefficient based on air speed
-    return np.interp(speed, brakeAirSpeedData, brakeCoeffData) #type: ignore Function says it returns an array but it just returns a scalar
+    # return np.interp(speed, brakeAirSpeedData, brakeCoeffData) #type: ignore Function says it returns an array but it just returns a scalar
 
 def brakePSI_toNewtons(psi:float) -> float:
     return psi * Parameters["brakeCaliperArea"] * 2 * 4.448222 # lb force to Newtons, 2 for 2 sides of a caliper per disc
@@ -46,11 +47,15 @@ def calcBrakeCooling(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     heatTransferCoeff = brakeTransferCoeff(speed)
     brakeThermalMass = Parameters["4130SpecificHeatCapacity"] * Parameters["brakeRotorMass"]
     brakeCoolingArea = Parameters["brakeRotorArea"]
-    frontBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"])
-    frontBrakeCooling = frontBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+    blurringFactor = 0.00065 ## Currently the model cools down way too fast. Who know's why...
+    blurringFactor2 = 1.1 ## hahahahahahahhaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+
+    frontBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea * (worldArray[step-1, varFrontBrakeTemperature] - Parameters["ambientTemperature"])**blurringFactor2
+    frontBrakeCooling = frontBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"] * blurringFactor
     
-    rearBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"])
-    rearBrakeCooling = rearBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"]
+    rearBrakeCoolingEnergy = heatTransferCoeff * brakeCoolingArea *(worldArray[step-1, varRearBrakeTemperature] - Parameters["ambientTemperature"])**blurringFactor2
+    rearBrakeCooling = rearBrakeCoolingEnergy / brakeThermalMass / Parameters["stepsPerSecond"] * blurringFactor
 
     return frontBrakeCooling, rearBrakeCooling
     #q = (initTemperature - parameters["ambientTemperature"]) * parameters["brakeMass"] * parameters["brakeSpecificHeatCapacity"]
@@ -64,13 +69,14 @@ def calcBrakeHeating(worldArray:np.ndarray, step:int) -> tuple[float,float]:
     # Assumption is 100% of kinetic energy lost goes into brake heating.
     speedChange = (frontBrakeForce + rearBrakeForce) / Parameters["Mass"] / Parameters["stepsPerSecond"] # momentum impulse
     energyChange = 0.5 * Parameters["Mass"] * (worldArray[step-1, varSpeed]**2 - ((worldArray[step-1, varSpeed] - speedChange)**2))
-    tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"])
+    blurringFactor = 1 ## Currently the model heats up way too little, this is probably because the disc is thick and it takes time for the heat to reach the center.
+    tempChange = energyChange/(Parameters["brakeMass"] * Parameters["brakeSpecificHeatCapacity"]) * blurringFactor
 
     # While this doesn't seem physically intuitive, it is based on the idea that the front and rear brakes share heat based on their contribution to total braking force.
     if frontBrakeForce + rearBrakeForce < 1e-6:
         return 0.0, 0.0
-    frontTempChange = frontBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange
-    rearTempChange = rearBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange
+    frontTempChange = frontBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange / 2 # over two accounts for the fact that the heat is distributed across two brake discs
+    rearTempChange = rearBrakeForce / (frontBrakeForce + rearBrakeForce) * tempChange / 2 # over two accounts for the fact that the heat is distributed across two brake discs
     return frontTempChange, rearTempChange
 
 # def calcBrakeTemp(prevWorld:VehicleState) -> float:

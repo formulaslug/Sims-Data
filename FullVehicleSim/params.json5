@@ -7,7 +7,7 @@
 
         "ambientTemperature": 20, // °C
         "tractiveIMax": 400, // A
-        "initialBrakeTemperature": 20, // °C
+        "initialBrakeTemperature": 75, // °C
         "initialBatteryTemperature": 20, // °C
         "vehicleSOC": 1, // Out of 1
         "initSpeed": 0.0, // m/s
@@ -58,7 +58,7 @@
         "frontToe": 0,
         "steeringRatio": 3.81, // steering wheel angle / road wheel angle (measured, FS-3). Control input steerAngle is the steering WHEEL angle
 
-        "brakeSpecificHeatCapacity": 450,
+        "brakeSpecificHeatCapacity": 450, // J / (kg * K)
         "brakeThermalConductivity": 50,
         "brakeSurfaceArea": 0.001180643,
         "brakepadThickness": 0.007874,
