@@ -213,3 +213,6 @@ Projects/.DS_Store
 .fake
 *.joblib
 FullVehicleSim/simulation_output.parquet
+.vscode/launch.json
+FullVehicleSim/simulation_output.parquet
+FullVehicleSim/simulation_output.parquet

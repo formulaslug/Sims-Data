@@ -17,7 +17,7 @@
 
         "airDensity": 1.230,
         "dragCoeffAreaCombo": 1.0858790012112278, // Combines area and drag coeff into one constant
-        "rollingResistanceCoeff": 0.020926359062619436,
+        "rollingResistanceCoeff": 0.020926359062619436, // C_rr, F = C_rr * sum(Fz) (Mech/general.py)
 
         "brakeDiscRadius": 0.09525, // meters (3.75 inches) -- Brake pad is ~1 inch wide near the edge of an 8 inch diamater rotor
         "brakeCaliperArea": 1.23, // in^2
@@ -26,36 +26,48 @@
         "4130SpecificHeatCapacity": 540, // J/(kg*k)
 
         "regenMaxTorque": 180, // Nm, this is the maximum amount of torque the regen system can apply at the motor.
+        "regenCutoffRPM": 1140, // motor rpm, no regen below this (2026-03-16 log: on at >= 7.5 m/s, off below)
         
         "wheelCircumferance": 1.35716802635079,
-        "wheelRadius": 0.216, // m
-        "gearRatio": 3.41667, // 41/12
+        "wheelRadius": 0.2045, // m, effective rolling radius. GPS lap distance vs motor speed gives R/gearRatio = 0.0629 m/rad
+        "gearRatio": 3.25, // 39/12 sprockets on the logged car (2025 DSS lists 3.73)
         "maxTorque": 180, // Nm, max torque at the motor.
         "friction-coeff-lat": 1.7333, // no longer used by the lateral model; peak friction now comes from the tyre fits below
         "frontTireFit": "TireModel/LateralFits/H43070LC0_16x6.0-10_6in.json", // Hoosier 16.0x6.0-10 LC0, made by TireModel/fitPureLateral.py
         "rearTireFit": "TireModel/LateralFits/H43075LC0_16x7.5-10_7in.json",  // Hoosier 16.0x7.5-10 LC0
-        "tireFrictionScaling": 0.6, // lambda_muy (Pacejka p. 178): TTC belt friction -> track friction. Calibrated against logged lateral accel
+        "frontTireFrictionScaling": 0.55, // lambda_muy (Pacejka p. 178): TTC belt friction -> track friction. Front/rear split calibrated
+        "rearTireFrictionScaling": 0.7,   // against the 2026-03-16 log (yaw rate, no spins); equal values made the car oversteer and spin
         "friction-coeff-long": 1.7333,
-        "unloaded-radius": 0.216,
+        "unloaded-radius": 0.2032, // m, 16.0 in tyre
         "p_0": 82000, // Pa, nominal tire pressure of the Magic Formula fit
         "tirePressure": 82700, // Pa, operating tire pressure (must be same units as p_0)
         "load_0": 300,
 
-        "Mass": 280, // kg
-        "wheelBase": 1.65471, // m
-        "a": 0.853506, // m
-        "frontWeightDist": 46.46,
-        "CoG-height": 0.234,
-        "CoG-distanceToRollAxis": 0.234,
+        "Mass": 280, // kg, 210.92 car (DSS) + 68 driver
+        "wheelBase": 1.589989, // m (2025 DSS)
+        "a": 0.853506, // m, CG to front axle = wheelBase * (1 - 0.4632)
+        "frontWeightDist": 46.32, // % with driver (2025 DSS)
+        "CoG-height": 0.3048, // m (2025 DSS, computer modelling)
         "polarMoment": 658.088580080000,
-        "frontTrackWidth": 1.325, // m
-        "rearTrackWidth": 1.335, // m
+        "frontTrackWidth": 1.234008, // m (2025 DSS)
+        "rearTrackWidth": 1.186, // m (2025 DSS)
+        "frontRollStiffness": 407.25, // Nm/deg, roll rate chassis to wheel centre (2025 DSS)
+        "rearRollStiffness": 429.93, // Nm/deg (2025 DSS)
+        "frontRollCenterHeight": 0.020345, // m, static (2025 DSS)
+        "rearRollCenterHeight": 0.049276, // m, static (2025 DSS)
+        "frontStaticCamber": -1.25, // deg, - = top of wheel leans in. DSS range -0.5 to -2
+        "rearStaticCamber": -0.75, // deg. DSS range 0 to -1.5
+        "frontRollCamber": -0.647, // deg camber of the OUTSIDE wheel per deg body roll, relative to ground, - = towards negative camber (2025 DSS)
+        "rearRollCamber": -1.998, // deg/deg (2025 DSS)
 
 
         "rollSteerCoefficient": 0,
         "rollCamberSteerCoefficient": 0,
-        "casterLength": 0,
-        "frontToe": 0,
+        "casterLength": 0.02598, // m, e in Pacejka Eq. 1.14: kinematic (caster) trail (2025 DSS)
+        "frontPneumaticTrail": 0.015, // m, t1 in Pacejka Eq. 1.14. Estimate (no aligning-torque fit yet), ~1/4 of the contact length
+        "steeringStiffness": 2300, // Nm/rad, c_psi in Pacejka Eq. 1.14: steering system stiffness about the king-pins, wheel held. Calibrated to the logged understeer gradient
+        "frontToe": 0, // deg, + = toe-in (2025 DSS: 0)
+        "rearToe": 0, // deg, + = toe-in (2025 DSS: 0 to 2)
         "steeringRatio": 3.81, // steering wheel angle / road wheel angle (measured, FS-3). Control input steerAngle is the steering WHEEL angle
 
         "brakeSpecificHeatCapacity": 450, // J / (kg * K)

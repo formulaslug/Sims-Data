@@ -6,7 +6,7 @@ import polars as pl
 from paramLoader import *
 
 from FullVehicleSim.engine import stepState, worldToBody
-from FullVehicleSim.Mech.steering import getStaticNormalForces
+from FullVehicleSim.Mech.tireLoad import getStaticWheelLoads
 
 if __name__ == "__main__":
     ## Argument Parsing. Should wind up like:
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     worldArray[0, varHeadingX:varHeadingZ+1] = [np.cos(initYaw), np.sin(initYaw), 0.0]
     worldArray[0, varLongitudinalVelocity:varLateralVelocity+1] = worldToBody(np.array(Parameters["initVelocity"][:2]), initYaw)
     worldArray[0, varSpeed] = np.linalg.norm(Parameters["initVelocity"])
-    worldArray[0, varFLWheelLoad:varBRWheelLoad+1] = getStaticNormalForces() # Newtons
+    worldArray[0, varFLWheelLoad:varBRWheelLoad+1] = getStaticWheelLoads() # Newtons
     worldArray[:, varTime] = np.arange(0, Parameters["simulationDuration"] + 1/Parameters["stepsPerSecond"], 1/Parameters["stepsPerSecond"])
 
     start = time.time()

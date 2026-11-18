@@ -6,6 +6,7 @@ from .Electrical.powertrain import (
     calcMaxPower,
     calcMaxWheelTorque,
     calcMotorForce,
+    calcMotorTorqueDemand,
     calcVoltage,
 )
 from .Mech.aero import calcDownForce, calcDrag
@@ -18,10 +19,12 @@ from .Mech.steering import (
     calcLateralDynamicsRates,
     calcLongitudinalVelocityRate,
     calcRearLateralSlipVelocity,
+    calcRoadWheelAngle,
+    calcWheelLongitudinalForces,
     getDefaultTirePressures,
     stepTransientSlipAngle,
 )
-from .Mech.tireLoad import calcLoadTransfer
+from .Mech.tireLoad import calcLoadTransfer, calcRollAngle, calcWheelInclinations
 from .paramLoader import *
 
 # REFERENCE FRAMES
@@ -73,7 +76,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     yawAngle = float(prev[varYawAngle]) # world frame
     frontSlipAngle = float(prev[varFrontSlipAngle]) # transient (relaxation-length) slip angle state
     rearSlipAngle = float(prev[varRearSlipAngle])
-    steerAngle = float(arr[varSteerAngle]) / Parameters["steeringRatio"] # ROAD WHEEL angle, rad, + left. varSteerAngle is the steering wheel angle
+    steerAngle = float(calcRoadWheelAngle(arr[varSteerAngle], prev[varFrontLateralForce])) # ROAD WHEEL angle incl. compliance steer, rad, + left. varSteerAngle is the steering wheel angle
 
     arr[varMaxTraction] = 180.0 # Needs a more complex implementation before being used. Potentially something akin to the gaussian kernel of the voltage histeresis model but for acceleration? Or literally based on the suspension travel.
     arr[varVoltage] = calcVoltage(worldArray, step) # Volts, Voltage of the entire pack, not a single cell
@@ -87,7 +90,7 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
     arr[varRearBrakeTemperature] = prev[varRearBrakeTemperature] + arr[varRearBrakeHeating] - arr[varRearBrakeCooling]
 
     arr[varMaxMotorTorque] = calcMaxMotorTorque(worldArray, step, arr[varResistiveForces], arr[varMaxPower], arr[varMaxTraction]) # Nm
-    arr[varMotorTorque] = min(Parameters["maxTorque"]*(arr[varThrottle]-arr[varBrakePedalTravel]), arr[varMaxMotorTorque]) # Nm
+    arr[varMotorTorque] = min(calcMotorTorqueDemand(arr[varThrottle], arr[varBrakePedalTravel], prev[varMotorRPM]), arr[varMaxMotorTorque]) # Nm
 
     arr[varPower] = arr[varMotorTorque] * prev[varMotorRotationsHZ] # Watts
     arr[varMotorForce] = calcMotorForce(arr[varMotorTorque]) # Newtons, Longitudinal force at the wheel from the motor
@@ -97,11 +100,13 @@ def stepState(worldArray:np.ndarray, step:int) -> np.ndarray:
 
     arr[varCharge] = prev[varCharge] - worldArray[step, varCurrent] * delta / 3600.0 / Parameters["parallelCells"] / Parameters["cellCapacity_Ah"]
 
-    arr[varFLWheelLoad:varBRWheelLoad+1] = calcLoadTransfer(prev[varAccelerationX], prev[varAccelerationY], yawRate) + calcDownForce(prev[varVelX], prev[varVelY], prev[varHeadingX], prev[varHeadingY])
+    arr[varFLWheelLoad:varBRWheelLoad+1] = calcLoadTransfer(prev[varAccelerationX], prev[varAccelerationY], prev[varFrontLateralForce], prev[varRearLateralForce]) + calcDownForce(prev[varVelX], prev[varVelY], prev[varHeadingX], prev[varHeadingY])
     tireNormalForces = arr[varFLWheelLoad:varBRWheelLoad+1].astype(float)
+    arr[varRollAngle] = calcRollAngle(prev[varAccelerationY])
 
     lat = calcLateralDynamicsRates(velocityX, lateralVelocity, yawRate, steerAngle, frontSlipAngle, rearSlipAngle,
-                                   tireNormalForces, getDefaultTirePressures())
+                                   tireNormalForces, getDefaultTirePressures(), calcWheelInclinations(arr[varRollAngle]),
+                                   calcWheelLongitudinalForces(arr[varFrontBrakeForce], arr[varRearBrakeForce], arr[varMotorForce], tireNormalForces))
     arr[varFrontLateralForce] = lat.frontLateralForce
     arr[varRearLateralForce] = lat.rearLateralForce
     arr[varYawAcceleration] = lat.yawAcceleration

@@ -21,6 +21,7 @@ with open(HERE / Parameters["frontTireFit"], 'r') as file:
     TireFront = json5.load(file)
 with open(HERE / Parameters["rearTireFit"], 'r') as file:
     TireRear = json5.load(file)
+TireFront["axle"], TireRear["axle"] = "front", "rear" # lets the tyre model find per-axle params, e.g. frontTireFrictionScaling
 
 
 try:
@@ -107,6 +108,7 @@ varLateralVelocity =       55
 varYawAngle =              56 # rad, world frame, unwrapped. heading = (cos, sin)
 varFrontLateralForce =     57 # N, front axle
 varRearLateralForce =      58 # N, rear axle
+varRollAngle =             59 # rad, body roll, - = rolled to the right
 
 
 # Automatically generate schema from defined variables

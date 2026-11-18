@@ -5,34 +5,14 @@ from .aero import calcDrag
 from .braking import calcBrakeForce
 
 
+def calcRollingResistance(wheelLoads:np.ndarray) -> float:
+    # F_rr = C_rr * sum(Fz), N. Load-based so downforce/load transfer is included.
+    return Parameters["rollingResistanceCoeff"] * float(np.sum(wheelLoads))
+
 def calcResistiveForces(worldArray:np.ndarray, step:int):
-        if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error
-            return 0
-        else:
-            frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
-            return -1 * (calcDrag(worldArray, step) + frontBrakeForce + rearBrakeForce)
-        
-# def calculateYawRate(worldArray:np.ndarray, step:int, initAcceleration:float, initYawRate:float, timeSinceLastSteer:float):
-#         """Calculate the yaw rate of the vehicle at the current state.
-#         This function computes the yaw rate by calculating tire loads, slip angles,
-#         cornering stiffness, and then applying the vehicle dynamics equations.
-#         heading : np.ndarray
-#             Unit heading vector of the vehicle [x, y] components.
-#             Initial yaw rate of the vehicle before this time step, in rad/s.
-#             The velocity vector of the vehicle, in m/s.
-#             The steering angle of the vehicle, in radians.
-#             The speed of the vehicle, in m/s.
-#         Returns
-#         -------
-#         float
-#             The yaw rate of the vehicle, in rad/s.
-#         Notes
-#         -----
-#         Slip ratio is fixed at 0.15.
-#         """
-#         tireLoad = calcLoadTransfer(initAcceleration * worldArray[step-1, varHeadingX], initAcceleration * worldArray[step-1, varHeadingY], initYawRate)
-#         slipAngle = calcSlipAngle(worldArray, step)
-#         slipRatio = 0.15
-#         corneringStiffness = calcCorneringStiffness(tireLoad, slipAngle, slipRatio, worldArray[step-1, varSpeed], 80, 40, Parameters, Magic) # Works but unused
-#         res = calcYawRate(initYawRate, worldArray[step-1, varSpeed], worldArray[step, varSteerAngle], timeSinceLastSteer, corneringStiffness[0], corneringStiffness[1])
-#         return res
+    # Drag + brakes + rolling resistance, N, negative = opposing motion (body x). None of them can push a stopped car.
+    if worldArray[step-1, varSpeed] <= 1e-5: # Floating point error
+        return 0
+    frontBrakeForce, rearBrakeForce = calcBrakeForce(worldArray, step)
+    rollingResistance = calcRollingResistance(worldArray[step-1, varFLWheelLoad:varBRWheelLoad+1])
+    return -1 * (calcDrag(worldArray, step) + frontBrakeForce + rearBrakeForce + rollingResistance)

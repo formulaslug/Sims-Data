@@ -19,6 +19,16 @@ def calcMaxMotorTorque(worldArray:np.ndarray, step:int, resistiveForces:float, m
         torque = min(Parameters["maxTorque"], maxPowerTorque, 2*maxTractionTorqueAtWheel/Parameters["gearRatio"])
         return torque
 
+def calcMotorTorqueDemand(throttle:float, brakePedalTravel:float, motorRPM:float) -> float:
+        '''
+        Torque request, Nm: maxTorque * (throttle - brake pedal travel). The brake pedal half is regen, which the
+        controller only allows above regenCutoffRPM (2026-03-16 log: full regen at 7.5 m/s, none below).
+        '''
+        demand = Parameters["maxTorque"] * (throttle - brakePedalTravel)
+        if demand < 0.0 and motorRPM < Parameters["regenCutoffRPM"]:
+            return 0.0
+        return demand
+
 def calcCurrent(power:float, voltage:float) -> float:
         if (power / voltage) > Parameters["tractiveIMax"]:
             return Parameters["tractiveIMax"]
