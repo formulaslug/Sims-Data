@@ -50,6 +50,8 @@ P = {name: unit(Parameters[name], units) for name, units in PARAM_UNITS.items()}
 COLUMN_UNITS = {
     varSpeed: "m/s",
     varDrag:  "N",
+    varFrontBrakeTemperature: "degC",
+    varRearBrakeTemperature:  "degC",
 }
 COLUMN_UNITS = {var: u.Unit(units) for var, units in COLUMN_UNITS.items()}
 
@@ -72,3 +74,19 @@ else:
 
     def to_column(value, var):
         return (value - _OFFSET[var]) / _SCALE[var]
+
+# Fast mode conversion from SI to any unit, calculated once per unit and reused
+_UNIT_CONVERSIONS = {}
+
+def to_unit(value, units):
+    """Returns a value as a plain number in the given units.
+    Checked mode: converts, with an error if the value is the wrong kind of quantity.
+    Fast mode: the value is plain SI, so it is converted with a scale and offset."""
+    if CHECK_UNITS:
+        return value.to_value(units)
+    if units not in _UNIT_CONVERSIONS:
+        U = u.Unit(units)
+        offset = float((0 * U).in_mks().v)
+        _UNIT_CONVERSIONS[units] = (float((1 * U).in_mks().v) - offset, offset)
+    scale, offset = _UNIT_CONVERSIONS[units]
+    return (value - offset) / scale
