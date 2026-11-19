@@ -1,0 +1,91 @@
+// FS-3 -> FS-4 column mapping (issue #80, DBC Column Mapping Roadmap, Decisions 2 and 3).
+// Second link of the chain FS-2 -> FS-3 -> FS-4 (global). read() applies it in memory to FS-3 logs,
+// and to FS-2 logs after fs2_to_fs3.json5. FS-4 names are the global names (global_schema.json5).
+//
+// STATUS: PARTIAL. Covers rows 9-16 of dbc_message_map.csv (BATT_TPDO_STATUS through
+// BATT_TPDO_MOD4_VOLTS). Until the remaining rows are added, the coverage test will report their
+// FS-3 columns as unmapped.
+//
+// Resolution order, entry formats, template rules and `candidate` work exactly as described in the
+// header of fs2_to_fs3.json5. Removed columns go to legacy.fs3.<key>.
+//
+// Keys: a key is the bare signal name, which is how FS-3 parquets name their columns. Every FS-3
+// signal name is unique across messages, so no MESSAGE.SIGNAL keys are needed.
+//
+// Checked against real FS-3 parquets in fs-data (2026-11-19, 142 files):
+//   * ACC_STATUS_GLV_VOLTAGE is mV (p99 13340), so it needs x0.001 to reach FS-4 V.
+//   * ACC_STATUS_CELL_FAULT_INDEX reaches 1073741823 (2^30 - 1), so it is not the 0..60 index that
+//     BATT_STATUS_FAULT_INDEX holds.
+//   * ACC_POWER_SOC has p99 255 (FS-3 sends 255 as an invalid/init value). Same unit as FS-4, so it is
+//     renamed with no transform; filtering 255 is left to analysis scripts.
+{
+  format_version: 1,
+  from: {
+    car: "FS-3",
+    dbcs: [
+      {path: "fs-3/CANbus.dbc", sha256: "652f62aaba174d68fe8dee57d881fd8f45b0a44b3a5d2a8b9514ae8a80326108", commit: "4df137cee51e27738df7805e39eaedbd6d723855", commit_date: "2026-02-14"},
+    ],
+  },
+  to: {
+    car: "FS-4",
+    dbcs: [
+      {path: "fs-4-firmware/CANbus.dbc", sha256: "ae0524d53e2efb81655c454373ee93d7ac2c001e8d511466aab99bf8617396a2", commit: "0edcdfa71d3bd5aee045784d81ef73a2774e5af9", commit_date: "2026-10-04"},
+    ],
+  },
+  created: "2026-11-19",
+
+  drop: [],
+
+  unchanged: [],
+
+  renames: {
+    // ACC_TPDO_STATUS (0x188) -> BATT_TPDO_STATUS (0x391). ACC board renamed BATT.
+    "ACC_STATUS_BMS_FAULT": "BATT_STATUS_BMS_FAULT",
+    "ACC_STATUS_IMD_FAULT": "BATT_STATUS_IMD_FAULT",
+    "ACC_STATUS_PRECHARGE_DONE": "BATT_STATUS_PRECHARGE_DONE",
+    "ACC_STATUS_PRECHARGING": "BATT_STATUS_PRECHARGING",
+    "ACC_STATUS_CHARGING": "BATT_STATUS_CHARGING",
+    "ACC_STATUS_BALANCING": "BATT_STATUS_BALANCING",
+    "ACC_STATUS_CELL_TOO_LOW": "BATT_STATUS_CELL_VOLTAGE_TOO_LOW",
+    "ACC_STATUS_CELL_TOO_HIGH": "BATT_STATUS_CELL_VOLTAGE_TOO_HIGH",
+    "ACC_STATUS_TEMP_TOO_LOW": "BATT_STATUS_PACK_TEMP_TOO_LOW",
+    "ACC_STATUS_TEMP_TOO_HIGH": "BATT_STATUS_PACK_TEMP_TOO_HIGH",
+    "ACC_STATUS_TEMP_TOO_HIGH_CRG": "BATT_STATUS_PACK_TEMP_TOO_HIGH_CRG",
+    "ACC_STATUS_GLV_VOLTAGE": {to: "BATT_STATUS_GLV_VOLTAGE", scale: 0.001}, // mV -> V (Decision 3b)
+
+    // ACC_TPDO_POWER (0x288) -> BATT_TPDO_POWER (0x392)
+    "ACC_POWER_PACK_VOLTAGE": "BATT_POWER_PACK_VOLTAGE", // V
+    "ACC_POWER_CURRENT": "BATT_POWER_CURRENT",           // A
+    "ACC_POWER_SOC": "BATT_POWER_SOC",                   // %; FS-3 1% steps, FS-4 0.1%. Resolution only.
+  },
+
+  rules: [
+    // ACC_TPDO_SEG0..4_VOLTS (0x191..0x195) -> BATT_TPDO_MOD0..4_VOLTS. Same 6 cells, same 0.01 V +2 encoding.
+    {from: "ACC_SEG{i}_VOLTS_CELL{j}", to: "BATT_MOD{i}_VOLTS_CELL{j}", vars: {i: [0, 1, 2, 3, 4], j: [0, 1, 2, 3, 4, 5]}},
+  ],
+
+  // Moved to legacy.fs3.<key>.
+  removed: {
+    // ACC_TPDO_STATUS
+    "ACC_STATUS_SHUTDOWN_STATE": {candidate: "BATT_STATUS_SHUTDOWN_FINAL", reason: "FS-4 reads the shutdown circuit at three points (IN/OUT/FINAL); unclear which one FS-3 measured."},
+    "ACC_STATUS_CELL_FAULT_INDEX": {reason: "32-bit value reaching 2^30 - 1, not the 0..60 index of BATT_STATUS_FAULT_INDEX. Likely a bitmask."},
+  },
+
+  removed_rules: [],
+  removed_messages: {},
+  non_dbc: {},
+
+  // FS-4 signals in the messages above with no FS-3 source. Informational, for the coverage test and changelog.
+  // Targets that are only a `candidate` above count as added until promoted.
+  added: [
+    // BATT_TPDO_STATUS (0x391)
+    "BATT_STATUS_SHUTDOWN_FINAL", "BATT_STATUS_FAULT_INDEX",
+    "BATT_STATUS_SHUTDOWN_IN", "BATT_STATUS_SHUTDOWN_OUT", "BATT_STATUS_FAULT_MODULE_INDEX",
+    "BATT_STATUS_FAULT_SENSOR_INDEX", "BATT_STATUS_FAN_PWM_DUTY",
+    // BATT_TPDO_POWER (0x392)
+    "BATT_POWER_INSTANTANEOUS_POWER",
+    // BATT_TPDO_CELL_STATS (0x393). FS-3 has no summary-stats message.
+    "BATT_STAT_AVG_CELL_TEMP", "BATT_STAT_HIGH_CELL_TEMP", "BATT_STAT_LOW_CELL_TEMP",
+    "BATT_STAT_AVG_CELL_VOLT", "BATT_STAT_HIGH_CELL_VOLT", "BATT_STAT_LOW_CELL_VOLT",
+  ],
+}
