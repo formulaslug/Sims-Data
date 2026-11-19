@@ -5,6 +5,13 @@
 # Code imported from F# code
 
 import numpy as np
+from units import unit, CHECK_UNITS
+
+def _strip(quantity, base_units):
+    if CHECK_UNITS:
+        return float(quantity.to_value(base_units))
+    return quantity / unit(1.0, base_units)
+
 class CellChargeOutOfBounds(Exception):
     pass
 
