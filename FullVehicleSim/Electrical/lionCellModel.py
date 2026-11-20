@@ -4,9 +4,6 @@
 # https://www.murata.com/-/media/webrenewal/products/batteries/cylindrical/datasheet/us18650vtc5-product-datasheet.ashx?la=en-sg&cvid=20240514015406000000
 # Code imported from F# code
 
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import numpy as np
 from units import unit, CHECK_UNITS
 
