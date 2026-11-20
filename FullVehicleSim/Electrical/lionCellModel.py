@@ -5,6 +5,16 @@
 # Code imported from F# code
 
 import numpy as np
+from units import unit, CHECK_UNITS
+
+def strip(quantity, base_units):
+    if CHECK_UNITS:
+        return float(quantity.to_value(base_units))
+    return quantity / unit(1.0, base_units)
+
+
+
+
 class CellChargeOutOfBounds(Exception):
     pass
 
@@ -291,8 +301,8 @@ def table_35A(discharged):
         raise CellChargeOutOfBounds(f"Cell Charge out of Bounds: 35 A, {discharged} A*H")
 
 def lookup(charge, current_draw):
-    current_per_cell = current_draw / 20.0
-    charge_per_cell = charge / 20.0
+    current_per_cell = strip(current_draw, "A") / 20.0
+    charge_per_cell = strip(charge, "A*hr") / 20.0
     discharged = 2.6 - charge_per_cell
     lower = (current_per_cell // 5.0) * 5.0
     upper = ((current_per_cell // 5.0) + 1.0) * 5.0
@@ -325,4 +335,4 @@ def lookup(charge, current_draw):
     upper_voltage = voltage_match(upper)
     lower_percent = (current_per_cell - lower) / 5.0
     voltage = lower_percent * upper_voltage + (1.0 - lower_percent) * lower_voltage
-    return voltage
+    return unit(voltage, "V")
