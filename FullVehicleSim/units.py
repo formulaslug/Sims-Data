@@ -38,6 +38,9 @@ PARAM_UNITS = {
     "airDensity":         "kg/m**3",
     "dragCoeffAreaCombo": "m**2",       # drag coefficient * frontal area
     "Mass":               "kg",
+    "brakeCaliperArea":   "inch**2",    # caliper piston area
+    "brakeDiscRadius":    "m",
+    "wheelRadius":        "m",
 }
 
 # P["name"] is a parameter with units (or a plain SI float in fast mode)
@@ -52,6 +55,10 @@ COLUMN_UNITS = {
     varDrag:  "N",
     varFrontBrakeTemperature: "degC",
     varRearBrakeTemperature:  "degC",
+    varBrakePressureFront:    "psi",
+    varBrakePressureRear:     "psi",
+    varFrontBrakeForce:       "N",
+    varRearBrakeForce:        "N",
 }
 COLUMN_UNITS = {var: u.Unit(units) for var, units in COLUMN_UNITS.items()}
 
@@ -63,8 +70,7 @@ _OFFSET = {var: float((0 * U).in_mks().v) for var, U in COLUMN_UNITS.items()}
 if CHECK_UNITS:
     def get(worldArray, step, var):
         """Reads a stored worldArray value and attaches its column's unit."""
-        return u.unyt_quantity(worldArray[step, var], COLUMN_UNITS[var])
-
+        return u.unyt_quantity(float(worldArray[step, var]), COLUMN_UNITS[var])
     def to_column(value, var):
         """Converts a result to its column's unit (error if it can't) and returns the plain number."""
         return value.to_value(COLUMN_UNITS[var])
