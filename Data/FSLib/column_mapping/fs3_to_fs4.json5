@@ -14,32 +14,6 @@
 // SME_THROTL_UNUSED_* and SME_CURRLIM_UNUSED_INT_1 appear in 3 of 9 FS-3 log eras although the FS-3
 // DBC does not define them (those logs were decoded with the FS-2 SME messages). The global
 // filler_patterns drop them; nothing here.
-//
-// Checked against real FS-3 parquets in fs-data (2026-11-20, 142 files):
-//   * ACC_STATUS_GLV_VOLTAGE is mV (p99 13340), so it needs x0.001 to reach FS-4 V.
-//   * ETC_STATUS_TS_ACTIVE equals ACC_STATUS_PRECHARGE_DONE in 99.97% of rows, and the FS-4 DBC says
-//     VCU_ETC_BATT_PRECHARGE_DONE was "previously called 'TS_ACTIVE'".
-//   * ETC_STATUS_BRAKE_PEDAL_TRAVEL (4 logs, 03162026 only) has p99 73, while its DBC unit is
-//     "thouPerCent" over 0..1000. Whether it is already % is unconfirmed.
-//   * TMAIN_DATA_BRAKES_F p1..p99 is -68.5..16.5 psi: the FS-3 sensor offset looks uncalibrated. Units
-//     match FS-4, so it is still renamed.
-//   * ACC_STATUS_CELL_FAULT_INDEX reaches 1073741823 (2^30 - 1), so it is not the 0..60 index that
-//     BATT_STATUS_FAULT_INDEX holds.
-//   * ACC_POWER_SOC has p99 255 (FS-3 sends 255 as an invalid/init value). Same unit as FS-4, so it is
-//     renamed with no transform; filtering 255 is left to analysis scripts.
-//   * VDM_GPS_Latitude/Longitude are already decoded degrees (38.58, -121.73) in 03162026, 08102025,
-//     08172025 and PreparedData, so NO 1e-7 transform is applied (Decision 3b assumed one). Two folders
-//     are wrongly decoded and a single transform cannot fix them: 10112025 holds raw integers
-//     (~1.1e9 / -1.0e9) and 11082025 has garbage longitude (~1e-32).
-//   * VDM_UTC_TIME_*: the FS-3 DBC puts HOURS/MINUTES/SECONDS at start bits 39/47/55 and RESERVED_BYTE
-//     at 63, but the VDM sends them at 47/55/63 (as the FS-2 and FS-4 DBCs say). Logs decoded with the
-//     FS-3 layout (03162026) are shifted by one byte: MINUTES holds the hour, SECONDS the minute and
-//     RESERVED_BYTE the second. 10112025 is decoded correctly. The names are identical on FS-4, so they
-//     are carried unchanged; per-file fixing belongs in VDM_ByteOrder_Correction.py, not here.
-//   * TPERIPH_*_DATA_SIDE_TIRE_TEMP is 1 C steps on FS-3 and 0.1 C on FS-4; both decoded to C, so
-//     resolution only.
-//   * ACC_TRAY_TEMPS_IMD_ANALOG is logged in some eras but is in neither the FS-3 nor the FS-4 DBC,
-//     and is never non-zero.
 {
   format_version: 1,
   from: {

@@ -33,16 +33,6 @@
 //
 // Template rules: {placeholder} in `from` and `to` is replaced by every value in `vars`; with more
 // than one placeholder, every combination is generated. `--expand` prints the expanded list.
-//
-// Checked against real FS-2 parquets in fs-data (2026-11-12):
-//   * Columns hold decoded physical values (GLV_Voltage ~14 V, TS_Voltage ~112 V), so transforms work
-//     on physical units.
-//   * Pedal_Travel and APPS_Travel_* are fractions 0..1, so Pedal_Travel needs x100 to reach FS-3 %.
-//   * TS_Current (FS-2) and ACC_POWER_CURRENT (FS-3) are both positive while discharging.
-//   * VDM_GPS_Latitude/Longitude are float32 degrees on FS-2 (SIG_VALTYPE_ 1 in aemCAN.dbc; logs read
-//     38.576, -121.732). FS-3 decodes int * 1e-7 to degrees too, so no transform is needed here.
-//   * TELEM_* values are raw counts (SUSTRAVEL up to 17190, STEER up to 48170), not mm/rpm/deg.
-//   * Steering_Sensor is a constant -90 (raw 0, sensor absent) in 99 of the 102 logs that have it.
 {
   format_version: 1,
   from: {
