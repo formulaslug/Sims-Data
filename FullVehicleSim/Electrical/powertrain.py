@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 import numpy as np
 from paramLoader import *
 import unyt
@@ -45,7 +40,3 @@ def calcMaxPower(voltage: unyt.unyt_quantity) -> unyt.unyt_quantity:
 def calcVoltage() -> unyt.unyt_quantity:
         # return 28.0 * lookup(self.charge, self.lastCurrent)
         return unit(120.0, "V") # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
-
-
-if __name__ == "__main__":
-    print(calcMaxPower(calcVoltage()), calcCurrent(unit(10000.0, "W"), calcVoltage()))
