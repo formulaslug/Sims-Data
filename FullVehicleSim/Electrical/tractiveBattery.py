@@ -1,6 +1,7 @@
 from paramLoader import Parameters, Magic
 from state import VehicleState
 import numpy as np
+from units import unit, CHECK_UNITS
 
 def calcVoltage(prevWorld: VehicleState) -> float:
     delta = 1 / Parameters["stepsPerSecond"]
