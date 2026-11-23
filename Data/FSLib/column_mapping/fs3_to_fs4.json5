@@ -2,22 +2,44 @@
 // Second link of the chain FS-2 -> FS-3 -> FS-4 (global). read() applies it in memory to FS-3 logs,
 // and to FS-2 logs after fs2_to_fs3.json5. FS-4 names are the global names (global_schema.json5).
 //
-// STATUS: PARTIAL. Covers rows 9-16 of dbc_message_map.csv (BATT_TPDO_STATUS through
-// BATT_TPDO_MOD4_VOLTS). Until the remaining rows are added, the coverage test will report their
-// FS-3 columns as unmapped.
+// SCOPE: every row of dbc_message_map.csv that has an FS-3 or FS-4 message.
 //
 // Resolution order, entry formats, template rules and `candidate` work exactly as described in the
 // header of fs2_to_fs3.json5. Removed columns go to legacy.fs3.<key>.
 //
 // Keys: a key is the bare signal name, which is how FS-3 parquets name their columns. Every FS-3
-// signal name is unique across messages, so no MESSAGE.SIGNAL keys are needed.
+// signal name is unique across messages, so no MESSAGE.SIGNAL keys are needed. SYNC and
+// SMPC_UNKNOWN_1..4 have no signals and produce no columns.
 //
-// Checked against real FS-3 parquets in fs-data (2026-11-19, 142 files):
+// SME_THROTL_UNUSED_* and SME_CURRLIM_UNUSED_INT_1 appear in 3 of 9 FS-3 log eras although the FS-3
+// DBC does not define them (those logs were decoded with the FS-2 SME messages). The global
+// filler_patterns drop them; nothing here.
+//
+// Checked against real FS-3 parquets in fs-data (2026-11-20, 142 files):
 //   * ACC_STATUS_GLV_VOLTAGE is mV (p99 13340), so it needs x0.001 to reach FS-4 V.
+//   * ETC_STATUS_TS_ACTIVE equals ACC_STATUS_PRECHARGE_DONE in 99.97% of rows, and the FS-4 DBC says
+//     VCU_ETC_BATT_PRECHARGE_DONE was "previously called 'TS_ACTIVE'".
+//   * ETC_STATUS_BRAKE_PEDAL_TRAVEL (4 logs, 03162026 only) has p99 73, while its DBC unit is
+//     "thouPerCent" over 0..1000. Whether it is already % is unconfirmed.
+//   * TMAIN_DATA_BRAKES_F p1..p99 is -68.5..16.5 psi: the FS-3 sensor offset looks uncalibrated. Units
+//     match FS-4, so it is still renamed.
 //   * ACC_STATUS_CELL_FAULT_INDEX reaches 1073741823 (2^30 - 1), so it is not the 0..60 index that
 //     BATT_STATUS_FAULT_INDEX holds.
 //   * ACC_POWER_SOC has p99 255 (FS-3 sends 255 as an invalid/init value). Same unit as FS-4, so it is
 //     renamed with no transform; filtering 255 is left to analysis scripts.
+//   * VDM_GPS_Latitude/Longitude are already decoded degrees (38.58, -121.73) in 03162026, 08102025,
+//     08172025 and PreparedData, so NO 1e-7 transform is applied (Decision 3b assumed one). Two folders
+//     are wrongly decoded and a single transform cannot fix them: 10112025 holds raw integers
+//     (~1.1e9 / -1.0e9) and 11082025 has garbage longitude (~1e-32).
+//   * VDM_UTC_TIME_*: the FS-3 DBC puts HOURS/MINUTES/SECONDS at start bits 39/47/55 and RESERVED_BYTE
+//     at 63, but the VDM sends them at 47/55/63 (as the FS-2 and FS-4 DBCs say). Logs decoded with the
+//     FS-3 layout (03162026) are shifted by one byte: MINUTES holds the hour, SECONDS the minute and
+//     RESERVED_BYTE the second. 10112025 is decoded correctly. The names are identical on FS-4, so they
+//     are carried unchanged; per-file fixing belongs in VDM_ByteOrder_Correction.py, not here.
+//   * TPERIPH_*_DATA_SIDE_TIRE_TEMP is 1 C steps on FS-3 and 0.1 C on FS-4; both decoded to C, so
+//     resolution only.
+//   * ACC_TRAY_TEMPS_IMD_ANALOG is logged in some eras but is in neither the FS-3 nor the FS-4 DBC,
+//     and is never non-zero.
 {
   format_version: 1,
   from: {
@@ -32,13 +54,85 @@
       {path: "fs-4-firmware/CANbus.dbc", sha256: "ae0524d53e2efb81655c454373ee93d7ac2c001e8d511466aab99bf8617396a2", commit: "0edcdfa71d3bd5aee045784d81ef73a2774e5af9", commit_date: "2026-10-04"},
     ],
   },
-  created: "2026-11-19",
+  created: "2026-11-20",
 
   drop: [],
 
-  unchanged: [],
+  // Same name, same meaning, same unit on FS-4.
+  unchanged: [
+    // SME_RPDO_Throttle_Demand (0x186)
+    "SME_THROTL_PowerReady", "SME_THROTL_MBB_Alive", "SME_THROTL_Reverse", "SME_THROTL_Forward",
+    "SME_THROTL_MaxSpeed", "SME_THROTL_TorqueDemand",
+    // SME_RPDO_Max_Currents (0x286)
+    "SME_CURRLIM_ChargeCurrentLim", "SME_CURRLIM_DischargeCurrentLim",
+    // SME_TPDO_Torque_speed (0x482). Key_switch_* casing is fixed under `renames`.
+    "SME_TRQSPD_SOC_Low_Traction", "SME_TRQSPD_SOC_Low_Hydraulic", "SME_TRQSPD_Reverse", "SME_TRQSPD_Forward",
+    "SME_TRQSPD_Park_Brake", "SME_TRQSPD_Pedal_Brake", "SME_TRQSPD_Controller_Overtermp", "SME_TRQSPD_Running",
+    "SME_TRQSPD_Traction", "SME_TRQSPD_Hydraulic", "SME_TRQSPD_Powering_Enabled", "SME_TRQSPD_Powering_Ready",
+    "SME_TRQSPD_contactor_closed", "SME_TRQSPD_Precharging", "SME_TRQSPD_Speed", "SME_TRQSPD_MotorFlags",
+    "SME_TRQSPD_Torque",
+    // SME_TPDO_Temperature (0x682)
+    "SME_TEMP_FaultLevel", "SME_TEMP_FaultCode", "SME_TEMP_DC_Bus_V", "SME_TEMP_ControllerTemperature",
+    "SME_TEMP_MotorTemperature", "SME_TEMP_BusCurrent",
+    // LSS_COMMAND (0x7E5) / LSS_RESPONSE (0x7E4)
+    "COMMAND_MODE", "COMMAND_COMMAND_SPECIFIER", "RESPONSE_COMMAND_SPECIFIER",
+    // SMPC_RPDO_CONTROL (0x206)
+    "SMPC_CONTROL_PACK_VOLTAGE", "SMPC_CONTROL_DEST_NODE_ID", "SMPC_CONTROL_ENABLE",
+    "SMPC_CONTROL_CURRENT_10X_MULT", "SMPC_CONTROL_EVSE_OVERRIDE",
+    // SMPC_RPDO_MAX_VOLTAGE_CURRENT (0x306)
+    "SMPC_MAX_DEST_NODE_ID", "SMPC_MAX_CHRG_VOLTAGE", "SMPC_MAX_CHRG_CURRENT", "SMPC_MAX_INPUT_EVSE_OVERRIDE",
+    // SMPC_TPDO_STATUS (0x190)
+    "SMPC_STATUS_CURRENT_MA", "SMPC_STATUS_VOLTAGE_MV", "SMPC_STATUS_J1772_DISCONN", "SMPC_STATUS_REQUEST_EXCLUSIVE",
+    "SMPC_STATUS_CHARGER_UNPLUGGED", "SMPC_STATUS_CHARGING", "SMPC_STATUS_INTERNAL_FAULT",
+    "SMPC_STATUS_UNDERVOLTAGE_FAULT", "SMPC_STATUS_OVERVOLTAGE_FAULT", "SMPC_STATUS_OVERCURRENT_FAULT",
+    "SMPC_STATUS_OVERTEMP_FAULT", "SMPC_STATUS_CHARGE_COMPLETE", "SMPC_STATUS_READY",
+    // SMPC_TPDO_MAX_VOLTAGE_CURRENT (0x290)
+    "SMPC_MAX2_INPUT_CURR_LIM", "SMPC_MAX2_EVSE_CURRENT", "SMPC_MAX2_MAX_CURRENT_MA", "SMPC_MAX2_MAX_VOLTAGE_MV",
+    // SMPC_TPDO_INPUT_AC (0x390)
+    "SMPC_INPUT_MAX_CHARGER_TEMP_C", "SMPC_INPUT_AC_INPUT_FREQUENCY_HZ", "SMPC_INPUT_AC_INPUT_CURRENT_MA",
+    "SMPC_INPUT_J1772_TRIGGERED", "SMPC_INPUT_J1772_DISCONNECTED", "SMPC_INPUT_J1772_CONNECTED",
+    "SMPC_INPUT_AC_INPUT_VOLTAGE",
+    // SMPC_TPDO_SERIAL_PART_NUM (0x490)
+    "SMPC_SER_FIRMWARE_VER", "SMPC_SER_SERIAL_NUMBER", "SMPC_SER_PART_NUMBER",
+    // IZZE_BRAKETEMP_S1M1..M5 (0x4C4..0x4C8)
+    "IZZE_BRAKETEMP_S1_CH1", "IZZE_BRAKETEMP_S1_CH2", "IZZE_BRAKETEMP_S1_CH3", "IZZE_BRAKETEMP_S1_CH4",
+    "IZZE_BRAKETEMP_S1_CH5", "IZZE_BRAKETEMP_S1_CH6", "IZZE_BRAKETEMP_S1_CH7", "IZZE_BRAKETEMP_S1_CH8",
+    "IZZE_BRAKETEMP_S1_CH9", "IZZE_BRAKETEMP_S1_CH10", "IZZE_BRAKETEMP_S1_CH11", "IZZE_BRAKETEMP_S1_CH12",
+    "IZZE_BRAKETEMP_S1_CH13", "IZZE_BRAKETEMP_S1_CH14", "IZZE_BRAKETEMP_S1_CH15", "IZZE_BRAKETEMP_S1_CH16",
+    "IZZE_BRAKETEMP_S1_STEMP",
+    // VDM_GPS_COORDINATES (FS-3) = VDM_GPS_LAT_LONG (FS-4), same CAN ID 0xA0000. See header: no transform.
+    "VDM_GPS_Latitude", "VDM_GPS_Longitude",
+    // VDM_GPS_DATA (0xA0001)
+    "VDM_GPS_SPEED", "VDM_GPS_ALTITUDE", "VDM_GPS_TRUE_COURSE", "VDM_GPS_SATELLITES_IN_USE", "VDM_GPS_VALID1",
+    // VDM_DATE_TIME (0xA0002). Byte-shifted in some FS-3 logs, see header.
+    "VDM_GPS_VALID2", "VDM_UTC_DATE_YEAR", "VDM_UTC_DATE_MONTH", "VDM_UTC_DATE_DAY",
+    "VDM_UTC_TIME_HOURS", "VDM_UTC_TIME_MINUTES", "VDM_UTC_TIME_SECONDS",
+    // VDM_ACCELERATION (0xA0003) / VDM_YAW_RATE (0xA0004)
+    "VDM_X_AXIS_ACCELERATION", "VDM_Y_AXIS_ACCELERATION", "VDM_Z_AXIS_ACCELERATION",
+    "VDM_X_AXIS_YAW_RATE", "VDM_Y_AXIS_YAW_RATE", "VDM_Z_AXIS_YAW_RATE",
+  ],
 
   renames: {
+    // SME_TPDO_Torque_speed (0x482): casing only.
+    "SME_TRQSPD_Key_switch_overvolt": "SME_TRQSPD_Key_Switch_Overvolt",
+    "SME_TRQSPD_Key_switch_undervolt": "SME_TRQSPD_Key_Switch_Undervolt",
+
+    // ETC_TPDO_STATUS (0x189) -> VCU_TPDO_PEDAL_TRAVEL (0x192). Pedal sensors moved from ETC to VCU.
+    "ETC_STATUS_HE1": "VCU_APPS1_HE",                    // mV
+    "ETC_STATUS_HE2": "VCU_APPS2_HE",                    // mV
+    "ETC_STATUS_PEDAL_TRAVEL": "VCU_ACCEL_PEDAL_TRAVEL", // %
+
+    // ETC_TPDO_STATUS (0x189) -> VCU_TPDO_STATUS (0x193)
+    "ETC_STATUS_RTD": "VCU_ETC_READY_TO_DRIVE",
+    "ETC_STATUS_RTD_BUTTON": "VCU_ETC_RTD_BUTTON_PRESSED",
+    "ETC_STATUS_REVERSE": "VCU_ETC_REVERSE",
+    "ETC_STATUS_BRAKELIGHT": "VCU_ETC_BRAKELIGHT",
+    "ETC_STATUS_TS_ACTIVE": "VCU_ETC_BATT_PRECHARGE_DONE", // renamed per FS-4 DBC comment, see header
+
+    // TMAIN_TPDO_DATA (0x1A0) -> VCU_TPDO_STATUS (0x193). psi on both cars.
+    "TMAIN_DATA_BRAKES_F": "VCU_BRAKE_PRESSSURE_FRONT", // FS-4 spells PRESSSURE with three S
+    "TMAIN_DATA_BRAKES_R": "VCU_BRAKE_PRESSSURE_REAR",
+
     // ACC_TPDO_STATUS (0x188) -> BATT_TPDO_STATUS (0x391). ACC board renamed BATT.
     "ACC_STATUS_BMS_FAULT": "BATT_STATUS_BMS_FAULT",
     "ACC_STATUS_IMD_FAULT": "BATT_STATUS_IMD_FAULT",
@@ -57,27 +151,79 @@
     "ACC_POWER_PACK_VOLTAGE": "BATT_POWER_PACK_VOLTAGE", // V
     "ACC_POWER_CURRENT": "BATT_POWER_CURRENT",           // A
     "ACC_POWER_SOC": "BATT_POWER_SOC",                   // %; FS-3 1% steps, FS-4 0.1%. Resolution only.
+
+    // ACC_TPDO_TRAY_TEMPS (0x388) -> BATT_TPDO_TRAY_TEMPS (0x4C0). Same 0.5 C encoding.
+    "ACC_TRAY_TEMPS_BOLTED_CONNECTION": "BATT_TRAY_TEMPS_BOLTED_CONNECTION",
+    "ACC_TRAY_TEMPS_BUSBAR": "BATT_TRAY_TEMPS_SENTRALITY_BUSBAR", // FS-4 renamed BUSBAR (see global_schema aliases)
+    "ACC_TRAY_TEMPS_PACK_FUSE": "BATT_TRAY_TEMPS_PACK_FUSE",
+    "ACC_TRAY_TEMPS_COWLING": "BATT_TRAY_TEMPS_COWLING",
+    "ACC_TRAY_TEMPS_INTAKE": "BATT_TRAY_TEMPS_INTAKE",
   },
 
   rules: [
     // ACC_TPDO_SEG0..4_VOLTS (0x191..0x195) -> BATT_TPDO_MOD0..4_VOLTS. Same 6 cells, same 0.01 V +2 encoding.
     {from: "ACC_SEG{i}_VOLTS_CELL{j}", to: "BATT_MOD{i}_VOLTS_CELL{j}", vars: {i: [0, 1, 2, 3, 4], j: [0, 1, 2, 3, 4, 5]}},
+
+    // TPERIPH_*_TPDO_DATA (FS-3 0x1A2..0x1A5 -> FS-4 0x1A5..0x1A8) and TPERIPH_*_TPDO_TIRETEMP
+    // (0x2A1..0x2A4 -> 0x2A5..0x2A8). Names unchanged, only CAN IDs moved; units match.
+    {from: "TPERIPH_{c}_DATA_{s}", to: "TPERIPH_{c}_DATA_{s}", vars: {c: ["FL", "FR", "BL", "BR"], s: ["WHEELSPEED", "SUSTRAVEL", "STRAIN", "SIDE_TIRE_TEMP"]}},
+    {from: "TPERIPH_{c}_TIRETEMP_{k}", to: "TPERIPH_{c}_TIRETEMP_{k}", vars: {c: ["FL", "FR", "BL", "BR"], k: [1, 2, 3, 4, 5, 6, 7, 8]}},
   ],
 
   // Moved to legacy.fs3.<key>.
   removed: {
+    // ETC_TPDO_STATUS / ETC_TPDO_STATUS_2
+    "ETC_STATUS_BRAKE_SENSE_VOLTAGE": {candidate: "VCU_BPPS_HE", reason: "Both mV, but unconfirmed that FS-3 'brake sense' is the brake pedal position sensor and not a pressure sensor."},
+    "ETC_STATUS_BRAKE_PEDAL_TRAVEL": {candidate: "VCU_BRAKE_PEDAL_TRAVEL", reason: "DBC unit 'thouPerCent' (0..1000) disagrees with logged values (p99 73); unknown whether x0.1 is needed."},
+    "ETC_STATUS_CAN_REGEN": {candidate: "VCU_ETC_REGEN_ALLOWED", reason: "Likely the same regen-enable flag; unconfirmed."},
+    "ETC_STATUS_RTDS": {reason: "Ready-to-drive sound output. FS-4 has no equivalent."},
+    "ETC_STATUS_IMPLAUSIBILITY": {reason: "Single flag. FS-4 splits it into five VCU_ETC_IMPLAUS_* flags; their OR would match, but there is no combine entry type."},
+
+    // TMAIN_TPDO_DATA
+    "TMAIN_DATA_STEERING": {candidate: "VCU_STEERING_ANGLE", reason: "Both deg, but a different sensor/board; zero and sign convention unverified."},
+
     // ACC_TPDO_STATUS
     "ACC_STATUS_SHUTDOWN_STATE": {candidate: "BATT_STATUS_SHUTDOWN_FINAL", reason: "FS-4 reads the shutdown circuit at three points (IN/OUT/FINAL); unclear which one FS-3 measured."},
     "ACC_STATUS_CELL_FAULT_INDEX": {reason: "32-bit value reaching 2^30 - 1, not the 0..60 index of BATT_STATUS_FAULT_INDEX. Likely a bitmask."},
+
+    // VDM_DATE_TIME
+    "VDM_RESERVED_BYTE": {candidate: "VDM_UTC_TIME_SECONDS", reason: "Only exists because of the FS-3 DBC's shifted layout; holds the real UTC seconds in logs decoded with it. See header."},
   },
 
-  removed_rules: [],
-  removed_messages: {},
-  non_dbc: {},
+  removed_rules: [
+    // ACC_TPDO_SEG0..4_TEMPS (0x291..0x295). Decision 3c (on hold): FS-3 has 6 signed 1 C sensors per
+    // segment, FS-4 has 12 per module (TEMPS_A/B, 0.25 C) and the physical correspondence is unknown.
+    {from: "ACC_SEG{i}_TEMPS_CELL{j}", vars: {i: [0, 1, 2, 3, 4], j: [0, 1, 2, 3, 4, 5]}, reason: "Decision 3c: FS-3 -> FS-4 thermistor layout unknown."},
+  ],
+
+  // Every signal of these messages goes to legacy. Signal names are unique, so qualify: false.
+  removed_messages: {
+    // Roadmap: PDB board dropped in FS-4. Currents are raw 'lsb' counts.
+    "PDB_TPDO_POWER_A": {qualify: false},
+    "PDB_TPDO_POWER_B": {qualify: false},
+  },
+
+  // Logged columns that the FS-3 DBC does not define. All go to legacy.fs3.<name>.
+  non_dbc: {
+    "ACC_TRAY_TEMPS_IMD_ANALOG": {origin: "old_dbc", reason: "From an earlier FS-3 DBC revision; never non-zero in any log."},
+    "TRACTION_CONTROL_SETPOINT_ERROR": {origin: "derived", reason: "FS-3 traction-control test logs (03162026). Not the same quantity as any VCU_TRAC_* signal."},
+    "timestamp": {origin: "derived", reason: "Seconds, in 4 logs from 10082025/10112025 that lack Time_ms."},
+    "Lap": {origin: "derived", reason: "Lap number added to PreparedData/CombinedEndurance."},
+  },
 
   // FS-4 signals in the messages above with no FS-3 source. Informational, for the coverage test and changelog.
   // Targets that are only a `candidate` above count as added until promoted.
   added: [
+    // VCU_TPDO_PEDAL_TRAVEL (0x192)
+    "VCU_BPPS_HE", "VCU_BRAKE_PEDAL_TRAVEL",
+    // VCU_TPDO_STATUS (0x193)
+    "VCU_ETC_REGEN_ALLOWED", "VCU_STEERING_ANGLE", "VCU_ETC_MOTOR_ENABLED",
+    "VCU_ETC_IMPLAUS_APPS_OUT_OF_RANGE", "VCU_ETC_IMPLAUS_BPPS_OUT_OF_RANGE",
+    "VCU_ETC_IMPLAUS_APPS_DEVIATION", "VCU_ETC_IMPLAUS_BSE_OUT_OF_RANGE", "VCU_ETC_IMPLAUS_BRAKE_AND_ACCEL",
+    "VCU_ETC_SOLENOID_CLOSED", "VCU_BSPD_FAULT", "VCU_BSPD_SHUTDOWN_OUT",
+    // VCU_TPDO_TRACTION_DATA (0x294). New in FS-4; ID 660 was ACC_TPDO_SEG3_TEMPS on FS-3.
+    "VCU_TRAC_WHEEL_SLIP", "VCU_TRAC_TORQUE_REDUCTION", "VCU_TRAC_INTEGRATOR", "VCU_TRAC_LOOP_TIME",
+    "VCU_TRAC_RAW_DERIV", "VCU_TRAC_SMOOTHED_DERIV",
     // BATT_TPDO_STATUS (0x391)
     "BATT_STATUS_SHUTDOWN_FINAL", "BATT_STATUS_FAULT_INDEX",
     "BATT_STATUS_SHUTDOWN_IN", "BATT_STATUS_SHUTDOWN_OUT", "BATT_STATUS_FAULT_MODULE_INDEX",
@@ -87,5 +233,24 @@
     // BATT_TPDO_CELL_STATS (0x393). FS-3 has no summary-stats message.
     "BATT_STAT_AVG_CELL_TEMP", "BATT_STAT_HIGH_CELL_TEMP", "BATT_STAT_LOW_CELL_TEMP",
     "BATT_STAT_AVG_CELL_VOLT", "BATT_STAT_HIGH_CELL_VOLT", "BATT_STAT_LOW_CELL_VOLT",
+    // BATT_TPDO_MOD0..4_TEMPS_A/B. FS-3 segment temps are held in legacy (Decision 3c).
+    "BATT_MOD0_TEMPS_CELL0", "BATT_MOD0_TEMPS_CELL1", "BATT_MOD0_TEMPS_CELL2", "BATT_MOD0_TEMPS_CELL3", "BATT_MOD0_TEMPS_CELL4", "BATT_MOD0_TEMPS_CELL5",
+    "BATT_MOD0_TEMPS_CELL6", "BATT_MOD0_TEMPS_CELL7", "BATT_MOD0_TEMPS_CELL8", "BATT_MOD0_TEMPS_CELL9", "BATT_MOD0_TEMPS_CELL10", "BATT_MOD0_TEMPS_CELL11",
+    "BATT_MOD1_TEMPS_CELL0", "BATT_MOD1_TEMPS_CELL1", "BATT_MOD1_TEMPS_CELL2", "BATT_MOD1_TEMPS_CELL3", "BATT_MOD1_TEMPS_CELL4", "BATT_MOD1_TEMPS_CELL5",
+    "BATT_MOD1_TEMPS_CELL6", "BATT_MOD1_TEMPS_CELL7", "BATT_MOD1_TEMPS_CELL8", "BATT_MOD1_TEMPS_CELL9", "BATT_MOD1_TEMPS_CELL10", "BATT_MOD1_TEMPS_CELL11",
+    "BATT_MOD2_TEMPS_CELL0", "BATT_MOD2_TEMPS_CELL1", "BATT_MOD2_TEMPS_CELL2", "BATT_MOD2_TEMPS_CELL3", "BATT_MOD2_TEMPS_CELL4", "BATT_MOD2_TEMPS_CELL5",
+    "BATT_MOD2_TEMPS_CELL6", "BATT_MOD2_TEMPS_CELL7", "BATT_MOD2_TEMPS_CELL8", "BATT_MOD2_TEMPS_CELL9", "BATT_MOD2_TEMPS_CELL10", "BATT_MOD2_TEMPS_CELL11",
+    "BATT_MOD3_TEMPS_CELL0", "BATT_MOD3_TEMPS_CELL1", "BATT_MOD3_TEMPS_CELL2", "BATT_MOD3_TEMPS_CELL3", "BATT_MOD3_TEMPS_CELL4", "BATT_MOD3_TEMPS_CELL5",
+    "BATT_MOD3_TEMPS_CELL6", "BATT_MOD3_TEMPS_CELL7", "BATT_MOD3_TEMPS_CELL8", "BATT_MOD3_TEMPS_CELL9", "BATT_MOD3_TEMPS_CELL10", "BATT_MOD3_TEMPS_CELL11",
+    "BATT_MOD4_TEMPS_CELL0", "BATT_MOD4_TEMPS_CELL1", "BATT_MOD4_TEMPS_CELL2", "BATT_MOD4_TEMPS_CELL3", "BATT_MOD4_TEMPS_CELL4", "BATT_MOD4_TEMPS_CELL5",
+    "BATT_MOD4_TEMPS_CELL6", "BATT_MOD4_TEMPS_CELL7", "BATT_MOD4_TEMPS_CELL8", "BATT_MOD4_TEMPS_CELL9", "BATT_MOD4_TEMPS_CELL10", "BATT_MOD4_TEMPS_CELL11",
+    // STEERING_DIAL_MODES (0x1B0). New in FS-4.
+    "STEERING_DRIVE_MODE", "STEERING_TRACTION_MODE", "STEERING_REGEN_MODE",
+    // VectorNav IMU (VCU_VN_*). New in FS-4.
+    "VCU_VN_BODY_AF", "VCU_VN_BODY_AR", "VCU_VN_BODY_AD",
+    "VCU_VN_NED_Y", "VCU_VN_NED_P", "VCU_VN_NED_R",
+    "VCU_VN_LAT", "VCU_VN_LON",
+    "VCU_VN_BODY_WY", "VCU_VN_BODY_WP", "VCU_VN_BODY_WR",
+    "VCU_VN_BODY_VX", "VCU_VN_BODY_VY", "VCU_VN_BODY_VZ", "VCU_VN_GNSS_FIX",
   ],
 }
