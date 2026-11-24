@@ -1,9 +1,10 @@
 from paramLoader import Parameters, Magic
 from state import VehicleState
 import numpy as np
+import unyt
 from units import unit, CHECK_UNITS
 
-def calcVoltage(prevWorld: VehicleState) -> float:
+def calcVoltage(prevWorld: VehicleState) -> unyt.unyt_quantity:
     delta = 1 / Parameters["stepsPerSecond"]
     capacity_Ah = Parameters["cellCapacity_Ah"]
     soc = prevWorld.charge
