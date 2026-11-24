@@ -1,7 +1,4 @@
-import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from paramLoader import *
@@ -46,22 +43,3 @@ def calcVoltage() -> unyt.unyt_quantity:
         # return 28.0 * lookup(self.charge, self.lastCurrent)
         return unit(120.0, "V") # Placeholder voltage. Will be a function of SOC, Temp, and Current Histeresis
 
-if __name__ == "__main__":
-    print(calcMaxPower(calcVoltage()), calcCurrent(unit(10000.0, "W"), calcVoltage()))
-
-    # fake world array: one row, motor at 3000 rpm = 50 rev/s
-    world = np.zeros((2, 50))
-    world[0, varMotorRPM] = 3000.0
-    world[0, varMotorRotationsHZ] = 50.0
-
-    print(calcMaxMotorTorque(world, 1, unit(100.0, "N"), unit(36000.0, "W"), unit(500.0, "N*m")))
-    print(calcMaxWheelTorque(unit(100.0, "N*m")))
-    print(calcMotorForce(unit(100.0, "N*m")))
-    
-    world[0, varMotorRPM] = 8000.0
-    print(calcMaxMotorTorque(world, 1, unit(100.0, "N"), unit(36000.0, "W"), unit(500.0, "N*m")))
-
-    # standstill branch: expect 146.34 N*m (traction still wins)
-    world[0, varMotorRPM] = 3000.0
-    world[0, varMotorRotationsHZ] = 0.0
-    print(calcMaxMotorTorque(world, 1, unit(100.0, "N"), unit(36000.0, "W"), unit(500.0, "N*m")))
