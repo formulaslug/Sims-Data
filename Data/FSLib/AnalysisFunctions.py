@@ -71,19 +71,43 @@ def readValid (a):
     """
     return pl.read_parquet(a).with_columns(pl.all().fill_null(strategy="forward")).with_columns(pl.all().fill_null(strategy="backward")).filter(pl.col("VDM_GPS_VALID1") == 1)
 
-def read (a:str, truePath:bool = False, fs2or3:bool = False):
-    if not truePath:
-        df = pl.read_parquet("../fs-data/" + a).fill_null(strategy="forward").fill_null(strategy="backward")
-    else:
-        df = pl.read_parquet(a).fill_null(strategy="forward").fill_null(strategy="backward")
-    if fs2or3:
+def read (a:str, truePath:bool = False, fs2or3:bool = False, car:str|None = None):
+    '''
+    Loads a parquet file, fills nulls forward then backward, and adds a Time column (s) from Time_ms.
+
+    Parameters
+    ----------
+    a
+        Path to the file, relative to ../fs-data/ unless truePath is set.
+    truePath
+        Treat a as a full path.
+    fs2or3
+        Skip adding Time, for files without Time_ms. Only used when car is None.
+    car
+        None (default) returns the columns as logged. "auto" detects the car from the columns,
+        "FS-2" / "FS-3" / "FS-4" maps from that car and warns if the columns look like another car.
+        Either way the columns come back under the global (FS-4) names, and Time is added whenever
+        Time_ms exists. See Data/FSLib/column_mapping.
+    '''
+    df = pl.read_parquet(a if truePath else "../fs-data/" + a)
+
+    ## Map the columns before filling nulls
+        # Some FS-3 units are picked per file from the logged values
+        # Only imported when car is set, so json5 is only needed for mapping
+    if car is not None:
+        from .column_mapping import apply_mapping
+        df = apply_mapping(df, car)
+    df = df.fill_null(strategy="forward").fill_null(strategy="backward")
+
+    if car is None:
+        if fs2or3:
+            return df
+    elif "Time_ms" not in df.columns or "Time" in df.columns:
         return df
-    else:
-        df = df.insert_column(
-            0,
-            (df["Time_ms"] / 1000).alias("Time")
-        )
-        return df
+    return df.insert_column(
+        0,
+        (df["Time_ms"] / 1000).alias("Time")
+    )
 
 def timeCol(df, verbose = False):
     min = "VDM_UTC_TIME_SECONDS"
