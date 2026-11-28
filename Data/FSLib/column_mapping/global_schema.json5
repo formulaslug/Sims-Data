@@ -1,4 +1,4 @@
-// Global column schema: FS-4 signal names, frozen (issue #80, DBC Column Mapping Roadmap, Decision 1).
+// Global column schema: FS-4 signal names, frozen (issue #80, DBC Column Mapping Roadmap).
 // Created from fs-4-firmware/CANbus.dbc at commit 0edcdfa (2026-10-04); see `source` below.
 // This file is maintained by hand. Never rename or delete an entry in `columns`: every name here
 // is a public column that analysis scripts depend on. To retire a name, map it to legacy in a

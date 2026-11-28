@@ -1,4 +1,4 @@
-// FS-2 -> FS-3 column mapping (issue #80, DBC Column Mapping Roadmap, Decisions 2 and 3).
+// FS-2 -> FS-3 column mapping (issue #80, DBC Column Mapping Roadmap).
 // First link of the chain FS-2 -> FS-3 -> FS-4 (global). read() applies it in memory to FS-2 logs,
 // then applies fs3_to_fs4.json5 to the result.
 //
@@ -106,7 +106,7 @@
     // TPDO_ETC_BOARD_State (0x1A1) -> ETC_TPDO_STATUS (0x189)
     "Pedal_Travel": {to: "ETC_STATUS_PEDAL_TRAVEL", scale: 100}, // fraction 0..1 -> %
 
-    // ChargeStationCAN, charger node 0x10 -> FS-3 SMPC (same CAN IDs). Decision 3d.
+    // ChargeStationCAN, charger node 0x10 -> FS-3 SMPC (same CAN IDs).
     // SMPC_0x10_CHARGE_STATUS (0x190) -> SMPC_TPDO_STATUS
     "SMPC_0x10_CHARGE_STATUS.CHARGE_CURRENT_MA": "SMPC_STATUS_CURRENT_MA",
     "SMPC_0x10_CHARGE_STATUS.CHARGE_VOLTAGE_MV": "SMPC_STATUS_VOLTAGE_MV",
@@ -195,9 +195,9 @@
     {from: "TELEM_{c}_WHEELSPEED", candidate: "TPERIPH_{c}_DATA_WHEELSPEED", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is rpm."},
     {from: "TELEM_{c}_SUSTRAVEL", candidate: "TPERIPH_{c}_DATA_SUSTRAVEL", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is mm."},
     {from: "TELEM_{c}_STRAIN", candidate: "TPERIPH_{c}_DATA_STRAIN", vars: {c: ["FL", "FR", "BL", "BR"]}, reason: "Raw counts; FS-3 is %."},
-    // TPDO_ACC_BOARD_Volt_0..3 / Temp_0..3. Decision 3c: different pack (4 segments x 7), held in legacy.
-    {from: "Seg{i}_VOLT_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "Decision 3c: FS-2 pack layout differs."},
-    {from: "Seg{i}_TEMP_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "Decision 3c: FS-2 pack layout differs."},
+    // TPDO_ACC_BOARD_Volt_0..3 / Temp_0..3. Different pack (4 segments x 7), held in legacy.
+    {from: "Seg{i}_VOLT_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "FS-2 pack layout differs."},
+    {from: "Seg{i}_TEMP_{j}", vars: {i: [0, 1, 2, 3], j: [0, 1, 2, 3, 4, 5, 6]}, reason: "FS-2 pack layout differs."},
   ],
 
   // Every non-filler signal of these messages goes to legacy. qualify: true keeps the message name in the
@@ -215,7 +215,7 @@
     // Roadmap: NMT removed. Charge-station NMT master and response.
     "NMT": {qualify: true},
     "NMT_RESPONSE": {qualify: true},
-    // Decision 3d: charger node 0x11 goes to legacy.
+    // Charger node 0x11 goes to legacy.
     "SMPC_0x11_CHARGE_STATUS": {qualify: true},
     "SMPC_0x11_MAX_CHARGE_VOLTAGE_CURRENT": {qualify: true},
     "SMPC_0x11_INPUT_AC_VOLTAGE_CURRENT": {qualify: true},

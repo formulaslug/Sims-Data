@@ -1,4 +1,4 @@
-// FS-3 -> FS-4 column mapping (issue #80, DBC Column Mapping Roadmap, Decisions 2 and 3).
+// FS-3 -> FS-4 column mapping (issue #80, DBC Column Mapping Roadmap).
 // Second link of the chain FS-2 -> FS-3 -> FS-4 (global). read() applies it in memory to FS-3 logs,
 // and to FS-2 logs after fs2_to_fs3.json5. FS-4 names are the global names (global_schema.json5).
 //
@@ -173,9 +173,9 @@
   },
 
   removed_rules: [
-    // ACC_TPDO_SEG0..4_TEMPS (0x291..0x295). Decision 3c (on hold): FS-3 has 6 signed 1 C sensors per
+    // ACC_TPDO_SEG0..4_TEMPS (0x291..0x295). On hold: FS-3 has 6 signed 1 C sensors per
     // segment, FS-4 has 12 per module (TEMPS_A/B, 0.25 C) and the physical correspondence is unknown.
-    {from: "ACC_SEG{i}_TEMPS_CELL{j}", vars: {i: [0, 1, 2, 3, 4], j: [0, 1, 2, 3, 4, 5]}, reason: "Decision 3c: FS-3 -> FS-4 thermistor layout unknown."},
+    {from: "ACC_SEG{i}_TEMPS_CELL{j}", vars: {i: [0, 1, 2, 3, 4], j: [0, 1, 2, 3, 4, 5]}, reason: "FS-3 -> FS-4 thermistor layout unknown."},
   ],
 
   // Every signal of these messages goes to legacy. Signal names are unique, so qualify: false.
@@ -215,7 +215,7 @@
     // BATT_TPDO_CELL_STATS (0x393). FS-3 has no summary-stats message.
     "BATT_STAT_AVG_CELL_TEMP", "BATT_STAT_HIGH_CELL_TEMP", "BATT_STAT_LOW_CELL_TEMP",
     "BATT_STAT_AVG_CELL_VOLT", "BATT_STAT_HIGH_CELL_VOLT", "BATT_STAT_LOW_CELL_VOLT",
-    // BATT_TPDO_MOD0..4_TEMPS_A/B. FS-3 segment temps are held in legacy (Decision 3c).
+    // BATT_TPDO_MOD0..4_TEMPS_A/B. FS-3 segment temps are held in legacy until the thermistor layout is known.
     "BATT_MOD0_TEMPS_CELL0", "BATT_MOD0_TEMPS_CELL1", "BATT_MOD0_TEMPS_CELL2", "BATT_MOD0_TEMPS_CELL3", "BATT_MOD0_TEMPS_CELL4", "BATT_MOD0_TEMPS_CELL5",
     "BATT_MOD0_TEMPS_CELL6", "BATT_MOD0_TEMPS_CELL7", "BATT_MOD0_TEMPS_CELL8", "BATT_MOD0_TEMPS_CELL9", "BATT_MOD0_TEMPS_CELL10", "BATT_MOD0_TEMPS_CELL11",
     "BATT_MOD1_TEMPS_CELL0", "BATT_MOD1_TEMPS_CELL1", "BATT_MOD1_TEMPS_CELL2", "BATT_MOD1_TEMPS_CELL3", "BATT_MOD1_TEMPS_CELL4", "BATT_MOD1_TEMPS_CELL5",
