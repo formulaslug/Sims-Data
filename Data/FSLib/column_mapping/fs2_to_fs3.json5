@@ -23,6 +23,11 @@
 //   "FS3_NAME"                                  plain rename
 //   {to: "FS3_NAME", scale: k, offset: c}       rename and convert: new = old * k + c, where old is
 //                                               the decoded physical value in FS-2 units
+//   {to: "NAME", by_value: [{min, max, scale, offset, note}, ...]}
+//                                               the unit differs between logs of the same car. Per
+//                                               file, the rule whose min <= median non-zero value < max
+//                                               supplies the scale/offset. Ranges may not overlap; if
+//                                               none fits, the column goes to legacy with a warning.
 //   {to: "GLOBAL_NAME", global: true}           the signal has no FS-3 equivalent but does have an FS-4
 //                                               one. The target must be a global_schema column, and
 //                                               fs3_to_fs4 leaves it untouched (it is already global).

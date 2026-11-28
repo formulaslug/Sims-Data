@@ -119,7 +119,15 @@
     "ACC_STATUS_TEMP_TOO_LOW": "BATT_STATUS_PACK_TEMP_TOO_LOW",
     "ACC_STATUS_TEMP_TOO_HIGH": "BATT_STATUS_PACK_TEMP_TOO_HIGH",
     "ACC_STATUS_TEMP_TOO_HIGH_CRG": "BATT_STATUS_PACK_TEMP_TOO_HIGH_CRG",
-    "ACC_STATUS_GLV_VOLTAGE": {to: "BATT_STATUS_GLV_VOLTAGE", scale: 0.001}, // mV -> V (Decision 3b)
+    // FS-3 logs hold this in three units depending on the file (checked 2026-11-22, all 142 files),
+    // even within one folder (11222025), so the scale is picked per file from the median non-zero
+    // value. GLV is a ~12-13 V system, so the ranges cannot be confused. Other FS-3 voltages (pack,
+    // cells, DC bus, HE sensors) use one scale everywhere.
+    "ACC_STATUS_GLV_VOLTAGE": {to: "BATT_STATUS_GLV_VOLTAGE", by_value: [
+      {min: 1000, scale: 0.001, note: "mV"},           // ~13000: 01112026, 01172026, most of 11222025
+      {min: 50, max: 1000, scale: 0.1, note: "0.1 V"}, // ~120-132: Aug-Nov 2025, PreparedData, 11222025_1/2/21
+      {min: 5, max: 30, scale: 1, note: "V"},          // ~12: 03162026
+    ]},
 
     // ACC_TPDO_POWER (0x288) -> BATT_TPDO_POWER (0x392)
     "ACC_POWER_PACK_VOLTAGE": "BATT_POWER_PACK_VOLTAGE", // V
