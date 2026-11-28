@@ -1,10 +1,13 @@
 '''
-Column mapping loader for issue #80.
 Loads the chained transition files (fs2_to_fs3.json5, fs3_to_fs4.json5) and global_schema.json5,
 expands template rules, and maps any car's parquet columns onto the global (frozen FS-4) column set.
 Author: Lauwrence Tuy
 
+Requires json5 (listed in Data/requirements.txt).
+
 Library use:
+    from Data.FSLib.AnalysisFunctions import read
+    df = read("FS-3/08102025/08102025Endurance1_SecondHalf.parquet", car="auto")  # load + map
     from Data.FSLib.column_mapping import apply_mapping, plan_columns
     df = apply_mapping(pl.read_parquet(path), car="FS-3")
     plan = plan_columns(df.columns, car="FS-2")   # inspect without touching data
@@ -12,7 +15,9 @@ Library use:
 Command line:
     python -m Data.FSLib.column_mapping --expand                 # every expanded entry, all files
     python -m Data.FSLib.column_mapping --expand fs3_to_fs4      # one transition file
-    python -m Data.FSLib.column_mapping --plan FS-3 file.parquet # what read() would do to a file
+    python -m Data.FSLib.column_mapping --plan FS-3 file.parquet # what read(car=) would do to a file
+    python -m Data.FSLib.column_mapping --plan auto file.parquet # same, car detected from the columns
+    python -m Data.FSLib.column_mapping --detect a.parquet b.pq  # which car each file looks like
 
 How a column is resolved (same order as the transition file headers):
     1. global_schema.reserved columns pass through untouched; filler_patterns are dropped.
@@ -416,6 +421,64 @@ def load_mappings(directory: str | Path = HERE) -> MappingSet:
     return ms
 
 
+##### CAR DETECTION
+
+
+## A file is called for a car when at least DETECT_MIN_HITS of its columns are names only that car
+## uses, and the runner-up has at most 1/DETECT_MIN_RATIO as many. Checked 2026-11-27 on all 330
+## fs-data parquets: every file scored 92+ for its own car and 0 for the others.
+DETECT_MIN_HITS = 10
+DETECT_MIN_RATIO = 3
+
+
+class CarDetectionError(ValueError):
+    '''The columns do not clearly belong to one car. Pass car= explicitly.'''
+
+
+def car_signatures(mappings: MappingSet | None = None) -> dict[str, frozenset[str]]:
+    '''
+    For each car, the column names that car uses and no other car does. A car's names are the keys
+    of its transition file (plus its ambiguous bare names); the global car's names are the schema
+    columns and aliases. Derived from the mapping files, so a new car needs no change here.
+    Computed once per MappingSet.
+    '''
+    ms = mappings or load_mappings()
+    if "_signatures" not in ms.__dict__:
+        ms.__dict__["_signatures"] = _build_signatures(ms)
+    return ms.__dict__["_signatures"]
+
+
+def _build_signatures(ms: MappingSet) -> dict[str, frozenset[str]]:
+    names = {car: set(t.entries) | t.ambiguous for car, t in ms.transitions.items()}
+    names[ms.schema_car] = ms.columns | set(ms.aliases)
+    out = {}
+    for car, own in names.items():
+        others = set().union(*(n for c, n in names.items() if c != car))
+        out[car] = frozenset(own - others - ms.reserved)
+    return out
+
+
+def score_car(columns, mappings: MappingSet | None = None) -> dict[str, int]:
+    '''How many of `columns` are unique to each car, highest first.'''
+    cols = set(columns)
+    scores = {car: len(cols & sig) for car, sig in car_signatures(mappings).items()}
+    return dict(sorted(scores.items(), key=lambda kv: -kv[1]))
+
+
+def detect_car(columns, mappings: MappingSet | None = None) -> str:
+    '''
+    Returns the car ("FS-2", ...) whose column names `columns` match. Raises CarDetectionError if
+    no car has enough unique columns or two cars are too close to call.
+    '''
+    scores = score_car(columns, mappings)
+    (best, n1), (_, n2) = list(scores.items())[:2]
+    if n1 < DETECT_MIN_HITS or n2 * DETECT_MIN_RATIO > n1:
+        shown = ", ".join(f"{c}: {n}" for c, n in scores.items())
+        raise CarDetectionError(f"Cannot tell which car these columns are from ({shown} car-specific "
+                                f"columns). Pass car= explicitly.")
+    return best
+
+
 ##### PLANNING
 
 
@@ -437,17 +500,22 @@ class ColumnPlan:
     unit_unknown: list[str] = field(default_factory=list)               # by_value matched no rule -> legacy
     per_file: list[str] = field(default_factory=list)                   # by_value, but planned without data
     missing_dbcs: list[str] = field(default_factory=list)
+    car_source: str = "given"                                           # "given" or "detected"
+    car_mismatch: str = ""                                              # set when car= disagrees with the columns
 
     @property
     def needs_warning(self) -> bool:
-        return bool(self.unmapped or self.ambiguous or self.collisions or self.unit_unknown or self.missing_dbcs)
+        return bool(self.unmapped or self.ambiguous or self.collisions or self.unit_unknown or self.missing_dbcs
+                    or self.car_mismatch)
 
     def summary(self) -> str:
         changed = sum(1 for s, d in self.renames.items() if s != d)
         lines = [
-            f"car {self.car}: {len(self.renames)} kept ({changed} renamed, {len(self.transforms)} transformed), "
-            f"{len(self.legacy)} to legacy, {len(self.dropped)} dropped",
+            f"car {self.car} ({self.car_source}): {len(self.renames)} kept ({changed} renamed, "
+            f"{len(self.transforms)} transformed), {len(self.legacy)} to legacy, {len(self.dropped)} dropped",
         ]
+        if self.car_mismatch:
+            lines.append(f"  CAR MISMATCH: {self.car_mismatch}")
         for src, what in self.detected.items():
             lines.append(f"  unit detected: {src} {what}")
         for label, items in (("unmapped -> legacy", self.unmapped), ("ambiguous -> legacy", self.ambiguous),
@@ -527,15 +595,30 @@ def plan_columns(columns, car, mappings: MappingSet | None = None, probe=None) -
     Parameters
     ----------
     columns : iterable of column names as logged
-    car : "FS-2", "FS-3", "FS-4" (any spelling normalize_car accepts)
+    car : "FS-2", "FS-3", "FS-4" (any spelling normalize_car accepts), or "auto" to detect it from
+        the columns (raises CarDetectionError if unclear). A given car is still checked against the
+        columns, and plan.car_mismatch is set if they disagree; the given car is used either way.
     probe : optional function(column, scale, offset) -> median non-zero value, used by `by_value`
         renames to pick a unit per file. Without it those columns are listed in plan.per_file and
         their transform is left out. apply_mapping() always supplies one.
     '''
     ms = mappings or load_mappings()
-    car = normalize_car(car)
+    columns = list(columns)
+    mismatch = ""
+    if str(car).strip().lower() == "auto":
+        car, source = detect_car(columns, ms), "detected"
+    else:
+        car, source = normalize_car(car), "given"
+        try:
+            found = detect_car(columns, ms)
+        except CarDetectionError:
+            found = car  # too few car-specific columns to argue with the caller
+        if found != car:
+            scores = ", ".join(f"{c}: {n}" for c, n in score_car(columns, ms).items())
+            mismatch = f"car={car} was given but the columns look like {found} ({scores} car-specific columns)"
     chain = ms.chain(car)
-    plan = ColumnPlan(car=car, missing_dbcs=[t.path.name for t in chain if not t.dbc_available])
+    plan = ColumnPlan(car=car, missing_dbcs=[t.path.name for t in chain if not t.dbc_available],
+                      car_source=source, car_mismatch=mismatch)
 
     taken: dict[str, str] = {}
     for col in columns:
@@ -593,13 +676,14 @@ def make_probe(df):
 def apply_mapping(df, car, *, warn: bool = True, return_plan: bool = False):
     '''
     Maps a polars DataFrame or LazyFrame from `car`'s column names onto the global column set.
-    The input is not modified. Original files are never touched (Decision 4: read-time, in memory).
+    The input is not modified. Original files are never touched (mapping happens at read time, in memory).
 
     Parameters
     ----------
     df : pl.DataFrame or pl.LazyFrame, columns as logged
-    car : the car the file was logged on
-    warn : emit one ColumnMappingWarning listing unmapped, ambiguous or colliding columns
+    car : the car the file was logged on, or "auto" to detect it from the columns
+    warn : emit one ColumnMappingWarning listing unmapped, ambiguous or colliding columns, or a
+        car= that disagrees with the columns
     return_plan : also return the ColumnPlan
 
     Returns
@@ -683,16 +767,32 @@ def _cli_plan(car: str, path: str) -> None:
         print(f"{col} -> (dropped)")
 
 
+def _cli_detect(paths: list[str]) -> None:
+    import polars as pl
+    for path in paths:
+        cols = pl.scan_parquet(path).collect_schema().names()
+        scores = ", ".join(f"{c}: {n}" for c, n in score_car(cols).items())
+        try:
+            car = detect_car(cols)
+        except CarDetectionError:
+            car = "unclear"
+        print(f"{car}  ({scores})  {path}")
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description="Column mapping loader (issue #80).")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--expand", nargs="?", const="", metavar="FILE",
                    help="print every expanded entry, optionally for one transition file (e.g. fs3_to_fs4)")
     g.add_argument("--plan", nargs=2, metavar=("CAR", "PARQUET"),
-                   help="show how a parquet file's columns would be mapped")
+                   help="show how a parquet file's columns would be mapped (CAR may be 'auto')")
+    g.add_argument("--detect", nargs="+", metavar="PARQUET",
+                   help="print which car each parquet file looks like, with per-car scores")
     args = ap.parse_args(argv)
 
-    if args.plan:
+    if args.detect:
+        _cli_detect(args.detect)
+    elif args.plan:
         _cli_plan(*args.plan)
     else:
         _cli_expand(load_mappings(), args.expand or None)
